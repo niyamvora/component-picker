@@ -10,16 +10,27 @@ Paste it into Claude/Cursor with "rebuild this in our Next.js project" and you g
 ## Layout
 
 ```
-src/      the extension — load THIS folder unpacked (manifest.json, background.js, picker.js)
-test/     check.sh (extraction) · e2e.mjs (real extension + CDP) · fixture.html
-scripts/  release.sh — checks, version bump, tag, zip, GitHub Release
+src/      TypeScript sources — extract.ts (the engine) · picker.ts (overlay + messaging)
+          background.ts (debugger driver) · types.ts (the contracts between the three worlds)
+dist/     built extension — load THIS folder unpacked (created by `npm run build`)
+test/     check.sh (engine, headless) · e2e.mjs (real extension + CDP) · fixture.html
+scripts/  release.sh — typecheck, both suites, version bump, tag, zip, GitHub Release
 ```
+
+The three worlds — content script, page MAIN world, service worker — never share a call stack, so
+their message payloads live in [`src/types.ts`](src/types.ts): a rename on one side is a compile
+error on the other. `npm run build` bundles each entry into a standalone IIFE with esbuild
+(~10 ms); nothing is minified, so what ships stays readable.
 
 ## Install (once)
 
-1. `chrome://extensions` → toggle **Developer mode** (top right).
-2. **Load unpacked** → choose the **`src/`** folder of this repo (that is where `manifest.json` lives).
-3. Optional: pin it from the puzzle-piece menu. Shortcut is **Alt+Shift+C** (change at `chrome://extensions/shortcuts`).
+1. `npm install && npm run build` — produces `dist/`.
+2. `chrome://extensions` → toggle **Developer mode** (top right).
+3. **Load unpacked** → choose the **`dist/`** folder (that is where the built `manifest.json` lives).
+
+Or download the zip from the [latest release](https://github.com/niyamvora/component-picker/releases/latest)
+and load that folder — no build needed.
+4. Optional: pin it from the puzzle-piece menu. Shortcut is **Alt+Shift+C** (change at `chrome://extensions/shortcuts`).
 
 Works in any Chromium browser (Chrome, Edge, Brave, Arc). Not Firefox/Safari — the mobile snapshots
 need the `chrome.debugger` API, which only Chromium exposes to extensions.
@@ -55,8 +66,11 @@ Caps: 300 elements, ~180 KB. Pick a smaller component if it truncates.
 ## Checks
 
 ```sh
-./test/check.sh      # extraction logic in headless Chrome (test/fixture.html)
-node test/e2e.mjs    # real extension + debugger emulation in Chrome for Testing (needs Node ≥ 22)
+npm test             # typecheck + build + both suites
+npm run typecheck    # tsc --noEmit
+npm run watch        # esbuild watch mode while developing
+./test/check.sh      # engine in headless Chrome against test/fixture.html (builds first)
+node test/e2e.mjs    # real extension + debugger in Chrome for Testing (needs Node ≥ 22)
 ```
 
 `test/e2e.mjs` uses Playwright's Chrome for Testing binary by default (`CHROME=/path/to/binary` to override) —
@@ -78,7 +92,7 @@ Work is tracked on the [Component Picker Roadmap board](https://github.com/users
 
 1. Pick an issue from the board's *Todo* column and move it to *In Progress*.
 2. Branch off `main`; every issue names the exact file, function and steps.
-3. `./test/check.sh` and `node test/e2e.mjs` must both print `PASS` before pushing.
+3. `npm test` must pass (typecheck + both suites) before pushing.
 4. Add the assertions the issue lists under **Tests**, and a `CHANGELOG.md` line under `## [Unreleased]`.
 5. PR body says `Closes #<issue>`.
 

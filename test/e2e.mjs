@@ -2,7 +2,7 @@
 // its service worker (same path the toolbar click takes), extract a component
 // and assert the mobile/tablet snapshots came back through chrome.debugger.
 // Run: node test/e2e.mjs   (no deps — Node ≥ 22 for fetch + WebSocket)
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { mkdtempSync, cpSync, writeFileSync, readFileSync } from "node:fs";
@@ -15,9 +15,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");  // repo root;
 const CHROME = process.env.CHROME ||
   `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
 const PORT = 8765, CDP = 9333;
+// Test what actually ships, never a stale bundle.
+execFileSync(process.execPath, [join(ROOT, "build.mjs")], { cwd: ROOT, stdio: "ignore" });
+
 // No toolbar click here, so no activeTab grant: load a temp copy of the extension with a localhost host permission.
 const EXT = mkdtempSync(join(tmpdir(), "cp-ext-"));
-for (const f of ["manifest.json", "background.js", "picker.js"]) cpSync(join(ROOT, "src", f), join(EXT, f));
+for (const f of ["manifest.json", "background.js", "picker.js"]) cpSync(join(ROOT, "dist", f), join(EXT, f));
 const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
 writeFileSync(join(EXT, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${PORT}/*`] }));
 

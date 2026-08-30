@@ -20,8 +20,12 @@ publishes the Release.
 - Interaction states are no longer read part-way through a CSS transition: the settle time is derived from the page's own longest `transition-duration` instead of a fixed guess.
 
 ### Changed
-- Repository layout: the extension now lives in `src/` (load **that** folder unpacked), checks in `test/`, release tooling in `scripts/`.
-- `test/check.sh` honours a `CHROME` environment variable so it can run on Linux CI.
+- **Ported to TypeScript**, bundled with esbuild (`npm run build` → `dist/`, which is now the folder you load unpacked). The picker is split into an extraction engine (`src/extract.ts`), the overlay and messaging layer (`src/picker.ts`), and the debugger driver (`src/background.ts`); the payloads they exchange are declared once in `src/types.ts`, so a rename in one execution world is a compile error in the others.
+- Repository layout: sources in `src/`, checks in `test/`, release tooling in `scripts/`.
+- `test/check.sh` builds before it runs and honours a `CHROME` environment variable, so it can run on Linux CI.
+
+### Note on Plasmo
+Evaluated and skipped. Plasmo's on-demand content-script filename is undocumented and hashed, while this extension deliberately injects a named file under `activeTab` rather than declaring an `<all_urls>` content script. Its real benefit — React popup and side panel — arrives with #16 and #20 and can be reconsidered then.
 
 ## [0.1.0] — 2026-08-30
 

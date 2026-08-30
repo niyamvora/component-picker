@@ -1,25 +1,28 @@
 #!/bin/sh
 # Cut a release: ./scripts/release.sh 0.2.0
-# Moves CHANGELOG "Unreleased" under the new version, bumps VERSION + manifest.json,
-# commits, tags vX.Y.Z, zips the extension and publishes a GitHub Release from the changelog block.
+# Bumps VERSION (the single source of truth — build.mjs stamps it into the manifest), moves the
+# CHANGELOG's Unreleased block under the new version, tags, zips dist/ and publishes the Release.
 set -e
 cd "$(dirname "$0")/.."
 V="$1"; [ -n "$V" ] || { echo "usage: $0 X.Y.Z"; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "commit or stash changes first"; exit 1; }
+npm run typecheck
 ./test/check.sh | grep -q '^PASS' || { echo "test/check.sh failed"; exit 1; }
 node test/e2e.mjs | grep -q '^PASS' || { echo "test/e2e.mjs failed"; exit 1; }
 DATE=$(date +%Y-%m-%d)
-printf '%s\n' "$V" > VERSION
-sed -i '' "s/\"version\": \"[0-9.]*\"/\"version\": \"$V\"/" src/manifest.json
 PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
-sed -i '' "s|^## \[Unreleased\]|## [Unreleased]\n\n## [$V] — $DATE|; s|^\[Unreleased\]: .*|[Unreleased]: https://github.com/niyamvora/component-picker/compare/v$V...main\n[$V]: https://github.com/niyamvora/component-picker/compare/$PREV...v$V|" CHANGELOG.md
-NOTES=$(awk "/^## \[$V\]/{f=1;next} /^## \[/{f=0} f" CHANGELOG.md)
-git add VERSION src/manifest.json CHANGELOG.md
+printf '%s\n' "$V" > VERSION
+npm version "$V" --no-git-tag-version --allow-same-version >/dev/null
+sed -i '' "s|^## \[Unreleased\]|## [Unreleased]\n\n## [$V] — $DATE|; \
+  s|^\[Unreleased\]: .*|[Unreleased]: https://github.com/niyamvora/component-picker/compare/v$V...main\n[$V]: https://github.com/niyamvora/component-picker/compare/$PREV...v$V|" CHANGELOG.md
+NOTES=$(awk "/^## \\[$V\\]/{f=1;next} /^## \\[/{f=0} f" CHANGELOG.md)
+npm run build
+git add VERSION package.json CHANGELOG.md
 git commit -qm "release: v$V"
 git tag "v$V"
 git push -q origin main "v$V"
 ZIP="component-picker-$V.zip"
-(cd src && zip -q "../$ZIP" manifest.json background.js picker.js) && zip -qj "$ZIP" README.md
+(cd dist && zip -qr "../$ZIP" .)
 gh release create "v$V" "$ZIP" --title "Component Picker $V" --notes "$NOTES"
 rm "$ZIP"
 echo "released v$V"

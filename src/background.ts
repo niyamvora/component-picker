@@ -1,70 +1,85 @@
-// Toolbar click → inject picker.js into the active tab. picker.js is
-// idempotent: injecting it again toggles the picker off.
+/**
+ * The service worker: injects the picker, and drives the one debugger session that every
+ * measurement flows through — resting desktop, each viewport, each forced interaction state.
+ */
+
+import type { MeasureResult, Message, ProbeResult, Snapshot, StateIndices, StateName, Viewport } from "./types";
+
+/** Injected by name, so this must match what build.mjs emits into dist/. */
+const PICKER = "picker.js";
+
+// Toolbar click → inject the picker into the active tab. It is idempotent:
+// injecting it again toggles the picker off.
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id || !/^(https?|file):/.test(tab.url || "")) return;
-  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["picker.js"] });
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [PICKER] });
 });
 
 // Viewports we re-measure the picked subtree at. Same tab, same DOM state —
 // CDP device emulation reflows the live page instead of reloading it.
-const VIEWPORTS = [
+const VIEWPORTS: Viewport[] = [
   { name: "mobile", width: 390, height: 844, dpr: 3, mobile: true },
   { name: "tablet", width: 768, height: 1024, dpr: 2, mobile: true },
 ];
 
-chrome.runtime.onMessage.addListener((msg, sender, reply) => {
-  const job = msg.type === "measure" ? measure(sender.tab.id, msg.states)
-    : msg.type === "probe" ? probe(sender.tab.id) : null;
+chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
+  const tabId = sender.tab?.id;
+  if (tabId === undefined) return;
+  const job = msg.type === "measure" ? measure(tabId, msg.states)
+    : msg.type === "probe" ? probe(tabId) : null;
   if (!job) return;
-  job.then(reply, (e) => reply({ error: String(e.message || e) }));
-  return true;
+  job.then(reply, (e: unknown) => reply({ error: e instanceof Error ? e.message : String(e) }));
+  return true; // keeps the message channel open for the async reply
 });
 
 // Runs in the page's MAIN world, where React's __reactFiber$ expandos are visible.
 // Self-contained: executeScript serializes it. Elements arrive tagged data-cp-tmp="<index>".
-function pageProbe() {
-  const fiberOf = (el) => { const k = Object.keys(el).find((k) => k.startsWith("__reactFiber$")); return k ? el[k] : null; };
-  const typeName = (t) => t && typeof t !== "string" &&
+function pageProbe(): ProbeResult {
+  const fiberOf = (el: any) => { const k = Object.keys(el).find((k) => k.startsWith("__reactFiber$")); return k ? el[k] : null; };
+  const typeName = (t: any): string | undefined => t && typeof t !== "string" &&
     (t.displayName || t.name || (t.render && (t.render.displayName || t.render.name)) || (t.type && (t.type.displayName || t.type.name)));
-  const els = [...document.querySelectorAll("[data-cp-tmp]")].sort((a, b) => a.dataset.cpTmp - b.dataset.cpTmp);
+  const els = [...document.querySelectorAll<HTMLElement>("[data-cp-tmp]")]
+    .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const root = els[0];
-  const out = { framework: "not detected", chain: [], handlers: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [] };
   if (!root) return out;
   if (fiberOf(root)) {
-    const next = window.__NEXT_DATA__ || document.getElementById("__next") || document.querySelector('script[src*="/_next/"]');
+    const next = (window as any).__NEXT_DATA__ || document.getElementById("__next") || document.querySelector('script[src*="/_next/"]');
     out.framework = next ? "React (Next.js)" : "React";
     for (let f = fiberOf(root); f && out.chain.length < 8; f = f.return) { const n = typeName(f.type); if (n) out.chain.push(n); }
     for (const el of els) {
       const p = fiberOf(el)?.memoizedProps;
       if (!p || typeof p !== "object") continue;
       for (const [k, v] of Object.entries(p)) {
-        if (typeof v === "function" && out.handlers.length < 25) out.handlers.push(`[data-cp="${+el.dataset.cpTmp + 1}"] ${k}: ${v.toString().replace(/\s+/g, " ").slice(0, 300)}`);
+        if (typeof v === "function" && out.handlers.length < 25) out.handlers.push(`[data-cp="${Number(el.dataset.cpTmp) + 1}"] ${k}: ${v.toString().replace(/\s+/g, " ").slice(0, 300)}`);
       }
     }
-  } else if (root.__vueParentComponent || root.__vue__) {
-    const vue = root.__vueParentComponent || root.__vue__;
+  } else if ((root as any).__vueParentComponent || (root as any).__vue__) {
+    const vue = (root as any).__vueParentComponent || (root as any).__vue__;
     out.framework = `Vue (${vue.type?.name || vue.$options?.name || "component"})`;
   }
   return out;
 }
 
-async function probe(tabId) {
+async function probe(tabId: number): Promise<ProbeResult> {
   const [r] = await chrome.scripting.executeScript({ target: { tabId }, world: "MAIN", func: pageProbe });
-  return r.result;
+  return r.result as ProbeResult;
 }
 
-const send = (target, method, params) => chrome.debugger.sendCommand(target, method, params);
+const send = (target: chrome.debugger.Debuggee, method: string, params?: object): Promise<any> =>
+  chrome.debugger.sendCommand(target, method, params) as Promise<any>;
 /** Ask the content script to measure the picked subtree once the page has settled. */
-const snap = (tabId, settle) => chrome.tabs.sendMessage(tabId, { type: "snapshot", settle });
+const snap = (tabId: number, settle: number): Promise<Snapshot> =>
+  chrome.tabs.sendMessage(tabId, { type: "snapshot", settle } satisfies Message);
 
 /**
  * One debugger session for the whole capture: resting desktop, each viewport, each forced state.
  * `states` is { hover: [elementIndex…], "focus-visible": […], active: […] } from the content script.
  */
-async function measure(tabId, states = {}) {
+async function measure(tabId: number, states: StateIndices): Promise<MeasureResult> {
   const target = { tabId };
   await chrome.debugger.attach(target, "1.3");
-  const out = { viewports: [], states: [] };
+  const out: MeasureResult = { viewports: [], states: [] };
   try {
     // The pointer is still sitting where the user clicked, so the site's :hover styles are live
     // and would be measured as if they were the resting state. Park it in the corner first.
@@ -87,7 +102,7 @@ async function measure(tabId, states = {}) {
 }
 
 // :focus-visible only applies while :focus does, so it is forced as a pair.
-const PSEUDO = { hover: ["hover"], "focus-visible": ["focus", "focus-visible"], active: ["active"] };
+const PSEUDO: Record<StateName, string[]> = { hover: ["hover"], "focus-visible": ["focus", "focus-visible"], active: ["active"] };
 const MAX_FORCED = 20;
 
 /**
@@ -96,14 +111,14 @@ const MAX_FORCED = 20;
  * card's hover styling usually lives on a child. They are forced together, so what comes back is
  * "this component with everything hovered", not one pointer position.
  */
-async function forceStates(target, tabId, states, out) {
-  const wanted = Object.keys(PSEUDO).filter((s) => states[s]?.length);
+async function forceStates(target: chrome.debugger.Debuggee, tabId: number, states: StateIndices, out: MeasureResult) {
+  const wanted = (Object.keys(PSEUDO) as StateName[]).filter((s) => states[s]?.length);
   if (!wanted.length) return;
   await send(target, "DOM.enable");
   await send(target, "CSS.enable");
   const { root } = await send(target, "DOM.getDocument", { depth: 0 });
   for (const state of wanted) {
-    const nodes = [];
+    const nodes: number[] = [];
     for (const i of states[state].slice(0, MAX_FORCED)) {
       const { nodeId } = await send(target, "DOM.querySelector", { nodeId: root.nodeId, selector: `[data-cp-tmp="${i}"]` });
       if (nodeId) nodes.push(nodeId);
