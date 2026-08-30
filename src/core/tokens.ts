@@ -4,6 +4,7 @@
 
 import { sameKnob } from "./const";
 import { declarations, matchIds } from "./rules";
+import { options } from "../shared/options";
 import { state } from "./state";
 import type { VarSource } from "../shared/types";
 
@@ -72,8 +73,40 @@ export function tokensSection(md: string[], root: Element, els: Element[]): stri
   // element that draws it — so the lookup walks outward from the pick and then through it.
   const scopes = [root, document.documentElement, ...els].map((el) => getComputedStyle(el));
   const resolve = (n: string) => scopes.map((cs) => cs.getPropertyValue(n).trim()).find(Boolean);
-  const lines = [...names].sort().map((n) => `${n}: ${resolve(n) || "/* not resolvable from the picked subtree */"};`);
-  return `## Tokens used\n\`\`\`css\n${lines.join("\n")}\n\`\`\``;
+  const resolved = [...names].sort().map((n) => [n, resolve(n)] as const);
+  const lines = resolved.map(([n, v]) => `${n}: ${v || "/* not resolvable from the picked subtree */"};`);
+  const json = options.tokensJson ? w3cTokens(resolved) : "";
+  return `## Tokens used\n\`\`\`css\n${lines.join("\n")}\n\`\`\`${json}`;
+}
+
+/**
+ * The tokens again, as the [W3C Design Tokens format](https://www.designtokens.org/tr/drafts/format/).
+ *
+ * The CSS list above is what a human reads; this is what Style Dictionary, Tokens Studio and Figma
+ * Variables read. `$type` is inferred from the resolved value, and omitted rather than guessed when
+ * the value does not clearly fit a category — the spec allows an untyped token.
+ */
+function w3cTokens(resolved: readonly (readonly [string, string | undefined])[]): string {
+  const groups: Record<string, Record<string, unknown>> = {};
+  const put = (group: string, name: string, value: unknown, type?: string) => {
+    (groups[group] ??= {})[name] = type ? { $type: type, $value: value } : { $value: value };
+  };
+  for (const [rawName, value] of resolved) {
+    if (!value) continue;
+    const name = rawName.replace(/^--/, "");
+    const num = parseFloat(value);
+    const unit = /(-?[\d.]+)(px|rem|em|%|vh|vw)$/.exec(value);
+    const time = /^(-?[\d.]+)(m?s)$/.exec(value);
+    const bezier = /^cubic-bezier\(([^)]+)\)$/.exec(value);
+    if (/^(#|rgb|rgba|hsl|hsla|oklch|oklab|color)\b|^#[0-9a-f]/i.test(value)) put("color", name, value, "color");
+    else if (unit) put("dimension", name, { value: parseFloat(unit[1]), unit: unit[2] }, "dimension");
+    else if (time) put("duration", name, { value: parseFloat(time[1]), unit: time[2] }, "duration");
+    else if (bezier) put("cubicBezier", name, bezier[1].split(",").map((n) => parseFloat(n)), "cubicBezier");
+    else if (value.includes(",") && /[a-z]/i.test(value) && !/[(){}]/.test(value)) put("fontFamily", name, value.split(",").map((f) => f.trim().replace(/['"]/g, "")), "fontFamily");
+    else if (Number.isFinite(num) && String(num) === value.trim()) put("number", name, num, "number");
+    else put("other", name, value); // untyped rather than a wrong guess
+  }
+  return `\n\`\`\`json\n${JSON.stringify(groups, null, 2)}\n\`\`\``;
 }
 
 /** The token behind a printed property, if the stylesheet named one. */
