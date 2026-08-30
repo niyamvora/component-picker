@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-08-31
+
 ### Fixed
 - **SVG internals no longer bloat the bundle**: an `<svg>`'s descendants — every `<path>`, `<filter>`, `<stop>`, `<mask>` — were each given a `data-cp` and a CSS block that was almost always just `box-sizing: border-box`. That could be hundreds of lines of noise for one icon. The `<svg>` element itself is still captured (size, colour, filter matter) and its full markup stays in the HTML; only the per-node CSS blocks are dropped. Icon naming (#18) still works.
 - **False "Platform: Webflow"** on Tailwind sites: the detector matched any class starting with `w-`, which Tailwind uses heavily (`w-full`, `w-[270px]`). It now matches Webflow's actual class names (`w-container`, `w-row`, `w-nav`…).
@@ -131,7 +133,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.4.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.4.1...main
+[1.4.1]: https://github.com/niyamvora/component-picker/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/niyamvora/component-picker/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/niyamvora/component-picker/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/niyamvora/component-picker/compare/v1.1.0...v1.2.0
