@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-08-30
+
 ### Added
 - **Running-animation capture** (#29): `element.getAnimations()` reports every live animation — CSS animations, CSS transitions, and the Web Animations API (which is what Framer Motion compiles to) — with its *resolved* timing and keyframes. A CSS animation already shown in `## Keyframes` is not repeated.
 - **Framer Motion props** (#30): `initial`, `animate`, `whileHover`, `variants`, `transition`, `layoutId` and the rest, read off the React fiber in the page's MAIN world — the declarative source of truth for a component's motion, including states WAAPI cannot see.
@@ -93,7 +95,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.0.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.1.0...main
+[1.1.0]: https://github.com/niyamvora/component-picker/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/niyamvora/component-picker/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/niyamvora/component-picker/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/niyamvora/component-picker/compare/v0.2.0...v0.2.1
