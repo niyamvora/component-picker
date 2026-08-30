@@ -79,6 +79,11 @@ need the `chrome.debugger` API, which only Chromium exposes to extensions.
 | Compared with reference | a stored earlier pick | only what differs, with the reference value on each line |
 | Screenshots | CDP `Page.captureScreenshot` | PNG of the element per viewport, embedded as a data URI |
 | Context / Tokens / Variants | see above | ancestors and siblings · every `var(--…)` resolved · sibling states |
+| Tokens JSON · Tailwind · JSX | opt-in | W3C design-token JSON, Tailwind v4 classes, a ready-to-paste `.tsx` |
+| Repeated structure | sibling scan | a grid of cards → one card + a table of what differs |
+| Mapping to your components | your inventory | `<Card>`, `<Button variant={…}>` instead of div soup |
+| Accessibility | DOM | roles, names, WCAG contrast, focus order — works in fast mode too |
+| Animations · Framer Motion · GSAP · Scroll · Platform | see v1.1 | running WAAPI/CSS animations, motion props, timelines, reveals, the site builder |
 
 Caps: 300 elements, ~180 KB. Pick a smaller component if it truncates.
 
@@ -142,6 +147,13 @@ including values inside form fields, so check a bundle before pasting it somewhe
 The toolbar popup controls what a capture includes (screenshots, states, themes, JS, `@font-face`),
 the viewport list (name, size and DPR are editable), the compare reference, and the last ten picks.
 Everything is stored locally in the extension.
+
+## MCP — let an agent request a capture
+
+`npx component-picker-mcp` starts a small server exposing `pick_component` (arms the picker, waits
+for a click, returns the bundle) and `last_capture`. Turn on **MCP bridge** in the popup to connect
+the extension to it. This is the only feature that opens a network connection; it is off by default,
+localhost-only, and marked with an `MCP` badge while a pick is in flight.
 
 ## Firefox
 

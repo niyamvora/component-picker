@@ -11,6 +11,16 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **W3C design-token JSON** (#35): the Tokens section can emit the tokens again as [W3C Design Tokens format](https://www.designtokens.org/tr/drafts/format/) JSON — what Style Dictionary, Tokens Studio and Figma Variables read. `$type` is inferred from the resolved value and omitted rather than guessed when the value does not clearly fit.
+- **Tailwind class output** (#36): the resolved CSS again as Tailwind v4 utilities, preferring the *token* behind a value (`bg-gray-a3`, not a hex arbitrary value) — the one thing every paid competitor charges for. Lossy by nature; the resolved CSS stays authoritative and nothing is silently dropped.
+- **Repeated-structure detection** (#37): a grid of identical cards captures as *one* card plus a table of what differs between instances, and the HTML carries one of each — Locofy's headline paid feature. Cuts a repetitive bundle roughly by the repeat count.
+- **Map onto your components** (#38): a two-line inventory (`Card  .card`) makes the bundle reference `<Card>` and `<Button variant={…}>` instead of div soup — Builder.io's headline paid feature — with unmatched elements listed explicitly. An icon maps to its component's `name` prop automatically.
+- **MCP server** (#39): `npx component-picker-mcp` exposes `pick_component` and `last_capture` so an agent can request a capture instead of waiting for a paste. Opt-in: the localhost bridge opens only when turned on in the popup, and the host permission is requested then.
+- **Accessibility snapshot** (#40): roles, accessible names, WCAG contrast warnings and focus order — computed from the DOM, so it works in fast mode and Firefox too. No competitor captures it.
+- **JSX component output** (#41): the captured HTML as a ready-to-paste `.tsx` — `className`, camelCased attrs, self-closed void elements, style objects — removing the step where an AI transcribes markup by hand.
+- **Fast mode** (#46): a capture with no debugger attach — no viewport, state, theme or screenshot sections, and no "started debugging this browser" bar. For the common "what font and spacing is this?" pick.
+
 ## [1.1.0] — 2026-08-30
 
 ### Added

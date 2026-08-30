@@ -11,6 +11,11 @@ export const DEFAULT_OPTIONS: Options = {
   js: true,
   states: true,
   themes: true,
+  tokensJson: false,
+  tailwind: false,
+  jsx: false,
+  a11y: true,
+  fast: false,
   viewports: [
     { name: "mobile", width: 390, height: 844, dpr: 3, mobile: true },
     { name: "tablet", width: 768, height: 1024, dpr: 2, mobile: true },

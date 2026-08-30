@@ -6,9 +6,14 @@ import { MAX_ELEMENTS, MAX_OUT, sel, SKIP_TAGS, splitList, TMP, UI } from "./con
 import { computeBlocks, diffBlocks, label, renderBlock } from "./blocks";
 import { ago, compareWithReference } from "./compare";
 import { htmlOf, icons } from "./html";
+import { a11ySnapshot } from "./a11y";
 import { runningAnimations } from "./animations";
 import { scrollBehaviour } from "./scroll";
-import { frameworkInfo, getReference, measureAll, send } from "./messaging";
+import { findRepeats } from "./repeats";
+import { toTailwind } from "./tailwind";
+import { toJsx } from "./jsx";
+import { mapToInventory } from "./mapping";
+import { frameworkInfo, getReference, inventory, measureAll, send } from "./messaging";
 import { contextOf, libraries, variantsOf } from "./context";
 import { fonts } from "./fonts";
 import { matchRules, sheetRules } from "./rules";
@@ -50,7 +55,15 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const stamp = new Set<number>([0]);
   for (const i of Object.keys(desktop)) if (Object.keys(desktop[+i].props).length || Object.keys(desktop[+i].pseudos).length) stamp.add(+i);
   for (const line of rules) for (const m of line.matchAll(/data-cp="(\d+)"/g)) stamp.add(+m[1] - 1);
-  const html = htmlOf(root, all, els, stamp);
+  // Repeated siblings (#37): a card's instances are "the same" when their measured blocks barely differ.
+  const sameStructure = (a: Element, b: Element) => {
+    const ba = computeBlocks([a, ...a.querySelectorAll("*")].slice(0, 60));
+    const bb = computeBlocks([b, ...b.querySelectorAll("*")].slice(0, 60));
+    const changed = diffBlocks(ba, bb).length;
+    return changed <= Math.max(2, Object.keys(ba).length * 0.2);
+  };
+  const repeats = findRepeats(root, els, sameStructure);
+  const html = htmlOf(root, all, els, stamp, repeats.fold);
 
   const anims = new Set(els.flatMap((el) => splitList(getComputedStyle(el).animationName)).filter((n) => n !== "none"));
   const kf = [...anims].map((n) => keyframes[n]).filter(Boolean);
@@ -102,8 +115,14 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     md.push(`## Compared with reference (${reference.label} — ${new URL(reference.url).host}, picked ${ago(reference.at)})\n` +
       compareWithReference(reference.blocks, desktop));
   }
+  if (repeats.section) md.push(repeats.section);
   const tokens = tokensSection(md, root, els);
   if (tokens) md.push(tokens);
+  if (options.tailwind) { const tw = toTailwind(desktop); if (tw) md.push(tw); }
+  if (options.a11y) { const a = a11ySnapshot(els); if (a) md.push(a); }
+  const map = mapToInventory(els, await inventory());
+  if (map) md.push(map);
+  if (options.jsx) { const j = toJsx(html, label(root)); if (j) md.push(j); }
   if (running) md.push(running);
   if (scroll) md.push(scroll);
   if (motion.length) {

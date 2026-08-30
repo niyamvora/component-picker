@@ -129,7 +129,24 @@ export interface Options {
   js: boolean;
   states: boolean;
   themes: boolean;
+  /** W3C Design Tokens JSON alongside the CSS token list (#35). */
+  tokensJson: boolean;
+  /** Tailwind class output (#36). */
+  tailwind: boolean;
+  /** A ready-to-paste JSX component (#41). */
+  jsx: boolean;
+  /** Accessibility snapshot — roles, names, contrast, focus order (#40). */
+  a11y: boolean;
+  /** No debugger attach: skip viewport, state, theme and screenshot capture (#46). */
+  fast: boolean;
   viewports: Viewport[];
+}
+
+/** One component in the target project, for mapping the capture onto it (#38). */
+export interface InventoryEntry {
+  name: string;
+  selectors: string[];
+  props: string[];
 }
 
 /** One entry in the popup's list of recent picks. */
@@ -165,6 +182,9 @@ export type Message =
   | { type: "snapshot"; settle?: number; theme?: "flip" }
   | { type: "set-reference"; reference: Reference }
   | { type: "get-reference" }
+  | { type: "get-inventory" }
+  | { type: "bridge"; on: boolean }
+  | { type: "bridge-result"; bundle: string }
   | { type: "clear-reference" }
   | { type: "picking"; on: boolean }
   | { type: "remember"; entry: HistoryEntry }

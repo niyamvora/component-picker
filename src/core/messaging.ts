@@ -4,9 +4,10 @@
  */
 
 import { sel } from "./const";
+import { parseInventory } from "./mapping";
 import { detectTheme } from "./snapshot";
 import { options } from "../shared/options";
-import type { MeasureResult, Message, ProbeResult, Reference, StateIndices } from "../shared/types";
+import type { InventoryEntry, MeasureResult, Message, ProbeResult, Reference, StateIndices } from "../shared/types";
 
 /** Messaging the service worker — or a reason there is none, since the engine also runs bare. */
 export async function send(msg: Message): Promise<unknown> {
@@ -16,6 +17,10 @@ export async function send(msg: Message): Promise<unknown> {
 
 export async function measureAll(states: StateIndices): Promise<MeasureResult> {
   const empty: MeasureResult = { viewports: [], states: [], shots: [] };
+  // Fast mode skips the debugger entirely: no viewport, state, theme or screenshot capture, and no
+  // "started debugging this browser" bar. The existing "unavailable" paths handle the rest, and the
+  // pointer-still-on-the-element caveat that `error` triggers is honest here — nothing parked it.
+  if (options.fast) return { ...empty, error: "fast mode (no debugger); re-pick with Fast off for viewports, states, themes and screenshots" };
   try {
     const msg = { type: "measure", states, theme: detectTheme(), options } as const;
     return ((await send(msg)) as MeasureResult) ?? { ...empty, error: "no response" };
@@ -54,4 +59,14 @@ export async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
     }
   } catch { /* keep defaults */ }
   return info;
+}
+
+/** The user's component inventory (#38), from storage — parsed, or empty when there is none. */
+export async function inventory(): Promise<InventoryEntry[]> {
+  try {
+    const raw = (await send({ type: "get-inventory" })) as string | null;
+    return raw ? parseInventory(raw) : [];
+  } catch {
+    return [];
+  }
 }
