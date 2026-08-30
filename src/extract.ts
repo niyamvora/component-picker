@@ -84,6 +84,16 @@ function defaultsFor(el: Element): Record<string, string> {
   return (defaults[key] = d);
 }
 
+/**
+ * The element an inherited property comes from.
+ *
+ * A shadow root's children have no `parentElement` — their parent is the root itself — but
+ * inherited properties do cross the boundary from the host, so that is what they are diffed
+ * against. Without this, measuring inside a web component throws.
+ */
+const styleParent = (el: Element): Element | null =>
+  el.parentElement ?? (el.parentNode instanceof ShadowRoot ? el.parentNode.host : null);
+
 const DIV_DEF = () => defaultsFor(document.createElement("div"));
 const SPAN_DEF = () => defaultsFor(document.createElement("span"));
 
@@ -173,7 +183,8 @@ function computeBlocks(els: Element[]): Blocks {
       return;
     }
     const tagDef = defaultsFor(el), def = el instanceof SVGElement ? tagDef : DIV_DEF();
-    const parentCs = i === 0 ? null : getComputedStyle(el.parentElement!);
+    const parent = i === 0 ? null : styleParent(el);
+    const parentCs = parent ? getComputedStyle(parent) : null;
     const { props, raw } = diffProps(cs, def, tagDef, parentCs, el);
     const pseudos: Record<string, Record<string, string>> = {};
     for (const ps of ["::before", "::after"]) {
@@ -697,10 +708,65 @@ async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
   return info;
 }
 
+// ---------- walking the subtree, shadow roots included ----------
+/**
+ * Every element under `root`, descending into open shadow roots.
+ *
+ * A design system built on web components puts everything worth capturing inside a shadow root,
+ * where `querySelectorAll` cannot see it — the picker would return an empty `<my-button>`. Closed
+ * roots stay invisible, as they are meant to be.
+ */
+function walk(root: Element): Element[] {
+  const out: Element[] = [root];
+  const visit = (el: Element) => {
+    for (const child of el.children) { out.push(child); visit(child); }
+    if (el.shadowRoot) for (const child of el.shadowRoot.children) { out.push(child); visit(child); }
+  };
+  visit(root);
+  return out;
+}
+
+/** The same walk over a detached clone, so indices line up with `walk(root)`. */
+function walkClone(clone: Element): Element[] {
+  const out: Element[] = [clone];
+  const visit = (el: Element) => {
+    for (const child of el.children) {
+      // A declarative shadow template stands in for the shadow root it will become.
+      if (child instanceof HTMLTemplateElement && child.getAttribute("shadowrootmode")) {
+        for (const inner of child.content.children) { out.push(inner); visit(inner); }
+        continue;
+      }
+      out.push(child);
+      visit(child);
+    }
+  };
+  visit(clone);
+  return out;
+}
+
+/**
+ * Clone an element, turning any open shadow root into a `<template shadowrootmode="open">` —
+ * declarative shadow DOM, which is how the markup is pasted back so it renders the same way.
+ */
+function cloneDeep(el: Element): Element {
+  const copy = el.cloneNode(false) as Element;
+  if (el.shadowRoot) {
+    const tpl = document.createElement("template");
+    tpl.setAttribute("shadowrootmode", "open");
+    for (const child of el.shadowRoot.children) tpl.content.append(cloneDeep(child));
+    copy.append(tpl);
+  }
+  for (const child of el.childNodes) {
+    if (child instanceof Element) copy.append(cloneDeep(child));
+    else copy.append(child.cloneNode(true));
+  }
+  return copy;
+}
+
 // ---------- HTML ----------
 function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number>): string {
-  const clone = root.cloneNode(true) as Element;
-  const clones = [clone, ...clone.querySelectorAll("*")];
+  const clone = cloneDeep(root);
+  const clones = walkClone(clone);
   const pos = new Map(all.map((e, i) => [e, i]));
   els.forEach((el, i) => {
     const c = clones[pos.get(el)!];
@@ -710,7 +776,9 @@ function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number
     else if (el instanceof HTMLAnchorElement && el.href) c.setAttribute("href", el.href);
     else if ((el instanceof HTMLVideoElement || el instanceof HTMLSourceElement) && el.src) c.setAttribute("src", el.src);
   });
-  clone.querySelectorAll(`script,style,noscript,template,link,meta,[${UI}]`).forEach((n) => n.remove());
+  // Templates are kept: a declarative shadow root IS a template, and dropping it would empty the
+  // component. Everything else that carries code or a stylesheet still goes.
+  for (const n of clones) if (/^(SCRIPT|STYLE|NOSCRIPT|LINK|META)$/.test(n.tagName) || n.hasAttribute(UI)) n.remove();
   for (const c of clones) {
     c.removeAttribute(TMP);
     for (const a of [...c.attributes]) if (/^on/i.test(a.name)) c.removeAttribute(a.name);
@@ -722,7 +790,7 @@ function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number
 let pending: Element[] = []; // the picked subtree, kept for the snapshots the service worker asks for
 
 export async function extract(root: Element, onStatus: (s: string) => void = () => {}): Promise<string> {
-  const all = [root, ...root.querySelectorAll("*")];
+  const all = walk(root);
   const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
   const els = eligible.slice(0, MAX_ELEMENTS);
   pending = els;

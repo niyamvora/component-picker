@@ -12,6 +12,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ## [Unreleased]
 
 ### Added
+- **Shadow DOM and iframes** (#21): the subtree walk descends into open shadow roots, so a design system built on web components no longer captures as an empty `<my-button>`; the markup travels back as declarative shadow DOM (`<template shadowrootmode="open">`), which renders the same way when pasted. The picker is injected into every frame, so a Stripe field or an embedded demo can be picked in its own iframe.
+- **Side-panel preview** (#20): the bundle's own HTML and CSS rendered in a sandboxed iframe with nothing else on the page — anything that only looked right because the real site's stylesheet was still loaded shows up here as wrong.
 - **Box-model overlay and breadcrumb bar** (#19): padding and margin are shaded the way DevTools shades them, because a single outline says where an element ends but not where its own space stops and its spacing begins. The breadcrumb (`main › section.pricing › div.card › button`) is hoverable and clickable — ↑/↓ alone made reaching the right ancestor slow.
 - **Multi-select and whole-page capture** (#22): shift-click adds elements to the selection, `Backspace` removes the last, and the next plain click captures them all as one bundle with per-component `data-cp` prefixes. `P` selects the page's top-level sections, for a landing page section by section.
 - **Element screenshots** (#15): a PNG of the picked element at each viewport, embedded as a data URI so it renders inline where you paste it. An AI that can see the target *and* read its CSS makes far fewer mistakes than one that can only read. Appended after the text, so an oversized bundle never trades CSS for a picture.

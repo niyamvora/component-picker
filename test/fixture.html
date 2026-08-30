@@ -31,7 +31,17 @@
   <a href="/rel">rel link</a>
   <span hidden><b>secret child</b></span>
   <div class="grad">gradient</div>
-  <script>window.__cpEvil = true</script>
+  <my-badge></my-badge>
+  <script>
+    // #21 — a web component whose real markup lives in an open shadow root
+    customElements.define("my-badge", class extends HTMLElement {
+      connectedCallback() {
+        this.attachShadow({ mode: "open" }).innerHTML =
+          '<span class="pill" style="padding:2px 6px;border-radius:9px;background:rgb(30,64,175);color:#fff">shadow</span>';
+      }
+    });
+    window.__cpEvil = true;
+  </script>
 </div>
 <aside style="position:absolute;right:6px;top:0">slot</aside>
 </section>
@@ -74,6 +84,8 @@
       // #12 — typography as a developer writes it, and the @font-face block held back
       "- Georgia 700 — 24px/normal (h2.title)", "- Arial 400 — 13.3333px/normal (button.btn)",
       "@font-face rule(s) omitted",
+      // #21 — the shadow root travels as declarative shadow DOM, and its content is measured
+      '<template shadowrootmode="open">', 'class="pill"', "background-color: rgb(30, 64, 175);",
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted

@@ -25,7 +25,7 @@ $<HTMLButtonElement>("#pick").addEventListener("click", async () => {
     $("#pick").textContent = "Not a page the picker can run on";
     return;
   }
-  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["picker.js"] });
+  await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["picker.js"] });
   window.close();
 });
 

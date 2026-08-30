@@ -14,8 +14,15 @@ import type {
 const PICKER = "picker.js";
 const MAX_HISTORY = 10;
 
+/**
+ * Inject into every frame, not just the top one.
+ *
+ * Stripe fields, cookie banners and docs demos live in iframes; a picker that only runs in the top
+ * document simply cannot see them. Each frame gets its own picker, and the one that receives the
+ * click owns the capture — a cross-origin frame could not be reached from the parent anyway.
+ */
 export async function inject(tabId: number) {
-  await chrome.scripting.executeScript({ target: { tabId }, files: [PICKER] });
+  await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: [PICKER] });
 }
 
 // With a popup declared, chrome.action.onClicked no longer fires — the popup's Pick button calls
