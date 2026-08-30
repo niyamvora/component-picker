@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-30
+
 ### Added
 - **Typography as a developer writes it** (#12): `- Inter 500 — 14px/20px (button.btn, a)`, grouped by family and weight, listing the elements wearing each size. The `@font-face` block is now behind `window.__cp.opts.fontFace` (the options popup in #16 will drive the same switch) — it is rarely what a rebuild needs and costs a lot of tokens.
 - **Component-library hint** in the header (#11): `UI: Base UI + Tailwind v4`. Recognises Base UI, Radix, shadcn/ui, Headless UI, MUI, Chakra, Ant Design, Mantine, Bootstrap, styled-components, Emotion, Vue, Svelte, Angular, Astro and Tailwind v3 vs v4 — the difference between "rebuild this markup" and "this is a Radix tabs trigger".
@@ -66,7 +68,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.2.1...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.3.0...main
+[0.3.0]: https://github.com/niyamvora/component-picker/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/niyamvora/component-picker/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/niyamvora/component-picker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/niyamvora/component-picker/releases/tag/v0.1.0
