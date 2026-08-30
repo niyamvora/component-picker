@@ -13,6 +13,9 @@ import { findRepeats } from "./repeats";
 import { toTailwind } from "./tailwind";
 import { toJsx } from "./jsx";
 import { mapToInventory } from "./mapping";
+import { toHtmlCss, toSvelte, toVue } from "./emit";
+import { paletteSummary } from "./summary";
+import { assetUrls } from "./assets";
 import { frameworkInfo, getReference, inventory, measureAll, send } from "./messaging";
 import { contextOf, libraries, variantsOf } from "./context";
 import { fonts } from "./fonts";
@@ -123,6 +126,17 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const map = mapToInventory(els, await inventory());
   if (map) md.push(map);
   if (options.jsx) { const j = toJsx(html, label(root)); if (j) md.push(j); }
+  if (options.vue) md.push(toVue(html, cssText));
+  if (options.svelte) md.push(toSvelte(html, cssText));
+  if (options.htmlCss) md.push(toHtmlCss(html, cssText));
+  const palette = paletteSummary(desktop);
+  if (palette) md.push(palette);
+  for (const m of resp.media ?? []) {
+    const diff = diffBlocks(desktop, m.blocks);
+    if (diff.length) md.push(`## Media: ${m.name} (diff vs default)\n\`\`\`css\n${diff.join("\n\n")}\n\`\`\``);
+  }
+  const assetUrlList = assetUrls(els);
+  if (assetUrlList.length) md.push(`## Assets\n- ${assetUrlList.length} asset(s) referenced. Download them (with the HTML rewritten to local paths) from the extension's side panel.`);
   if (running) md.push(running);
   if (scroll) md.push(scroll);
   if (motion.length) {

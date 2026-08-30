@@ -11,6 +11,13 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Container queries and `:has()`** (#43): `@container` rules are matched and printed, and the selector stripper no longer corrupts `:has(...)`/`:is(...)`/`:where(...)` — a `:has(> img)` rule now matches instead of being skipped. `container-type` and `container-name` are captured on elements that are containers.
+- **Print / reduced-motion / forced-colors captures** (#45): each emulated as a diff against the default rendering, behind an option (off by default; it adds ~1.2s and is usually empty). Each case sets the full media state so one does not leak into the next.
+- **Palette and type summary** (#47): the distinct colours (by frequency), the type scale, and the spacing values — with a note when they are all multiples of 4 or 8, which names the target project's grid. Plus **measure mode** (`M` while picking): distances from the hovered element to its parent's edges, drawn as labelled rulers.
+- **Vue, Svelte and plain-HTML output** (#48): the captured markup as a Vue SFC, a Svelte component, or an HTML+CSS pair — the same tree with different attribute rules, removing the "not for my stack" objection.
+- **Asset export** (#44): a **Download assets** button in the side panel collects the images, fonts and background images the subtree uses into a `component-assets.zip` (store-only, no dependency) with the HTML rewritten to local paths. Anything CORS refuses is listed in `SKIPPED.txt`, not fatal.
+
 ## [1.2.0] — 2026-08-31
 
 ### Added
