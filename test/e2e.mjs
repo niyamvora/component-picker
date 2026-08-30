@@ -34,6 +34,9 @@ const server = createServer(async (req, res) => {
 
 const chrome = spawn(CHROME, [
   "--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${CDP}`,
+  // Chrome/Chromium ≥137 ignore --load-extension unless this feature is switched back off.
+  // Harmless on builds that never had it.
+  "--disable-features=DisableLoadExtensionCommandLineSwitch",
   `--user-data-dir=${mkdtempSync(join(tmpdir(), "cp-e2e-"))}`,
   `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
   `http://localhost:${PORT}/test/fixture.html`,
@@ -70,7 +73,10 @@ try {
     }
     if (!ws) await sleep(200);
   }
-  if (!ws) throw new Error("extension service worker not found");
+  if (!ws) {
+    const seen = (await targets()).map((t) => `${t.type} ${t.url}`).join("\n  ");
+    throw new Error(`extension service worker not found. Targets:\n  ${seen}`);
+  }
   const evaluate = (e) => evalIn(ws, e);
 
   // Put a real pointer on the animated button and leave it there. Everything the picker measures
