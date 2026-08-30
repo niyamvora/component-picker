@@ -24,8 +24,8 @@
 </style>
 <section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
 <div id="card" class="card" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
-  <h2 class="title">Hello</h2>
-  <button class="btn" onclick="alert(1)">Go</button>
+  <h2 class="title" data-slot="title">Hello</h2>
+  <button class="btn" data-slot="trigger" data-state="open" data-orientation="horizontal" onclick="alert(1)">Go</button>
   <a href="/rel">rel link</a>
   <span hidden><b>secret child</b></span>
   <div class="grad">gradient</div>
@@ -63,6 +63,7 @@
       // #10 — where the picked element sits: the wrapper's padding and the pinned sibling
       "## Context (what the picked element sits in)", "section#wrap {", "padding: 20px;",
       "Siblings of the picked element:", "- aside ", "(after)", "position: absolute; top: 0px; right: 6px;",
+      "UI: Radix + shadcn/ui + Tailwind.",                          // #11 component-library hint
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted

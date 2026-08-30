@@ -594,6 +594,51 @@ function variantsOf(root: Element, els: Element[], desktop: Blocks): string[] {
   return out;
 }
 
+// ---------- which component library built this ----------
+const cls = (el: Element) => (typeof el.className === "string" ? el.className.trim().split(/\s+/) : []);
+const attrs = (el: Element, prefix: string) => [...el.attributes].some((a) => a.name.startsWith(prefix));
+
+/**
+ * `data-base-ui-*` means Base UI, `data-slot` means shadcn, `--tw-*` means Tailwind. Naming the
+ * library is the difference between "rebuild this markup" and "this is a Radix tabs trigger".
+ *
+ * Detection lives in the content script, not the MAIN-world probe: these are all attributes and
+ * classes, which an isolated world sees perfectly well. Only React's fiber expandos need the
+ * page's own world.
+ */
+const LIBRARIES: { name: string; test: (el: Element) => boolean }[] = [
+  { name: "Base UI", test: (el) => attrs(el, "data-base-ui-") || el.id.startsWith("base-ui-") },
+  { name: "Radix", test: (el) => attrs(el, "data-radix-") || (el.hasAttribute("data-state") && el.hasAttribute("data-orientation")) },
+  { name: "shadcn/ui", test: (el) => el.hasAttribute("data-slot") },
+  { name: "Headless UI", test: (el) => el.hasAttribute("data-headlessui-state") },
+  { name: "MUI", test: (el) => cls(el).some((c) => c.startsWith("Mui")) },
+  { name: "Chakra", test: (el) => cls(el).some((c) => c.startsWith("chakra-")) },
+  { name: "Ant Design", test: (el) => cls(el).some((c) => c.startsWith("ant-")) },
+  { name: "Mantine", test: (el) => cls(el).some((c) => c.startsWith("mantine-")) },
+  { name: "styled-components", test: (el) => cls(el).some((c) => /^sc-[A-Za-z0-9]{5,}$/.test(c)) },
+  { name: "Emotion", test: (el) => cls(el).some((c) => /^css-[a-z0-9]{5,}$/.test(c)) },
+  { name: "Vue", test: (el) => attrs(el, "data-v-") },
+  { name: "Svelte", test: (el) => cls(el).some((c) => c.startsWith("svelte-")) },
+  { name: "Angular", test: (el) => attrs(el, "_ngcontent") },
+  { name: "Astro", test: (el) => attrs(el, "data-astro-") },
+];
+
+function libraries(els: Element[]): string[] {
+  const scan = els.slice(0, 500);
+  // One stray `data-slot` is not a design system; two is.
+  const found = LIBRARIES
+    .filter(({ name, test }) => (name === "shadcn/ui" ? scan.filter(test).length >= 2 : scan.some(test)))
+    .map((l) => l.name);
+  const root = getComputedStyle(document.documentElement);
+  if (root.getPropertyValue("--bs-body-color")) found.push("Bootstrap");
+  const usesTw = Object.values(sources).some((v) => Object.keys(v.customs).some((k) => k.startsWith("--tw-")));
+  if (usesTw || root.getPropertyValue("--tw-ring-color")) {
+    // v4 ships a `--spacing` scale and a `--default-font-family`; v3 has neither.
+    found.push(root.getPropertyValue("--spacing") || root.getPropertyValue("--default-font-family") ? "Tailwind v4" : "Tailwind");
+  }
+  return found;
+}
+
 // ---------- framework: React fiber (component names + handler source), Vue ----------
 // Page-JS expandos (__reactFiber$…) are invisible from this isolated world, so background.js runs
 // pageProbe() in the MAIN world; elements are handed over via a temporary data-cp-tmp attribute.
@@ -667,6 +712,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const font = fonts(els, fontFaces);
   const { framework, chain, handlers: js } = await frameworkInfo(els);
   const variants = variantsOf(root, els, desktop);
+  const libs = libraries(els);
   const rect = root.getBoundingClientRect();
 
   const md: string[] = [];
@@ -674,6 +720,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   md.push(`Picked: ${label(root)} ${Math.round(rect.width)}×${Math.round(rect.height)} at (${Math.round(rect.left + scrollX)}, ${Math.round(rect.top + scrollY)}). ` +
     `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. ` +
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
+    `${libs.length ? ` UI: ${libs.join(" + ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
   md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
   const context = contextOf(root);
