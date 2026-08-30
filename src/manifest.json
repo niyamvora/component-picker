@@ -16,7 +16,12 @@
   },
   "action": {
     "default_title": "Pick a component (Alt+Shift+C)",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
   },
   "commands": {
     "_execute_action": {
@@ -27,5 +32,10 @@
   },
   "side_panel": {
     "default_path": "panel.html"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
   }
 }

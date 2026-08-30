@@ -23,6 +23,21 @@ const manifest = JSON.parse(readFileSync("src/manifest.json", "utf8"));
 manifest.version = version; // VERSION is the single source of truth; release.sh bumps it
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2) + "\n");
 for (const page of ["popup.html", "panel.html"]) cpSync(`src/${page}`, `dist/${page}`);
+cpSync("src/icons", "dist/icons", { recursive: true });
+
+// Firefox build: same code, a manifest without the Chrome-only pieces. The debugger API does not
+// exist there, so viewport, state, theme and screenshot sections are absent — the picker already
+// degrades to "unavailable" with the reason, and the source rules still carry the media queries.
+const firefox = {
+  ...manifest,
+  permissions: manifest.permissions.filter((p) => p !== "debugger" && p !== "sidePanel"),
+  background: { scripts: ["background.js"] },
+  browser_specific_settings: { gecko: { id: "component-picker@niyamvora", strict_min_version: "121.0" } },
+};
+delete firefox.side_panel;
+mkdirSync("dist-firefox", { recursive: true });
+cpSync("dist", "dist-firefox", { recursive: true });
+writeFileSync("dist-firefox/manifest.json", JSON.stringify(firefox, null, 2) + "\n");
 cpSync("README.md", "dist/README.md");
 
 if (watch) {
