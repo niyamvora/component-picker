@@ -123,7 +123,10 @@ try {
     const [snap] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__cp.lastBlocks() });
     await chrome.storage.local.set({
       reference: { blocks: snap.result, label: "div#card.card", url: "https://reference.example/x", at: Date.now() },
+      // #38 — a two-line inventory the capture should map onto
+      inventory: ["Card  .card", "Button  button, [role=button]  variant"].join(String.fromCharCode(10)),
       options: { screenshots: false, fontFace: false, js: true, states: false, themes: false,
+                 tokensJson: false, tailwind: false, jsx: false, a11y: true, fast: false,
                  viewports: [{ name: "phone", width: 320, height: 600, dpr: 2, mobile: true }] },
     });
     const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
@@ -161,6 +164,10 @@ try {
   if (!compared.includes("## Responsive: phone 320×600 (DPR 2)")) fails.push("stored viewport list was ignored");
   if (compared.includes("## Screenshots")) fails.push("screenshots were captured with the option off");
   if (compared.includes("## State: hover")) fails.push("states were captured with the option off");
+  // #38 — the inventory maps the card and the button, and lists what it could not place.
+  if (!/## Mapping to your components/.test(compared)) fails.push("#38 mapping section missing");
+  if (!/\[data-cp="1"\] → <Card/.test(compared)) fails.push("#38 card did not map to <Card>");
+  if (!/→ <Button variant=/.test(compared)) fails.push("#38 button did not map to <Button>");
   // #1 — the pointer is on .btn while the capture runs; the resting block must not show its hover colour.
   if (/background-color: rgb\(255, 0, 0\)/.test(resting)) fails.push("hover colour leaked into the resting desktop CSS");
   // #2 — forced states, measured on the child that owns the rule, not just the picked root.

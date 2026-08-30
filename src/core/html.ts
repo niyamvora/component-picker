@@ -10,11 +10,16 @@ import { cloneDeep, walkClone } from "./walk";
 /** Icon names found in the last capture, for the header line. */
 export const icons = new Set<string>();
 
-export function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number>): string {
+export function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number>, fold: Set<Element> = new Set()): string {
   icons.clear();
   const clone = cloneDeep(root);
   const clones = walkClone(clone);
   const pos = new Map(all.map((e, i) => [e, i]));
+  // Repeated instances (#37) are replaced with a comment, so the HTML carries one of each.
+  for (const el of fold) {
+    const c = clones[pos.get(el)!];
+    if (c) c.replaceWith(document.createComment(` ×N — identical to the first, see Repeated structure `));
+  }
   els.forEach((el, i) => {
     const c = clones[pos.get(el)!];
     if (!c) return;

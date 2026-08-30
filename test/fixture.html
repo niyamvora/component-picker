@@ -55,6 +55,12 @@
   <li class="tab" aria-selected="true">A</li>
   <li class="tab" aria-selected="false">B</li>
 </ul>
+<ul id="cards" style="list-style:none;padding:0">
+  <li class="row"><span class="name">Starter</span><span class="val">$0</span></li>
+  <li class="row"><span class="name">Pro</span><span class="val">$29</span></li>
+  <li class="row"><span class="name">Team</span><span class="val">$99</span></li>
+  <li class="row"><span class="name">Max</span><span class="val">$299</span></li>
+</ul>
 <pre id="result">RUNNING</pre>
 <pre id="md" hidden></pre>
 <script>
@@ -72,6 +78,12 @@
     window.__cp.opts.fontFace = false;
     // #22 — two picks in one bundle, with ids that cannot collide
     const many = await window.__cp.extractMany([document.getElementById("card"), document.querySelector(".tab")]);
+    // #37 repeat detection
+    const list = await window.__cp.extract(document.getElementById("cards"));
+    // #35/#36/#41/#40 — turn on the extra outputs and capture once more
+    Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true });
+    const full = await window.__cp.extract(document.getElementById("card"));
+    Object.assign(window.__cp.opts, { tokensJson: false, tailwind: false, jsx: false, fast: false });
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -120,6 +132,18 @@
     // The relative-positioned button must not report insets Chrome reports as 0px (see #1's sibling bug).
     const btn = md.slice(md.indexOf('[data-cp="3"] {'), md.indexOf("}", md.indexOf('[data-cp="3"] {')));
     const manyMust = ["# Component 1 of 2", "# Component 2 of 2", 'data-cp="c1-1"', 'data-cp="c2-1"'];
+    // #35 W3C token JSON, #36 Tailwind, #41 JSX, #40 a11y, #46 fast mode
+    const fullMust = [
+      '"$type": "color"', '"$value": "rgb(250, 250, 250)"',          // #35 token JSON (panel colour)
+      '"$type": "dimension"', '"unit": "px"',                        // #35 pad as a dimension
+      "## Tailwind (v4", "flex-col", "gap-3", "p-4",                 // #36 utility classes
+      "## Component (JSX)", 'className="card w-container"', "<path",  // #41 JSX with renamed attrs
+      "## Accessibility",                                            // #40
+      "fast mode (no debugger)",                                    // #46
+    ];
+    // #37 — the repeat list collapses to one row plus a table
+    const listMust = ["## Repeated structure", "repeats 4×", "Starter", "$0",
+                      "identical to the first, see Repeated structure"];
     // #12 — the @font-face block, with its URL absolutized, appears only when asked for
     const facesMust = ["@font-face { font-family: Georgia;",
                        `src: url("${new URL("../media/georgia.woff2", location.href).href}")`];
@@ -131,7 +155,9 @@
                    ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s)),
                    ...(btn.includes("top: 0px") ? ["PRESENT inset on a position:relative element"] : []),
                    ...facesMust.filter((s) => !withFaces.includes(s)).map((s) => "MISSING (opts.fontFace) " + JSON.stringify(s)),
-                   ...manyMust.filter((s) => !many.includes(s)).map((s) => "MISSING (multi) " + JSON.stringify(s))];
+                   ...manyMust.filter((s) => !many.includes(s)).map((s) => "MISSING (multi) " + JSON.stringify(s)),
+                   ...fullMust.filter((s) => !full.includes(s)).map((s) => "MISSING (full) " + JSON.stringify(s)),
+                   ...listMust.filter((s) => !list.includes(s)).map((s) => "MISSING (list) " + JSON.stringify(s))];
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
