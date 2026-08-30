@@ -9,7 +9,7 @@
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run build && ./test/check.sh && node test/e2e.mjs"
+    "test": "npm run typecheck && npm run build && ./test/check.sh && node test/e2e.mjs && node test/zip.test.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.287",

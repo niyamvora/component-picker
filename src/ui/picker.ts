@@ -7,6 +7,7 @@
 
 import { extract, extractMany } from "../core/bundle";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
+import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick } from "../core/state";
 import { isActive, start, stop } from "./handlers";
 import { options } from "../shared/options";
@@ -21,6 +22,8 @@ declare global {
       last: string; opts: typeof options;
       /** The last capture's desktop blocks — what "set as reference" stores. */
       lastBlocks: typeof blocksOfLastPick;
+      /** Zip of the last pick's assets, as a data: URL (#44). */
+      assets: () => Promise<{ dataUrl: string; count: number } | null>;
     };
     /** Set by the test fixture so the picker can be driven without the overlay. */
     __cpNoAutostart?: boolean;
@@ -47,7 +50,7 @@ if (window.__cp) {
   window.__cp = {
     extract, extractMany, start, stop,
     toggle: () => (isActive() ? stop() : start()),
-    last: "", opts: options, lastBlocks: blocksOfLastPick,
+    last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip,
   };
   if (!window.__cpNoAutostart) start();
 }
