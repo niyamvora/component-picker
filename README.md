@@ -7,10 +7,18 @@ Markdown bundle — HTML, browser-resolved CSS, hover/focus + media-query rules,
 React component chain + handler source, and **mobile/tablet diffs** measured on the live page.
 Paste it into Claude/Cursor with "rebuild this in our Next.js project" and you get pixel-perfect output.
 
+## Layout
+
+```
+src/      the extension — load THIS folder unpacked (manifest.json, background.js, picker.js)
+test/     check.sh (extraction) · e2e.mjs (real extension + CDP) · fixture.html
+scripts/  release.sh — checks, version bump, tag, zip, GitHub Release
+```
+
 ## Install (once)
 
 1. `chrome://extensions` → toggle **Developer mode** (top right).
-2. **Load unpacked** → choose this folder (`componentpicker/`).
+2. **Load unpacked** → choose the **`src/`** folder of this repo (that is where `manifest.json` lives).
 3. Optional: pin it from the puzzle-piece menu. Shortcut is **Alt+Shift+C** (change at `chrome://extensions/shortcuts`).
 
 Works in any Chromium browser (Chrome, Edge, Brave, Arc). Not Firefox/Safari — the mobile snapshots
@@ -45,11 +53,11 @@ Caps: 300 elements, ~180 KB. Pick a smaller component if it truncates.
 ## Checks
 
 ```sh
-./check.sh      # extraction logic in headless Chrome (test.html)
-node e2e.mjs    # real extension + debugger emulation in Chrome for Testing (needs Node ≥ 22)
+./test/check.sh      # extraction logic in headless Chrome (test/fixture.html)
+node test/e2e.mjs    # real extension + debugger emulation in Chrome for Testing (needs Node ≥ 22)
 ```
 
-`e2e.mjs` uses Playwright's Chrome for Testing binary by default (`CHROME=/path/to/binary` to override) —
+`test/e2e.mjs` uses Playwright's Chrome for Testing binary by default (`CHROME=/path/to/binary` to override) —
 branded Google Chrome ≥ 137 ignores `--load-extension`.
 
 ## Roadmap
@@ -68,7 +76,7 @@ Work is tracked on the [Component Picker Roadmap board](https://github.com/users
 
 1. Pick an issue from the board's *Todo* column and move it to *In Progress*.
 2. Branch off `main`; every issue names the exact file, function and steps.
-3. `./check.sh` and `node e2e.mjs` must both print `PASS` before pushing.
+3. `./test/check.sh` and `node test/e2e.mjs` must both print `PASS` before pushing.
 4. Add the assertions the issue lists under **Tests**, and a `CHANGELOG.md` line under `## [Unreleased]`.
 5. PR body says `Closes #<issue>`.
 
@@ -82,7 +90,7 @@ always match. `VERSION` holds the current number and [CHANGELOG.md](CHANGELOG.md
 [Keep a Changelog](https://keepachangelog.com).
 
 ```sh
-./release.sh 0.2.0     # runs both checks, bumps VERSION + manifest, tags, zips, publishes the Release
+./scripts/release.sh 0.2.0   # runs both checks, bumps VERSION + manifest, tags, zips, publishes the Release
 ```
 
 Users install by downloading the zip from the [Releases page](https://github.com/niyamvora/component-picker/releases)

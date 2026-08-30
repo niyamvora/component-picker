@@ -24,7 +24,7 @@
   window.__cpNoAutostart = true;
   document.getElementById("card").__reactFiber$test = { type: { name: "Card" }, memoizedProps: { onClick: function handleCard() { return 1; } }, return: { type: { displayName: "Page" }, return: null } };
 </script>
-<script src="picker.js"></script>
+<script src="../src/picker.js"></script>
 <script>
   (async () => {
     const md = await window.__cp.extract(document.getElementById("card"));
@@ -37,7 +37,7 @@
       ".btn:hover", "@media (max-width: 600px)", "@keyframes spin", "animation: spin 1s",
       "transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0s, color 0.3s ease 0s",
       ".btn:hover { background: red; color: blue; }",                // var() resolved, fallback used
-      'src: url("file:///Users/niyamvora/Code/miniapp/chrome/media/georgia.woff2")', '::after {\n  content: "→";',
+      `src: url("${new URL("../media/georgia.woff2", location.href).href}")`,   // @font-face URL absolutized '::after {\n  content: "→";',
       "display: none;",                                             // hidden span
       'href="' + location.origin + '/rel"',                         // absolutized
       'onclick="alert(1)"',                                         // inline handler listed

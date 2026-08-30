@@ -10,6 +10,10 @@ publishes the Release.
 
 ## [Unreleased]
 
+### Changed
+- Repository layout: the extension now lives in `src/` (load **that** folder unpacked), checks in `test/`, release tooling in `scripts/`.
+- `test/check.sh` honours a `CHROME` environment variable so it can run on Linux CI.
+
 ## [0.1.0] — 2026-08-30
 
 ### Added

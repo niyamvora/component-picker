@@ -1,7 +1,7 @@
 // End-to-end: load the real extension in headless Chrome, inject the picker via
 // its service worker (same path the toolbar click takes), extract a component
 // and assert the mobile/tablet snapshots came back through chrome.debugger.
-// Run: node e2e.mjs   (no deps — Node ≥ 22 for fetch + WebSocket)
+// Run: node test/e2e.mjs   (no deps — Node ≥ 22 for fetch + WebSocket)
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -10,14 +10,14 @@ import { tmpdir } from "node:os";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");  // repo root; the http server serves from here
 // Branded Chrome ≥137 ignores --load-extension; use Chrome for Testing / Chromium (override with CHROME=...).
 const CHROME = process.env.CHROME ||
   `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
 const PORT = 8765, CDP = 9333;
 // No toolbar click here, so no activeTab grant: load a temp copy of the extension with a localhost host permission.
 const EXT = mkdtempSync(join(tmpdir(), "cp-ext-"));
-for (const f of ["manifest.json", "background.js", "picker.js"]) cpSync(join(ROOT, f), join(EXT, f));
+for (const f of ["manifest.json", "background.js", "picker.js"]) cpSync(join(ROOT, "src", f), join(EXT, f));
 const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
 writeFileSync(join(EXT, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${PORT}/*`] }));
 
@@ -33,7 +33,7 @@ const chrome = spawn(CHROME, [
   "--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${CDP}`,
   `--user-data-dir=${mkdtempSync(join(tmpdir(), "cp-e2e-"))}`,
   `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
-  `http://localhost:${PORT}/test.html`,
+  `http://localhost:${PORT}/test/fixture.html`,
 ], { stdio: "ignore" });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
