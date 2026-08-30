@@ -6,7 +6,11 @@
  * extension loaded at all.
  */
 
-import type { Block, Blocks, MediaRule, Message, MeasureResult, ProbeResult, Snapshot, StateIndices, StateName } from "./types";
+import { DEFAULT_OPTIONS, loadOptions } from "./options";
+import type {
+  Block, Blocks, MediaRule, Message, MeasureResult, Options, ProbeResult, Reference, Snapshot,
+  StateIndices, StateName, ThemeInfo,
+} from "./types";
 
 export const UI = "data-cp-ui";
 const TMP = "data-cp-tmp"; // element index, readable from the MAIN world and from CDP while capturing
@@ -273,10 +277,17 @@ function breakpointNote(media: MediaRule[], id: number, prop: string, width: num
 }
 
 /**
- * What the bundle includes. Mutable so the picker can hand it out as `window.__cp.opts`; the
- * options popup (#16) will drive the same object from `chrome.storage`.
+ * What the bundle includes. One mutable object so the picker can hand it out as
+ * `window.__cp.opts`, the popup can drive it from `chrome.storage`, and a capture can read it
+ * without threading it through every function.
  */
-export const options = { fontFace: false };
+export const options: Options = { ...DEFAULT_OPTIONS };
+
+/** Refresh `options` from storage — called before each capture, so the popup takes effect at once. */
+export async function refreshOptions() {
+  const stored = await loadOptions();
+  if (stored) Object.assign(options, stored);
+}
 
 /** The page's root font-size at pick time — what every rem hint is measured against. */
 let rootPx = 16;
@@ -715,6 +726,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
   const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
   const els = eligible.slice(0, MAX_ELEMENTS);
   pending = els;
+  await refreshOptions();
   rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   els.forEach((el, i) => el.setAttribute(TMP, String(i)));
   try {
@@ -732,9 +744,11 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   // Everything measurable is measured in one debugger session, starting with the resting
   // desktop state — the pointer is still on the element the user just clicked, and reading
   // getComputedStyle here would record its :hover styles as if they were the resting ones.
-  onStatus("Measuring viewports + states…");
+  onStatus("Measuring viewports, states, themes…");
   const resp = await measureAll(states);
   const desktop = resp.viewports?.[0]?.blocks ?? computeBlocks(els);
+  const reference = await getReference();
+  lastBlocks = desktop;
 
   const stamp = new Set<number>([0]);
   for (const i of Object.keys(desktop)) if (Object.keys(desktop[+i].props).length || Object.keys(desktop[+i].pseudos).length) stamp.add(+i);
@@ -776,6 +790,16 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     md.push(`## Responsive: ${v.name} ${v.width}×${v.height} (DPR ${v.dpr}) — root renders ${v.root[0]}×${v.root[1]}\n` +
       (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"));
   }
+  if (resp.theme) {
+    md.push("error" in resp.theme
+      ? `## Theme\n_The other theme could not be captured: ${resp.theme.error}._`
+      : `## Theme: ${resp.theme.name} (diff vs ${resp.theme.name === "dark" ? "light" : "dark"}) — via ${resp.theme.how}\n` +
+        ((d) => d.length ? `\`\`\`css\n${d.join("\n\n")}\n\`\`\`` : "_Identical in both themes._")(diffBlocks(desktop, resp.theme.blocks)));
+  }
+  if (reference) {
+    md.push(`## Compared with reference (${reference.label} — ${new URL(reference.url).host}, picked ${ago(reference.at)})\n` +
+      compareWithReference(reference.blocks, desktop));
+  }
   const tokens = tokensSection(md, root, els);
   if (tokens) md.push(tokens);
   if (kf.length) md.push(`## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
@@ -783,11 +807,50 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +
     (options.fontFace && font.faces.length ? `\n\`\`\`css\n${font.faces.join("\n")}\n\`\`\`` :
       font.faces.length ? `\n- ${font.faces.length} @font-face rule(s) omitted — set \`window.__cp.opts.fontFace = true\` to include them.` : ""));
-  if (js.length) md.push(`## JS / handlers (React props + inline)\n\`\`\`\n${js.join("\n")}\n\`\`\``);
+  if (js.length && options.js) md.push(`## JS / handlers (React props + inline)\n\`\`\`\n${js.join("\n")}\n\`\`\``);
 
   let out = md.join("\n\n");
+  // The cap applies to the text; images are appended after it, because a bundle whose CSS was
+  // truncated to make room for a picture is the wrong trade.
   if (out.length > MAX_OUT) out = out.slice(0, MAX_OUT) + "\n\n<!-- truncated: bundle exceeded size cap; pick a smaller component -->";
+  if (resp.shots?.length) {
+    out += `\n\n## Screenshots\n${resp.shots.map((s) =>
+      `${s.name} ${s.width}×${s.height} @${s.dpr}x:\n\n![${s.name}](data:image/png;base64,${s.png})`).join("\n\n")}`;
+  }
   return out;
+}
+
+const ago = (at: number) => {
+  const mins = Math.round((Date.now() - at) / 60000);
+  return mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : `${Math.round(mins / 60)} h ago`;
+};
+
+/**
+ * The loop this replaces, run by hand: pick on the reference site, pick on ours, compare, fix.
+ *
+ * Matching is by position in the subtree, which holds when the rebuild mirrors the original and
+ * degrades gracefully when it does not — hence the warning when the two structures are far apart.
+ */
+function compareWithReference(ref: Blocks, ours: Blocks): string {
+  const refIds = Object.keys(ref).map(Number), ourIds = Object.keys(ours).map(Number);
+  const head: string[] = [];
+  const bigger = Math.max(refIds.length, ourIds.length);
+  if (bigger && Math.abs(refIds.length - ourIds.length) / bigger > 0.3) {
+    head.push(`_Structures differ (${refIds.length} elements in the reference vs ${ourIds.length} here); the diff is by position and may be noisy._\n`);
+  }
+  const out: string[] = [];
+  for (const i of new Set([...refIds, ...ourIds])) {
+    const r = ref[i], o = ours[i];
+    if (!o) { out.push(`${sel(i)} — missing here (reference: ${r.label} ${r.rect?.join("×") ?? ""})`); continue; }
+    if (!r) { out.push(`${sel(i)} — extra here (${o.label} ${o.rect?.join("×") ?? ""})`); continue; }
+    const lines: string[] = [];
+    for (const k of new Set([...Object.keys(o.props), ...Object.keys(r.props)])) {
+      const ov = o.props[k] ?? o.raw[k], rv = r.props[k] ?? r.raw[k];
+      if (ov !== rv) lines.push(`  ${k}: ${ov ?? "(unset)"};  /* reference: ${rv ?? "(unset)"} */`);
+    }
+    if (lines.length) out.push(`${sel(i)} { /* ${o.label} ${o.rect?.join("×") ?? ""} vs reference ${r.rect?.join("×") ?? ""} */\n${lines.join("\n")}\n}`);
+  }
+  return head.join("") + (out.length ? `\`\`\`css\n${out.join("\n\n")}\n\`\`\`` : "_Identical to the reference._");
 }
 
 /** Messaging the service worker — or a reason there is none, since the engine also runs bare. */
@@ -797,11 +860,25 @@ async function send(msg: Message): Promise<unknown> {
 }
 
 async function measureAll(states: StateIndices): Promise<MeasureResult> {
-  const empty: MeasureResult = { viewports: [], states: [] };
+  const empty: MeasureResult = { viewports: [], states: [], shots: [] };
   try {
-    return ((await send({ type: "measure", states })) as MeasureResult) ?? { ...empty, error: "no response" };
+    const msg = { type: "measure", states, theme: detectTheme(), options } as const;
+    return ((await send(msg)) as MeasureResult) ?? { ...empty, error: "no response" };
   } catch (e) {
     return { ...empty, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** The most recent capture's desktop blocks — what "set as reference" (#14) stores. */
+let lastBlocks: Blocks = {};
+export const blocksOfLastPick = (): Blocks => lastBlocks;
+
+async function getReference(): Promise<Reference | null> {
+  try {
+    const r = (await send({ type: "get-reference" })) as Reference | null;
+    return r && !("error" in r) ? r : null;
+  } catch {
+    return null;
   }
 }
 
@@ -831,7 +908,60 @@ export function snapshot(settle = 400): Promise<Snapshot> {
   return new Promise((resolve) => {
     setTimeout(() => requestAnimationFrame(() => {
       const r = pending[0].getBoundingClientRect();
-      resolve({ blocks: computeBlocks(pending), root: [Math.round(r.width), Math.round(r.height)] });
+      resolve({
+        blocks: computeBlocks(pending),
+        root: [Math.round(r.width), Math.round(r.height)],
+        rect: { x: r.x, y: r.y, width: r.width, height: r.height },
+      });
     }), Math.max(settle, settleMs(pending)));
   });
+}
+
+// ---------- themes ----------
+const THEME_ATTRS = ["data-theme", "data-mode", "data-color-mode", "data-color-scheme"];
+
+/**
+ * How this page decides which theme it is in.
+ *
+ * Three mechanisms in the wild and they need different handling: a `.dark` class, a `data-theme`
+ * attribute, or nothing at all — in which case the OS preference is what is being followed and the
+ * debugger can emulate it.
+ */
+export function detectTheme(): ThemeInfo | null {
+  const html = document.documentElement;
+  for (const c of ["dark", "light"] as const) if (html.classList.contains(c)) return { kind: "class", current: c };
+  for (const attr of THEME_ATTRS) {
+    const v = html.getAttribute(attr);
+    if (v === "dark" || v === "light") return { kind: "attr", attr, current: v };
+  }
+  try {
+    return { kind: "media", current: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light" };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Flip the page's theme, measure, and put it back.
+ *
+ * Returns null when the flip did not stick: next-themes and friends re-apply the stored theme on
+ * mutation, and a snapshot taken then would be the theme we already had, labelled as the other one.
+ */
+export async function snapshotOtherTheme(settle: number): Promise<Snapshot | null> {
+  const before = detectTheme();
+  if (!before || before.kind === "media") return null;
+  const html = document.documentElement;
+  const other = before.current === "dark" ? "light" : "dark";
+  const restoreScheme = html.style.colorScheme;
+  if (before.kind === "class") html.classList.replace(before.current, other);
+  else html.setAttribute(before.attr!, other);
+  html.style.colorScheme = other;
+  try {
+    const shot = await snapshot(settle);
+    return detectTheme()?.current === other ? shot : null;
+  } finally {
+    if (before.kind === "class") html.classList.replace(other, before.current);
+    else html.setAttribute(before.attr!, before.current);
+    html.style.colorScheme = restoreScheme;
+  }
 }

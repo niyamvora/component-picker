@@ -1,4 +1,5 @@
 <!doctype html>
+<html class="light">
 <title>Component Picker self-check</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -20,6 +21,7 @@
   @font-face { font-family: Georgia; src: url("../media/georgia.woff2") format("woff2"); }
   .btn::after { content: "→"; margin-left: 4px; }
   @media (max-width: 600px) { .card { flex-direction: row; } }
+  html.dark .card { background: rgb(20, 20, 20); color: rgb(240, 240, 240); }
   @keyframes spin { to { transform: rotate(1turn); } }
 </style>
 <section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">

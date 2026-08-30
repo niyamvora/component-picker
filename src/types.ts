@@ -32,6 +32,8 @@ export interface Snapshot {
   blocks: Blocks;
   /** The picked element's own rendered size at this moment. */
   root: [number, number];
+  /** Its box in viewport coordinates, for the screenshot clip. */
+  rect: { x: number; y: number; width: number; height: number };
 }
 
 export interface Viewport {
@@ -42,11 +44,40 @@ export interface Viewport {
   mobile: boolean;
 }
 
+/** A PNG of the picked element as it renders at one viewport. */
+export interface Shot {
+  name: string;
+  /** Base64 PNG, straight from `Page.captureScreenshot`. */
+  png: string;
+  width: number;
+  height: number;
+  dpr: number;
+}
+
+/** How the page decides which theme it is in, and which one is showing. */
+export interface ThemeInfo {
+  kind: "class" | "attr" | "media";
+  /** For `attr`, the attribute driving it (`data-theme`, `data-color-mode`…). */
+  attr?: string;
+  current: "dark" | "light";
+}
+
 /** What the service worker returns for one capture. `error` means the debugger never attached. */
 export interface MeasureResult {
   viewports: (Partial<Viewport> & Snapshot & { name: string })[];
   states: (Snapshot & { name: StateName })[];
+  shots: Shot[];
+  /** The other theme, measured — absent when the page has only one, or when flipping failed. */
+  theme?: (Snapshot & { name: "dark" | "light"; how: string }) | { error: string };
   error?: string;
+}
+
+/** A stored pick to diff later captures against (#14). */
+export interface Reference {
+  blocks: Blocks;
+  label: string;
+  url: string;
+  at: number;
 }
 
 /** What the MAIN-world probe can see that an isolated content script cannot. */
@@ -67,7 +98,30 @@ export interface MediaRule {
   props: string[];
 }
 
+/** What the bundle includes. Persisted by the options popup; defaults live in `extract.ts`. */
+export interface Options {
+  screenshots: boolean;
+  fontFace: boolean;
+  js: boolean;
+  states: boolean;
+  themes: boolean;
+  viewports: Viewport[];
+}
+
+/** One entry in the popup's list of recent picks. */
+export interface HistoryEntry {
+  label: string;
+  host: string;
+  at: number;
+  bundle: string;
+}
+
 export type Message =
-  | { type: "measure"; states: StateIndices }
+  | { type: "measure"; states: StateIndices; theme: ThemeInfo | null; options: Options }
   | { type: "probe" }
-  | { type: "snapshot"; settle?: number };
+  | { type: "snapshot"; settle?: number; theme?: "flip" }
+  | { type: "set-reference"; reference: Reference }
+  | { type: "get-reference" }
+  | { type: "clear-reference" }
+  | { type: "picking"; on: boolean }
+  | { type: "remember"; entry: HistoryEntry };

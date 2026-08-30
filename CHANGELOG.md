@@ -11,6 +11,13 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Element screenshots** (#15): a PNG of the picked element at each viewport, embedded as a data URI so it renders inline where you paste it. An AI that can see the target *and* read its CSS makes far fewer mistakes than one that can only read. Appended after the text, so an oversized bundle never trades CSS for a picture.
+- **Theme pairs** (#13): the same component in the theme you are not looking at, as a diff. `prefers-color-scheme` is emulated through the debugger; a `.dark` class or `data-theme` attribute is flipped in the page and put back. A site whose framework re-applies its own theme on mutation is reported as such rather than returning a mislabelled snapshot of the theme you already had.
+- **Compare with a reference** (#14): press `R` while the copy toast is up to store a pick, then pick again anywhere — the bundle ends with only what differs, each line carrying the reference value. `Shift+R` clears it. This is the reference → ours → fix → re-pick loop, minus the by-hand part.
+- **Options popup** (#16): what a capture includes (screenshots, states, themes, JS, `@font-face`), the viewport list (name, size, DPR — editable), the current compare reference, and the last ten picks with a one-click re-copy. A badge marks the tab while the picker is armed.
+- **Note with the pick, and freeze mode** (#17): after clicking, a one-line note goes into the bundle as `> Note: …` — the intent the DOM cannot carry. It is prompted while the capture is already running, so it costs no time. `F` freezes the picker so a menu, dropdown or modal can be opened and then picked; the picker otherwise eats the very click that would reveal it.
+
 ## [0.3.0] — 2026-08-30
 
 ### Added

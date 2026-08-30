@@ -20,7 +20,7 @@ execFileSync(process.execPath, [join(ROOT, "build.mjs")], { cwd: ROOT, stdio: "i
 
 // No toolbar click here, so no activeTab grant: load a temp copy of the extension with a localhost host permission.
 const EXT = mkdtempSync(join(tmpdir(), "cp-ext-"));
-for (const f of ["manifest.json", "background.js", "picker.js"]) cpSync(join(ROOT, "dist", f), join(EXT, f));
+for (const f of ["manifest.json", "background.js", "picker.js", "popup.html", "popup.js"]) cpSync(join(ROOT, "dist", f), join(EXT, f));
 const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
 writeFileSync(join(EXT, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${PORT}/*`] }));
 
@@ -96,6 +96,23 @@ try {
     const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => { window.__cp.stop(); return window.__cp.extract(document.querySelector("#card")); } });
     return r.result;
   })()`);
+
+  // #14 — store that pick as the reference, change the card, pick again: only the difference shows.
+  // #16 — and drive the viewport list from stored options, the way the popup does.
+  const compared = await evaluate(`(async () => {
+    const [tab] = await chrome.tabs.query({});
+    const [snap] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__cp.lastBlocks() });
+    await chrome.storage.local.set({
+      reference: { blocks: snap.result, label: "div#card.card", url: "https://reference.example/x", at: Date.now() },
+      options: { screenshots: false, fontFace: false, js: true, states: false, themes: false,
+                 viewports: [{ name: "phone", width: 320, height: 600, dpr: 2, mobile: true }] },
+    });
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
+      document.getElementById("card").style.borderRadius = "2px";
+      return window.__cp.extract(document.querySelector("#card"));
+    } });
+    return r.result;
+  })()`);
   ws.close();
 
   const section = (name, next) => md.slice(md.indexOf(name), next ? md.indexOf(next) : undefined);
@@ -104,8 +121,21 @@ try {
   const hover = section("## State: hover", "## State: focus-visible");
   const active = section("## State: active", "## Source rules");
   const must = ["## Responsive: mobile 390×844 (DPR 3)", "## Responsive: tablet 768×1024 (DPR 2)", "data-cp=\"1\"",
-    "Framework: React.", "Component chain: Card › Page.", '[data-cp="1"] onClick: function handleCard() { return 1; }'];
+    "Framework: React.", "Component chain: Card › Page.", '[data-cp="1"] onClick: function handleCard() { return 1; }',
+    // #13 — the other theme, reached by flipping the class the page uses
+    "## Theme: dark (diff vs light) — via html.dark", "background-color: rgb(20, 20, 20);",
+    // #15 — a PNG of the element at each viewport
+    "## Screenshots", "desktop ", "![desktop](data:image/png;base64,iVBOR", "![mobile](data:image/png;base64,iVBOR"];
   const fails = must.filter((s) => !md.includes(s));
+  // #14 — the second capture must report only what changed against the stored reference.
+  if (!/## Compared with reference \(div#card\.card — reference\.example/.test(compared))
+    fails.push("second capture is missing the comparison against the stored reference");
+  if (!/border-radius: 2px;\s+\/\* reference: 8px \*\//.test(compared))
+    fails.push("comparison does not carry the reference value for a changed property");
+  // #16 — stored options drive the capture: one custom viewport, no screenshots, no states.
+  if (!compared.includes("## Responsive: phone 320×600 (DPR 2)")) fails.push("stored viewport list was ignored");
+  if (compared.includes("## Screenshots")) fails.push("screenshots were captured with the option off");
+  if (compared.includes("## State: hover")) fails.push("states were captured with the option off");
   // #1 — the pointer is on .btn while the capture runs; the resting block must not show its hover colour.
   if (/background-color: rgb\(255, 0, 0\)/.test(resting)) fails.push("hover colour leaked into the resting desktop CSS");
   // #2 — forced states, measured on the child that owns the rule, not just the picked root.
@@ -119,7 +149,8 @@ try {
   if (!/\[data-cp="1"\][^}]*flex-direction: row;/.test(mobile)) fails.push("mobile diff lacks flex-direction: row on root");
   if (/transform: matrix/.test(md)) fails.push("animated transform leaked into CSS");
   if (/transform-origin/.test(md)) fails.push("default transform-origin leaked into CSS");
-  console.log(fails.length ? `FAIL\n${fails.map((s) => "MISSING " + s).join("\n")}\n\n${md}` : `PASS ${md.length} chars\n` + md.slice(md.indexOf(process.env.SHOW || "## Responsive")));
+  const shown = (process.env.SHOW === "compared" ? compared : md);
+  console.log(fails.length ? `FAIL\n${fails.map((s) => "MISSING " + s).join("\n")}\n\n${md}` : `PASS ${md.length} chars\n` + shown.slice(shown.indexOf(process.env.SHOW === "compared" ? "## Compared" : (process.env.SHOW || "## Responsive"))));
   process.exitCode = fails.length ? 1 : 0;
 } catch (e) {
   console.error("FAIL", e);
