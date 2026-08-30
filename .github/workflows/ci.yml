@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+      # Chrome for Testing, not branded Chrome: branded builds since 137 ignore --load-extension,
+      # which is exactly what the end-to-end suite needs.
+      - id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+          install-dependencies: true
+
+      - name: extraction engine (test/check.sh)
+        run: |
+          CHROME="${{ steps.chrome.outputs.chrome-path }}" ./test/check.sh | tee check.log
+          grep -q '^PASS' check.log
+
+      - name: real extension + debugger (test/e2e.mjs)
+        run: |
+          CHROME="${{ steps.chrome.outputs.chrome-path }}" xvfb-run -a node test/e2e.mjs | tee e2e.log
+          grep -q '^PASS' e2e.log

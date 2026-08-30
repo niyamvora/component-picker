@@ -21,6 +21,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 - **Interaction states** (#2): `:hover`, `:focus-visible` and `:active` are forced through the Chrome DevTools Protocol and emitted as diffs against the resting capture. States are forced on every element the site has a rule for — not just the picked root — so a card whose hover styling lives on a child is captured correctly.
 - **Sibling variants** (#3): siblings that differ from the picked element only by `data-state` / `aria-selected` / `aria-current` / `disabled` (and similar) are captured as diffs — a stepper's done and pending steps, a tab bar's unselected tabs.
 
+### Changed
+- CI runs the typecheck, the build and both suites on every push and pull request against Chrome for Testing (#7).
+
 ### Removed
 - The header's `Root font-size` line (#6): every value in the bundle was already px, so it explained nothing. The root size now appears where it is actually used — in the note explaining the `rem` comments.
 
