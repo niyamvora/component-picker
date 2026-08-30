@@ -22,15 +22,19 @@
   .btn::after { content: "→"; margin-left: 4px; }
   @media (max-width: 600px) { .card { flex-direction: row; } }
   html.dark .card { background: rgb(20, 20, 20); color: rgb(240, 240, 240); }
+  .reveal { opacity: 0; }
+  .reveal.is-visible { opacity: 1; }
   @keyframes spin { to { transform: rotate(1turn); } }
 </style>
 <section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
-<div id="card" class="card" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
+<div id="card" class="card w-container" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
   <h2 class="title" data-slot="title">Hello</h2>
   <button class="btn" data-slot="trigger" data-state="open" data-orientation="horizontal" onclick="alert(1)">Go</button>
   <a href="/rel">rel link</a>
   <span hidden><b>secret child</b></span>
   <div class="grad">gradient</div>
+  <div class="reveal">reveal me</div>
+  <div id="waapi">waapi</div>
   <my-badge></my-badge>
   <!-- lucide:x, verbatim from lucide-static -->
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-icon lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -55,6 +59,7 @@
 <pre id="md" hidden></pre>
 <script>
   window.__cpNoAutostart = true;
+  document.getElementById("waapi").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: "forwards" });
   document.getElementById("card").__reactFiber$test = { type: { name: "Card" }, memoizedProps: { onClick: function handleCard() { return 1; } }, return: { type: { displayName: "Page" }, return: null } };
 </script>
 <script src="../dist/picker.js"></script>
@@ -68,7 +73,7 @@
     // #22 — two picks in one bundle, with ids that cannot collide
     const many = await window.__cp.extractMany([document.getElementById("card"), document.querySelector(".tab")]);
     const must = [
-      '<div id="card" class="card"', 'data-cp="1"',                // root stamped
+      '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
       "margin: 19.92px 0px; /* 1.245rem 0 */",                      // h2 UA margin vs neutral baseline
       "font-size: 24px; /* 1.5rem */",                              // #6 rem hints
@@ -86,6 +91,10 @@
       // #12 — typography as a developer writes it, and the @font-face block held back
       "- Georgia 700 — 24px/normal (h2.title)", "- Arial 400 — 13.3333px/normal (button.btn)",
       "@font-face rule(s) omitted",
+      // #29 — the WAAPI fade is captured as a running animation
+      "## Animations (running)", "400ms", "opacity: 1;",
+      // #32 — the reveal-on-scroll element is flagged, both states shown
+      "## Scroll behaviour", "hidden at rest (opacity: 0)", "revealed by adding `.is-visible`",
       // #21 — the shadow root travels as declarative shadow DOM, and its content is measured
       '<template shadowrootmode="open">', 'class="pill"', "background-color: rgb(30, 64, 175);",
       'data-icon="lucide:x"', "Icons: lucide:x.",                     // #18 named icons

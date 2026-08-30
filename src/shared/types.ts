@@ -80,11 +80,35 @@ export interface Reference {
   at: number;
 }
 
+/** A Framer Motion component's declarative props, by element index (#30). */
+export interface MotionInfo {
+  id: number;
+  name: string;
+  props: Record<string, string>;
+}
+
+/** One GSAP tween that targets the picked subtree (#31). */
+export interface GsapTween {
+  id: number;
+  vars: string;
+  duration: number;
+  start: number;
+  paused: boolean;
+}
+
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
   framework: string;
   chain: string[];
   handlers: string[];
+  /** The builder behind the page (Webflow, Framer, Shopify…), when one is detected (#33). */
+  platform?: string;
+  /** Per-platform notes — Webflow's `w-*` classes, Framer layer names, Shopify section types. */
+  platformNotes: string[];
+  /** Framer Motion props found on captured elements (#30). */
+  motion: MotionInfo[];
+  /** GSAP tweens targeting the captured subtree (#31). */
+  gsap: GsapTween[];
   error?: string;
 }
 

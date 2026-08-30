@@ -41,6 +41,8 @@ export function sheetRules() {
   const styleRules: { r: CSSStyleRule; cond: string | null }[] = [];
   /** Rules that could explain a resolved value as a token — the input to `varSources`. */
   const varRules: CSSStyleRule[] = [];
+  /** Every plain style rule's selector + text, for the reveal-class scan in `scrollBehaviour`. */
+  const allRules: { selectorText: string; cssText: string }[] = [];
   const keyframes: Record<string, string> = {};
   const fontFaces: CSSFontFaceRule[] = [];
   const walk = (rules: CSSRuleList, cond: string | null): void => {
@@ -51,6 +53,7 @@ export function sheetRules() {
         if (!/print/.test(r.conditionText)) walk(r.cssRules, cond ? `${cond} and ${r.conditionText}` : r.conditionText);
       } else if (r instanceof CSSStyleRule) {
         if (cond || STATE_RE.test(r.selectorText)) styleRules.push({ r, cond });
+        if (allRules.length < 20000) allRules.push({ selectorText: r.selectorText, cssText: r.cssText });
         // A `:hover` rule's token is not what the resting value came from, and a media rule that
         // does not currently hold explains nothing about what is on screen.
         if (!STATE_RE.test(r.selectorText) && holdsNow(cond) && declaresVar(r)) varRules.push(r);
@@ -58,7 +61,7 @@ export function sheetRules() {
     }
   };
   for (const s of document.styleSheets) { try { walk(s.cssRules, null); } catch { /* cross-origin sheet */ } }
-  return { styleRules, varRules, keyframes, fontFaces };
+  return { styleRules, varRules, allRules, keyframes, fontFaces };
 }
 
 /** Elements of the picked subtree a selector hits, ignoring the state and pseudo-element parts. */
