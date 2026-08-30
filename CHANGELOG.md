@@ -11,6 +11,13 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Running-animation capture** (#29): `element.getAnimations()` reports every live animation — CSS animations, CSS transitions, and the Web Animations API (which is what Framer Motion compiles to) — with its *resolved* timing and keyframes. A CSS animation already shown in `## Keyframes` is not repeated.
+- **Framer Motion props** (#30): `initial`, `animate`, `whileHover`, `variants`, `transition`, `layoutId` and the rest, read off the React fiber in the page's MAIN world — the declarative source of truth for a component's motion, including states WAAPI cannot see.
+- **GSAP timelines** (#31): tweens from `gsap.globalTimeline` whose targets are in the picked subtree, with their vars, duration, start and paused state. A GSAP-driven hero is no longer captured as a static frame.
+- **Scroll behaviour** (#32): native scroll timelines (`animation-timeline: view()`) and reveal-on-scroll patterns are reported with *both* the resting and revealed states — a hero that fades in on scroll no longer captures as a silently invisible `opacity: 0` box.
+- **Site-builder detection** (#33): the header names the builder behind the page — Webflow, Framer, Shopify, WordPress — and a Platform notes section flags Webflow's `w-*` utility classes to replace, Framer layer names, Shopify section types and WordPress block names.
+
 ### Changed
 - `src/` is split into `core/` (the engine, one concern per file), `ui/`, `bg/`, `shared/` and `assets/`, with every file under 200 lines (#53). `extract.ts` had grown to 1,100 lines and every planned feature added another section to it. Build output is unchanged — `dist/` keeps the same four flat filenames, because the manifest and `executeScript({ files })` address them by bare name.
 

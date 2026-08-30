@@ -92,6 +92,23 @@ try {
     throw new Error("test setup: the synthetic hover did not take, so the leak cannot be detected");
   pws.close();
 
+  // Plant the things the MAIN-world probe reads: Framer Motion props on the card's fiber (#30),
+  // a GSAP stub whose one tween targets the card (#31), and Webflow's page marker (#33).
+  await evaluate(`(async () => {
+    const [tab] = await chrome.tabs.query({});
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", func: () => {
+      document.getElementById("card").__reactFiber$test.memoizedProps.initial = { opacity: 0, y: 20 };
+      document.getElementById("card").__reactFiber$test.memoizedProps.animate = { opacity: 1, y: 0 };
+      document.getElementById("card").__reactFiber$test.memoizedProps.transition = { duration: 0.4 };
+      document.documentElement.setAttribute("data-wf-page", "x");
+      const card = document.getElementById("card");
+      window.gsap = { globalTimeline: { getChildren: () => [{
+        targets: () => [card], vars: { y: 40, opacity: 1, duration: 0.6, ease: "power2.out" },
+        duration: () => 0.6, startTime: () => 0, paused: () => true,
+      }] } };
+    } });
+  })()`);
+
   const md = await evaluate(`(async () => {
     const [tab] = await chrome.tabs.query({});
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["picker.js"] });
@@ -127,7 +144,13 @@ try {
     // #13 — the other theme, reached by flipping the class the page uses
     "## Theme: dark (diff vs light) — via html.dark", "background-color: rgb(20, 20, 20);",
     // #15 — a PNG of the element at each viewport
-    "## Screenshots", "desktop ", "![desktop](data:image/png;base64,iVBOR", "![mobile](data:image/png;base64,iVBOR"];
+    "## Screenshots", "desktop ", "![desktop](data:image/png;base64,iVBOR", "![mobile](data:image/png;base64,iVBOR",
+    // #30 — Framer Motion props off the fiber
+    "## Framer Motion", '[data-cp="1"] <motion.Card>', 'initial: {"opacity":0,"y":20}', 'transition: {"duration":0.4}',
+    // #31 — the GSAP tween that targets the card
+    "## GSAP", '[data-cp="1"]', '"power2.out"', "0.6s", "(paused — likely scroll-driven)",
+    // #33 — the builder behind the page, named in the header and detailed in Platform notes
+    "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container"];
   const fails = must.filter((s) => !md.includes(s));
   // #14 — the second capture must report only what changed against the stored reference.
   if (!/## Compared with reference \(div#card\.card — reference\.example/.test(compared))

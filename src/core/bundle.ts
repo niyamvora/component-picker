@@ -2,10 +2,12 @@
  * Assembling the bundle: every section, in the order a reader needs them.
  */
 
-import { MAX_ELEMENTS, MAX_OUT, SKIP_TAGS, splitList, TMP, UI } from "./const";
+import { MAX_ELEMENTS, MAX_OUT, sel, SKIP_TAGS, splitList, TMP, UI } from "./const";
 import { computeBlocks, diffBlocks, label, renderBlock } from "./blocks";
 import { ago, compareWithReference } from "./compare";
 import { htmlOf, icons } from "./html";
+import { runningAnimations } from "./animations";
+import { scrollBehaviour } from "./scroll";
 import { frameworkInfo, getReference, measureAll, send } from "./messaging";
 import { contextOf, libraries, variantsOf } from "./context";
 import { fonts } from "./fonts";
@@ -32,7 +34,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
 }
 
 async function build(root: Element, all: Element[], eligible: Element[], els: Element[], onStatus: (s: string) => void): Promise<string> {
-  const { styleRules, varRules, keyframes, fontFaces } = sheetRules();
+  const { styleRules, varRules, allRules, keyframes, fontFaces } = sheetRules();
   const { found: rules, states, media } = matchRules(root, els, styleRules);
   state.sources = varSources(root, els, varRules);
 
@@ -53,9 +55,11 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const anims = new Set(els.flatMap((el) => splitList(getComputedStyle(el).animationName)).filter((n) => n !== "none"));
   const kf = [...anims].map((n) => keyframes[n]).filter(Boolean);
   const font = fonts(els, fontFaces);
-  const { framework, chain, handlers: js } = await frameworkInfo(els);
+  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap } = await frameworkInfo(els);
   const variants = variantsOf(root, els, desktop);
   const libs = libraries(els);
+  const running = runningAnimations(els, anims);
+  const scroll = scrollBehaviour(els, allRules);
   const rect = root.getBoundingClientRect();
 
   const md: string[] = [];
@@ -64,6 +68,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. ` +
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
     `${libs.length ? ` UI: ${libs.join(" + ")}.` : ""}` +
+    `${platform ? ` Platform: ${platform}.` : ""}` +
     `${icons.size ? ` Icons: ${[...icons].join(", ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
   md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${state.rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
@@ -99,6 +104,17 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   }
   const tokens = tokensSection(md, root, els);
   if (tokens) md.push(tokens);
+  if (running) md.push(running);
+  if (scroll) md.push(scroll);
+  if (motion.length) {
+    md.push(`## Framer Motion\n${motion.map((m) =>
+      `${sel(m.id)} <${m.name}>\n${Object.entries(m.props).map(([k, v]) => `  ${k}: ${v}`).join("\n")}`).join("\n\n")}`);
+  }
+  if (gsap.length) {
+    md.push(`## GSAP\n${gsap.map((t) =>
+      `${sel(t.id)} — ${t.vars} · ${t.duration}s · at ${t.start}s${t.paused ? " (paused — likely scroll-driven)" : ""}`).join("\n")}`);
+  }
+  if (platformNotes.length) md.push(`## Platform notes\n${platformNotes.map((n) => `- ${n}`).join("\n")}`);
   if (kf.length) md.push(`## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   md.push(`## Fonts\n${font.lines.join("\n") || "- No text of its own."}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +

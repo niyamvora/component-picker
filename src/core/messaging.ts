@@ -39,11 +39,19 @@ export async function getReference(): Promise<Reference | null> {
 // Page-JS expandos (__reactFiber$…) are invisible from this isolated world, so background.js runs
 // pageProbe() in the MAIN world; elements are handed over via a temporary data-cp-tmp attribute.
 export async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
-  const info: ProbeResult = { framework: "not detected", chain: [], handlers: [] };
+  const info: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [] };
   els.forEach((el, i) => { for (const a of el.attributes) if (/^on/i.test(a.name)) info.handlers.push(`${sel(i)} ${a.name}="${a.value.slice(0, 300)}"`); });
   try {
     const r = (await send({ type: "probe" })) as ProbeResult | undefined;
-    if (r && !r.error) { info.framework = r.framework; info.chain = r.chain; info.handlers.push(...r.handlers); }
+    if (r && !r.error) {
+      info.framework = r.framework;
+      info.chain = r.chain;
+      info.handlers.push(...r.handlers);
+      info.platform = r.platform;
+      info.platformNotes = r.platformNotes ?? [];
+      info.motion = r.motion ?? [];
+      info.gsap = r.gsap ?? [];
+    }
   } catch { /* keep defaults */ }
   return info;
 }

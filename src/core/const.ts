@@ -27,6 +27,7 @@ export const PROPS = `display position top right bottom left z-index float clear
   -webkit-text-fill-color -webkit-background-clip opacity mix-blend-mode filter backdrop-filter isolation
   outline-width outline-style outline-color outline-offset box-shadow
   transform transform-origin perspective backface-visibility will-change
+  animation-timeline animation-range scroll-timeline view-timeline container-type container-name
   cursor pointer-events user-select visibility object-fit object-position aspect-ratio list-style-type appearance resize clip-path
   fill stroke stroke-width`.split(/\s+/);
 export const INHERITED = new Set(`color font-family font-size font-weight font-style line-height letter-spacing text-align text-transform
