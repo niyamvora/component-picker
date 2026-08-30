@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-08-31
+
 ### Added
 - **Container queries and `:has()`** (#43): `@container` rules are matched and printed, and the selector stripper no longer corrupts `:has(...)`/`:is(...)`/`:where(...)` — a `:has(> img)` rule now matches instead of being skipped. `container-type` and `container-name` are captured on elements that are containers.
 - **Print / reduced-motion / forced-colors captures** (#45): each emulated as a diff against the default rendering, behind an option (off by default; it adds ~1.2s and is usually empty). Each case sets the full media state so one does not leak into the next.
@@ -114,7 +116,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.2.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.3.0...main
+[1.3.0]: https://github.com/niyamvora/component-picker/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/niyamvora/component-picker/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/niyamvora/component-picker/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/niyamvora/component-picker/compare/v0.3.0...v1.0.0
