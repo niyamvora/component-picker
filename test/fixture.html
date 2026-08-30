@@ -22,6 +22,7 @@
   @media (max-width: 600px) { .card { flex-direction: row; } }
   @keyframes spin { to { transform: rotate(1turn); } }
 </style>
+<section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
 <div id="card" class="card" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
   <h2 class="title">Hello</h2>
   <button class="btn" onclick="alert(1)">Go</button>
@@ -30,6 +31,8 @@
   <div class="grad">gradient</div>
   <script>window.__cpEvil = true</script>
 </div>
+<aside style="position:absolute;right:6px;top:0">slot</aside>
+</section>
 <ul id="tabs" style="display:flex;gap:8px;list-style:none;padding:0">
   <li class="tab" aria-selected="true">A</li>
   <li class="tab" aria-selected="false">B</li>
@@ -57,6 +60,9 @@
       "background-image: linear-gradient(to right in oklab, rgba(0, 200, 83, 0.2) 0%, rgba(0, 200, 83, 0.05) 100%);",
       "/* linear-gradient(to right in oklab, var(--green-a4) 0%, var(--green-a1) 100%) — interpolation: oklab */",
       "--green-a4: rgba(0, 200, 83, 0.2);",
+      // #10 — where the picked element sits: the wrapper's padding and the pinned sibling
+      "## Context (what the picked element sits in)", "section#wrap {", "padding: 20px;",
+      "Siblings of the picked element:", "- aside ", "(after)", "position: absolute; top: 0px; right: 6px;",
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted
@@ -71,16 +77,20 @@
       "## CSS (desktop, resting state)",
     ];
     const mustNot = ["<script", "__cpEvil", 'onclick="alert(1)">Go</button>',                  // on* stripped from HTML
-                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "border: 0px solid", "data-cp-tmp",
+                     "min-width: auto", "transform-origin", 'url("../', "border: 0px solid", "data-cp-tmp",
                      "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130",
+                     "left: 710",   // #10 — layout values Chrome resolved, not ones anyone wrote
                      // #6 — the header line is gone, and conversions nobody typed (13.3333px) stay px.
                      "Root font-size", "13.3333px; /*"];
+    // The relative-positioned button must not report insets Chrome reports as 0px (see #1's sibling bug).
+    const btn = md.slice(md.indexOf('[data-cp="3"] {'), md.indexOf("}", md.indexOf('[data-cp="3"] {')));
     // Sibling variants: picking the selected tab must describe the unselected one.
     const tabMust = ["## Variants (siblings of the picked element)", '[aria-selected="false"]',
                      "color: rgb(128, 128, 128);", "font-weight: 700;"];
     const fails = [...must.filter((s) => !md.includes(s)).map((s) => "MISSING " + JSON.stringify(s)),
                    ...mustNot.filter((s) => md.includes(s)).map((s) => "PRESENT " + JSON.stringify(s)),
-                   ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s))];
+                   ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s)),
+                   ...(btn.includes("top: 0px") ? ["PRESENT inset on a position:relative element"] : [])];
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

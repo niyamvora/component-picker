@@ -506,6 +506,64 @@ function fonts(els: Element[], fontFaces: CSSFontFaceRule[]) {
   return { fams: [...fams], faces, links };
 }
 
+// ---------- context: what holds the picked element in place ----------
+/** The properties that decide where a box sits — everything else is the element's own styling. */
+const LAYOUT_PROPS = new Set(["display", "position", "top", "right", "bottom", "left", "z-index",
+  "width", "height", "min-width", "max-width", "min-height", "max-height", "padding", "margin",
+  "gap", "row-gap", "column-gap", "flex-direction", "flex-wrap", "justify-content", "align-items",
+  "align-content", "flex-grow", "flex-shrink", "flex-basis", "grid-template-columns",
+  "grid-template-rows", "grid-auto-flow", "overflow-x", "overflow-y", "box-sizing", "aspect-ratio"]);
+
+/**
+ * Chrome reports an `auto` inset on a positioned box, and a grid track sized by content, as the
+ * px it worked out to — `left: 710.875px` for something nobody positioned from the left. Context
+ * is a placement note, so only round values, which is what a person types, survive.
+ *
+ * ponytail: an authored `left: 12.5px` is dropped too. The cost is a missing line in a note, not
+ * wrong CSS; carrying it properly means reading the author declarations for elements outside the
+ * picked subtree.
+ */
+const authored = (v: string) => !/\d+\.\d+px/.test(v);
+
+const layoutOf = (el: Element, parentCs: CSSStyleDeclaration | null): string => {
+  const cs = getComputedStyle(el);
+  const { props } = diffProps(cs, DIV_DEF(), defaultsFor(el), parentCs, el);
+  const kept = Object.entries(props).filter(([p, v]) => LAYOUT_PROPS.has(p) && authored(v));
+  return kept.map(([p, v]) => `${p}: ${v};`).join(" ") || "/* nothing but defaults */";
+};
+
+const boxOf = (el: Element) => {
+  const r = el.getBoundingClientRect();
+  return `${Math.round(r.width)}×${Math.round(r.height)}`;
+};
+
+/**
+ * The picked element is never the whole answer.
+ *
+ * An input that renders 900×32 tells you nothing about why it sits where it does — that lives in
+ * the parent's padding, the wrapper's `position: relative`, and the sibling slot pinned at
+ * `right: 6px`. Three ancestors and the siblings, layout properties only, so this stays a
+ * placement note rather than a second copy of the CSS.
+ */
+function contextOf(root: Element): string | null {
+  const lines: string[] = [];
+  const chain: Element[] = [];
+  for (let a = root.parentElement, n = 0; a && a !== document.body && n < 3; a = a.parentElement, n++) chain.unshift(a);
+  chain.forEach((a, n) => {
+    const away = chain.length - n;
+    lines.push(`${label(a)} { /* ${boxOf(a)}, ${away === 1 ? "parent" : `${away} levels up`} */ ${layoutOf(a, getComputedStyle(a.parentElement ?? document.body))} }`);
+  });
+  const siblings = [...(root.parentElement?.children ?? [])].filter((s) => s !== root && !s.closest(`[${UI}]`)).slice(0, 8);
+  if (siblings.length) {
+    lines.push(`Siblings of the picked element:`);
+    for (const s of siblings) {
+      const where = s.compareDocumentPosition(root) & Node.DOCUMENT_POSITION_FOLLOWING ? "before" : "after";
+      lines.push(`- ${label(s)} ${boxOf(s)} (${where}) — ${layoutOf(s, getComputedStyle(s.parentElement!))}`);
+    }
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
 // ---------- sibling variants: the same component in its other states ----------
 const VARIANT_ATTRS = ["data-state", "aria-selected", "aria-current", "aria-checked", "aria-expanded",
   "aria-pressed", "disabled", "data-active", "data-highlighted", "data-disabled"];
@@ -618,6 +676,8 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
   md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
+  const context = contextOf(root);
+  if (context) md.push(`## Context (what the picked element sits in)\n\`\`\`css\n${context}\n\`\`\``);
   md.push(`## HTML\n\`\`\`html\n${html}\n\`\`\``);
   md.push(`## CSS (desktop, resting state)` +
     (resp.error ? `\n_Measured with the pointer still on the element — hover styles may be included._` : "") +
