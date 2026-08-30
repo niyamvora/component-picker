@@ -432,12 +432,15 @@ function expandTw(expr: string, customs: Record<string, string>): string {
  * Read back off the finished Markdown rather than collected while rendering: the hints are the
  * only place tokens appear, so scanning them cannot drift out of sync with what was printed.
  */
-function tokensSection(md: string[], root: Element): string | null {
+function tokensSection(md: string[], root: Element, els: Element[]): string | null {
   const names = new Set<string>();
   for (const m of md.join("\n").matchAll(/var\((--[\w-]+)/g)) if (!m[1].startsWith("--tw-")) names.add(m[1]);
   if (!names.size) return null;
-  const here = getComputedStyle(root), doc = getComputedStyle(document.documentElement);
-  const lines = [...names].sort().map((n) => `${n}: ${(here.getPropertyValue(n) || doc.getPropertyValue(n)).trim() || "/* not resolvable from this element */"};`);
+  // A token can be scoped anywhere in the subtree — a gradient's stops are often declared on the
+  // element that draws it — so the lookup walks outward from the pick and then through it.
+  const scopes = [root, document.documentElement, ...els].map((el) => getComputedStyle(el));
+  const resolve = (n: string) => scopes.map((cs) => cs.getPropertyValue(n).trim()).find(Boolean);
+  const lines = [...names].sort().map((n) => `${n}: ${resolve(n) || "/* not resolvable from the picked subtree */"};`);
   return `## Tokens used\n\`\`\`css\n${lines.join("\n")}\n\`\`\``;
 }
 
@@ -632,7 +635,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     md.push(`## Responsive: ${v.name} ${v.width}×${v.height} (DPR ${v.dpr}) — root renders ${v.root[0]}×${v.root[1]}\n` +
       (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"));
   }
-  const tokens = tokensSection(md, root);
+  const tokens = tokensSection(md, root, els);
   if (tokens) md.push(tokens);
   if (kf.length) md.push(`## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   md.push(`## Fonts\n- Families used: ${font.fams.join(", ")}` +

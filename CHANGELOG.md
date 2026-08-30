@@ -12,6 +12,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ## [Unreleased]
 
 ### Added
+- **Gradients read as stop lists** (#9): the resolved stops are printed with the source expression beside them — `linear-gradient(to right in oklab, var(--green-a4) 0%, var(--green-a1) 100%)` — and the interpolation space (`oklab`) is called out, since it changes the midpoint colour and is easy to lose in a rebuild.
 - **Token names beside resolved values** (#8): `background-color: rgba(176, 199, 217, 0.145); /* var(--gray-a3) */`. The rgba is the truth about pixels; the token is the half that maps onto the target project's own scale and the only half that is greppable. Tailwind v4's `--tw-*` plumbing is followed through to the name a person actually wrote, and a **Tokens used** section resolves every token the bundle names.
 
 ## [0.2.1] — 2026-08-30

@@ -8,6 +8,13 @@
   .btn { position: relative; animation: spin 1s linear infinite; transition: background-color .2s var(--ease), color .3s ease; }
   .btn:hover { background: var(--accent); color: var(--missing, blue); }
   .btn:active { background: green; }
+  /* Tailwind v4 shape: the stops are plumbed through --tw-* before reaching a real token. */
+  .grad {
+    --green-a4: rgba(0, 200, 83, 0.2); --green-a1: rgba(0, 200, 83, 0.05);
+    --tw-gradient-from: var(--green-a4); --tw-gradient-to: var(--green-a1);
+    --tw-gradient-stops: var(--tw-gradient-from) 0%, var(--tw-gradient-to) 100%;
+    background-image: linear-gradient(to right in oklab, var(--tw-gradient-stops));
+  }
   .tab[aria-selected="true"] { color: rgb(255, 0, 0); }
   .tab[aria-selected="false"] { color: rgb(128, 128, 128); font-weight: 700; }
   @font-face { font-family: Georgia; src: url("../media/georgia.woff2") format("woff2"); }
@@ -20,6 +27,7 @@
   <button class="btn" onclick="alert(1)">Go</button>
   <a href="/rel">rel link</a>
   <span hidden><b>secret child</b></span>
+  <div class="grad">gradient</div>
   <script>window.__cpEvil = true</script>
 </div>
 <ul id="tabs" style="display:flex;gap:8px;list-style:none;padding:0">
@@ -45,6 +53,10 @@
       "background-color: rgb(250, 250, 250); /* var(--panel) */",   // #8 token names beside values
       "padding: 16px; /* var(--pad) · 1rem */",                     // #8 --tw-* plumbing followed to a real token
       "## Tokens used", "--panel: rgb(250, 250, 250);", "--pad: 16px;",
+      // #9 — the gradient's stops named, and the interpolation space called out
+      "background-image: linear-gradient(to right in oklab, rgba(0, 200, 83, 0.2) 0%, rgba(0, 200, 83, 0.05) 100%);",
+      "/* linear-gradient(to right in oklab, var(--green-a4) 0%, var(--green-a1) 100%) — interpolation: oklab */",
+      "--green-a4: rgba(0, 200, 83, 0.2);",
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted
