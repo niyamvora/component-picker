@@ -11,6 +11,19 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **A real toolbar icon and a Firefox build** (#23): `npm run build` now also writes `dist-firefox/`, loadable through `about:debugging`. Firefox has no `chrome.debugger`, so the viewport, state, theme and screenshot sections are absent there and the bundle says so; everything else is identical. Releases carry both zips.
+- **Named icons** (#18): an inline `<svg>` whose geometry matches a known icon is tagged `data-icon="lucide:eye-off"` and listed in the header. 1,733 icons ship as a 53 KB hash table (`scripts/gen-icons.mjs` rebuilds it); matching is on path geometry alone, so formatting, stroke width and viewBox do not matter. The raw paths stay in the HTML for exact parity when no name is found.
+- **Shadow DOM and iframes** (#21): the subtree walk descends into open shadow roots, so a design system built on web components no longer captures as an empty `<my-button>`; the markup travels back as declarative shadow DOM (`<template shadowrootmode="open">`), which renders the same way when pasted. The picker is injected into every frame, so a Stripe field or an embedded demo can be picked in its own iframe.
+- **Side-panel preview** (#20): the bundle's own HTML and CSS rendered in a sandboxed iframe with nothing else on the page — anything that only looked right because the real site's stylesheet was still loaded shows up here as wrong.
+- **Box-model overlay and breadcrumb bar** (#19): padding and margin are shaded the way DevTools shades them, because a single outline says where an element ends but not where its own space stops and its spacing begins. The breadcrumb (`main › section.pricing › div.card › button`) is hoverable and clickable — ↑/↓ alone made reaching the right ancestor slow.
+- **Multi-select and whole-page capture** (#22): shift-click adds elements to the selection, `Backspace` removes the last, and the next plain click captures them all as one bundle with per-component `data-cp` prefixes. `P` selects the page's top-level sections, for a landing page section by section.
+- **Element screenshots** (#15): a PNG of the picked element at each viewport, embedded as a data URI so it renders inline where you paste it. An AI that can see the target *and* read its CSS makes far fewer mistakes than one that can only read. Appended after the text, so an oversized bundle never trades CSS for a picture.
+- **Theme pairs** (#13): the same component in the theme you are not looking at, as a diff. `prefers-color-scheme` is emulated through the debugger; a `.dark` class or `data-theme` attribute is flipped in the page and put back. A site whose framework re-applies its own theme on mutation is reported as such rather than returning a mislabelled snapshot of the theme you already had.
+- **Compare with a reference** (#14): press `R` while the copy toast is up to store a pick, then pick again anywhere — the bundle ends with only what differs, each line carrying the reference value. `Shift+R` clears it. This is the reference → ours → fix → re-pick loop, minus the by-hand part.
+- **Options popup** (#16): what a capture includes (screenshots, states, themes, JS, `@font-face`), the viewport list (name, size, DPR — editable), the current compare reference, and the last ten picks with a one-click re-copy. A badge marks the tab while the picker is armed.
+- **Note with the pick, and freeze mode** (#17): after clicking, a one-line note goes into the bundle as `> Note: …` — the intent the DOM cannot carry. It is prompted while the capture is already running, so it costs no time. `F` freezes the picker so a menu, dropdown or modal can be opened and then picked; the picker otherwise eats the very click that would reveal it.
+
 ## [0.3.0] — 2026-08-30
 
 ### Added

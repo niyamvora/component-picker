@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect x="10" y="10" width="108" height="108" rx="26" fill="#2563eb"/>
+  <!-- the component being picked: a dashed box, and the crosshair over it -->
+  <rect x="30" y="30" width="68" height="68" rx="12" fill="none" stroke="#ffffff" stroke-opacity=".55"
+        stroke-width="7" stroke-dasharray="20 12" stroke-linecap="round"/>
+  <path d="M64 34v60M34 64h60" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="64" cy="64" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="8"/>
+</svg>

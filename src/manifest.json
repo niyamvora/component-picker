@@ -2,11 +2,40 @@
   "manifest_version": 3,
   "name": "Component Picker",
   "version": "0.1.0",
-  "description": "Hover any component, click, and copy its HTML + resolved CSS + hover/media rules + mobile diffs as an AI-ready bundle.",
-  "permissions": ["activeTab", "scripting", "clipboardWrite", "debugger"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Pick a component (Alt+Shift+C)" },
+  "description": "Hover any component, click, and copy its HTML, resolved CSS, interaction states, themes and responsive diffs as an AI-ready bundle.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboardWrite",
+    "debugger",
+    "storage",
+    "sidePanel"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Pick a component (Alt+Shift+C)",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
   "commands": {
-    "_execute_action": { "suggested_key": { "default": "Alt+Shift+C" } }
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      }
+    }
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
   }
 }

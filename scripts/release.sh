@@ -22,7 +22,9 @@ git commit -qm "release: v$V"
 git tag "v$V"
 git push -q origin main "v$V"
 ZIP="component-picker-$V.zip"
+FFZIP="component-picker-firefox-$V.zip"
 (cd dist && zip -qr "../$ZIP" .)
-gh release create "v$V" "$ZIP" --title "Component Picker $V" --notes "$NOTES"
-rm "$ZIP"
+(cd dist-firefox && zip -qr "../$FFZIP" .)
+gh release create "v$V" "$ZIP" "$FFZIP" --title "Component Picker $V" --notes "$NOTES"
+rm "$ZIP" "$FFZIP"
 echo "released v$V"

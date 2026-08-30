@@ -9,10 +9,13 @@ Paste it into Claude/Cursor with "rebuild this in our Next.js project" and you g
 
 ```
 src/      TypeScript sources — extract.ts (the engine) · picker.ts (overlay + messaging)
-          background.ts (debugger driver) · types.ts (the contracts between the three worlds)
+          background.ts (debugger driver, storage) · popup.* (options + history)
+          panel.* (side-panel preview) · options.ts · types.ts (the cross-world contracts)
+          icons.json (1,733 icon hashes) · icon.svg → icons/*.png
 dist/     built extension — load THIS folder unpacked (created by `npm run build`)
+dist-firefox/  the same build with a Firefox manifest
 test/     check.sh (engine, headless) · e2e.mjs (real extension + CDP) · fixture.html
-scripts/  release.sh — typecheck, both suites, version bump, tag, zip, GitHub Release
+scripts/  release.sh · gen-icons.mjs (rebuild the icon table) · gen-icon.mjs (render the PNGs)
 ```
 
 The three worlds — content script, page MAIN world, service worker — never share a call stack, so
@@ -35,15 +38,21 @@ need the `chrome.debugger` API, which only Chromium exposes to extensions.
 
 ## Use
 
-1. Click the toolbar icon (or Alt+Shift+C). Cursor turns into a crosshair, a banner appears at the top.
-2. Hover — the outline follows the element under the pointer; the label shows `tag#id.class`, size and
-   the React component (⚛) when the site is React.
-3. **↑** selects the parent, **↓** the first child (use this to grab the whole card, not the button inside it).
-4. **Click** or **Enter** to copy. **Esc** cancels.
-5. Chrome briefly shows "Component Picker started debugging this browser" — that is the mobile/tablet
-   measurement (≈1 s). If DevTools is open on that tab, close it first, otherwise that section is skipped
-   and the bundle notes why.
-6. Paste. A toast confirms `Copied div.card — 23 KB`. The last bundle is also at `window.__cp.last` in the console.
+1. Click the toolbar icon (or Alt+Shift+C) and press **Pick on this page**. The cursor becomes a
+   crosshair, a banner appears at the top and a breadcrumb bar at the bottom.
+2. Hover — the outline follows the pointer, padding is shaded green and margin orange (as in
+   DevTools), and the label shows `tag#id.class` and the rendered size.
+3. **↑ / ↓** move to the parent or first child; the breadcrumb crumbs are clickable for the same.
+4. **Shift-click** adds elements to a selection (**Backspace** removes the last); **P** selects the
+   page's top-level sections. **F** freezes the picker so you can open a menu and then pick it.
+5. **Click** or **Enter** captures. A one-line note box appears — type intent for the AI, or Esc to skip.
+   **Esc** at any other time cancels.
+6. Chrome shows "Component Picker started debugging this browser" while it measures the viewports,
+   interaction states and the other theme (≈2 s). If DevTools is open on that tab, close it first,
+   otherwise those sections are skipped and the bundle says so.
+7. Paste. While the toast is up, **R** stores the pick as the compare reference (**Shift+R** clears it)
+   — the next capture will report only what differs from it. The side panel shows the capture rendered
+   from the bundle alone, and the popup keeps the last ten picks for re-copying.
 
 ## What the bundle contains
 
@@ -58,6 +67,10 @@ need the `chrome.debugger` API, which only Chromium exposes to extensions.
 | Responsive: mobile 390×844 / tablet 768×1024 | CDP device emulation on the same tab | only what **changes** vs desktop, plus elements that appear/disappear |
 | Keyframes / Fonts | stylesheets | only the ones the subtree uses |
 | JS / handlers | React fiber `memoizedProps`, inline `on*` | handler source (minified on prod sites, still shows intent) |
+| Theme: dark/light | CDP media emulation, or flipping the page's own class/attribute | only what changes between themes |
+| Compared with reference | a stored earlier pick | only what differs, with the reference value on each line |
+| Screenshots | CDP `Page.captureScreenshot` | PNG of the element per viewport, embedded as a data URI |
+| Context / Tokens / Variants | see above | ancestors and siblings · every `var(--…)` resolved · sibling states |
 
 Caps: 300 elements, ~180 KB. Pick a smaller component if it truncates.
 
@@ -116,10 +129,25 @@ Everything runs locally in your browser. The extension makes no network requests
 and no server — the bundle only ever reaches your clipboard. It captures whatever the page contains,
 including values inside form fields, so check a bundle before pasting it somewhere public.
 
+## Options
+
+The toolbar popup controls what a capture includes (screenshots, states, themes, JS, `@font-face`),
+the viewport list (name, size and DPR are editable), the compare reference, and the last ten picks.
+Everything is stored locally in the extension.
+
+## Firefox
+
+`npm run build` also writes `dist-firefox/`, loadable through `about:debugging` → *Load Temporary
+Add-on*. Firefox has no `chrome.debugger`, so the viewport, interaction-state, theme and screenshot
+sections are absent there — the bundle says so, and the source rules still carry the media queries.
+Everything else (HTML, resolved CSS, tokens, context, variants, icons, fonts) is identical.
+
 ## Known limits
 
 - Width/height are emitted only for replaced elements, absolutely-positioned boxes, or when set inline/by
   attribute — computed values are always px, so fluid widths would lie. The `W×H` comment carries the real size.
 - Interaction states are forced on the elements the site has state rules for, all at once — so a component with several hoverable parts shows every part hovered, not one pointer position.
-- Shadow DOM internals and cross-origin iframes are not entered.
-- CSS custom properties are emitted resolved (values), not as tokens.
+- Closed shadow roots cannot be read (open ones are). A cross-origin iframe is picked in its own
+  frame — the picker runs in all of them — but cannot be captured from the parent page.
+- Token names come from source order, not full cascade specificity; the value printed beside a token
+  is always the real computed one, so a mismatch is visible rather than silent.
