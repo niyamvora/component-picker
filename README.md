@@ -1,5 +1,7 @@
 # Component Picker
 
+[![ci](https://github.com/niyamvora/component-picker/actions/workflows/ci.yml/badge.svg)](https://github.com/niyamvora/component-picker/actions/workflows/ci.yml)
+
 Chrome extension: hover any component on any site, click, and your clipboard holds an AI-ready
 Markdown bundle — HTML, browser-resolved CSS, hover/focus + media-query rules, keyframes, fonts,
 React component chain + handler source, and **mobile/tablet diffs** measured on the live page.
@@ -49,6 +51,48 @@ node e2e.mjs    # real extension + debugger emulation in Chrome for Testing (nee
 
 `e2e.mjs` uses Playwright's Chrome for Testing binary by default (`CHROME=/path/to/binary` to override) —
 branded Google Chrome ≥ 137 ignores `--load-extension`.
+
+## Roadmap
+
+Work is tracked on the [Component Picker Roadmap board](https://github.com/users/niyamvora/projects/11) and in the
+[tracking epic #24](https://github.com/niyamvora/component-picker/issues/24). One milestone = one minor version.
+
+| Milestone | Theme | Highlights |
+|---|---|---|
+| [v0.2](https://github.com/niyamvora/component-picker/milestone/1) | Correct captures | pointer-hover leak fix (#1), forced `:hover`/`:focus`/`:active` diffs (#2), sibling variants (#3), noise trimming (#4–#6), CI (#7) |
+| [v0.3](https://github.com/niyamvora/component-picker/milestone/2) | Tokens & context | CSS variable names beside values (#8), gradient stop lists (#9), ancestor/sibling context (#10), component-library hint (#11), font one-liner (#12) |
+| [v0.4](https://github.com/niyamvora/component-picker/milestone/3) | Themes, compare, popup | light/dark pairs (#13), reference-vs-ours diff (#14), element screenshots (#15), options popup + history (#16), note & freeze (#17) |
+| [v0.5](https://github.com/niyamvora/component-picker/milestone/4) | Polish | named icons (#18), box-model overlay + breadcrumb (#19), side-panel preview (#20), iframes/shadow DOM (#21), multi-select (#22), Web Store + Firefox (#23) |
+
+## Contributing
+
+1. Pick an issue from the board's *Todo* column and move it to *In Progress*.
+2. Branch off `main`; every issue names the exact file, function and steps.
+3. `./check.sh` and `node e2e.mjs` must both print `PASS` before pushing.
+4. Add the assertions the issue lists under **Tests**, and a `CHANGELOG.md` line under `## [Unreleased]`.
+5. PR body says `Closes #<issue>`.
+
+**Labels:** `type:*` (feature/bug/chore/task/plan), `priority:P0–P3`, `area:*`
+(capture · cdp · output · ui · infra · docs). **Board fields:** Status, Priority, Kind.
+
+## Versioning & releases
+
+Semantic versioning; the git tag, the GitHub Release, the milestone and `manifest.json`'s `version`
+always match. `VERSION` holds the current number and [CHANGELOG.md](CHANGELOG.md) follows
+[Keep a Changelog](https://keepachangelog.com).
+
+```sh
+./release.sh 0.2.0     # runs both checks, bumps VERSION + manifest, tags, zips, publishes the Release
+```
+
+Users install by downloading the zip from the [Releases page](https://github.com/niyamvora/component-picker/releases)
+and loading it unpacked (until the Web Store listing in #23 ships).
+
+## Privacy
+
+Everything runs locally in your browser. The extension makes no network requests, has no analytics,
+and no server — the bundle only ever reaches your clipboard. It captures whatever the page contains,
+including values inside form fields, so check a bundle before pasting it somewhere public.
 
 ## Known limits
 
