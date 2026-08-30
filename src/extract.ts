@@ -6,6 +6,7 @@
  * extension loaded at all.
  */
 
+import iconTable from "./icons.json";
 import { DEFAULT_OPTIONS, loadOptions } from "./options";
 import type {
   Block, Blocks, MediaRule, Message, MeasureResult, Options, ProbeResult, Reference, Snapshot,
@@ -763,8 +764,42 @@ function cloneDeep(el: Element): Element {
   return copy;
 }
 
+// ---------- icons ----------
+/**
+ * `lucide:eye-off` instead of three anonymous `<path d="…">`.
+ *
+ * An icon named is an icon the AI can import from the set the project already depends on; the raw
+ * paths stay in the HTML for exact parity when it cannot. Matching is on geometry alone — the same
+ * picture at any formatting, stroke width or viewBox hashes the same.
+ */
+function iconHash(shapes: string[]): string {
+  const text = shapes.map((x) => x.replace(/\s+/g, " ").trim()).join("|");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+}
+
+const MAX_ICON_SHAPES = 8; // past this it is an illustration, not an icon
+
+function iconName(svg: Element): string | null {
+  const shapes = [
+    ...[...svg.querySelectorAll("path")].map((p) => p.getAttribute("d") ?? ""),
+    ...[...svg.querySelectorAll("polyline, polygon")].map((p) => p.getAttribute("points") ?? ""),
+    ...[...svg.querySelectorAll("circle")].map((c) => `c${c.getAttribute("cx")},${c.getAttribute("cy")},${c.getAttribute("r")}`),
+  ].filter(Boolean);
+  if (!shapes.length || shapes.length > MAX_ICON_SHAPES) return null;
+  return (iconTable as Record<string, string>)[iconHash(shapes)] ?? null;
+}
+
 // ---------- HTML ----------
+/** Icon names found in the last capture, for the header line. */
+const icons = new Set<string>();
+
 function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number>): string {
+  icons.clear();
   const clone = cloneDeep(root);
   const clones = walkClone(clone);
   const pos = new Map(all.map((e, i) => [e, i]));
@@ -772,6 +807,10 @@ function htmlOf(root: Element, all: Element[], els: Element[], stamp: Set<number
     const c = clones[pos.get(el)!];
     if (!c) return;
     if (stamp.has(i)) c.setAttribute("data-cp", String(i + 1));
+    if (el instanceof SVGSVGElement) {
+      const name = iconName(el);
+      if (name) { c.setAttribute("data-icon", name); icons.add(name); }
+    }
     if (el instanceof HTMLImageElement) { c.setAttribute("src", el.currentSrc || el.src); c.removeAttribute("srcset"); c.removeAttribute("sizes"); }
     else if (el instanceof HTMLAnchorElement && el.href) c.setAttribute("href", el.href);
     else if ((el instanceof HTMLVideoElement || el instanceof HTMLSourceElement) && el.src) c.setAttribute("src", el.src);
@@ -837,6 +876,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. ` +
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
     `${libs.length ? ` UI: ${libs.join(" + ")}.` : ""}` +
+    `${icons.size ? ` Icons: ${[...icons].join(", ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
   md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
   const context = contextOf(root);
