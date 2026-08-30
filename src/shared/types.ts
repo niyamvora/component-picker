@@ -83,20 +83,10 @@ export interface Reference {
 }
 
 /** A Framer Motion component's declarative props, by element index (#30). */
-export interface MotionInfo {
-  id: number;
-  name: string;
-  props: Record<string, string>;
-}
+export interface MotionInfo { id: number; name: string; props: Record<string, string> }
 
 /** One GSAP tween that targets the picked subtree (#31). */
-export interface GsapTween {
-  id: number;
-  vars: string;
-  duration: number;
-  start: number;
-  paused: boolean;
-}
+export interface GsapTween { id: number; vars: string; duration: number; start: number; paused: boolean }
 
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
