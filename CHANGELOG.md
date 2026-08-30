@@ -1,12 +1,13 @@
 # Changelog
 
-One version = one git tag = one GitHub Release = one milestone (`vX.Y`). The tag is the
-`version` in `manifest.json`, and the Release carries the loadable zip. Versions follow
+One version = one git tag = one GitHub Release = one milestone (`vX.Y`). `VERSION` is the single
+source of truth — the build stamps it into `manifest.json` — and the Release carries the zip you
+can load unpacked without building. Versions follow
 [Semantic Versioning](https://semver.org): a milestone bumps the **minor**, a hotfix bumps the
 **patch**, and the **major** stays 0 until the Chrome Web Store listing ships.
-Format follows [Keep a Changelog](https://keepachangelog.com). `./release.sh <version>` moves
-the Unreleased block under a new heading, bumps `VERSION` + `manifest.json`, tags, zips and
-publishes the Release.
+Format follows [Keep a Changelog](https://keepachangelog.com). `./scripts/release.sh <version>`
+typechecks, runs both suites, moves the Unreleased block under a new heading, bumps `VERSION`
+(which `build.mjs` stamps into the manifest), tags, zips `dist/` and publishes the Release.
 
 ## [Unreleased]
 
