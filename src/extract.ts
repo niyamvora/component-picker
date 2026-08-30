@@ -224,8 +224,7 @@ function renderBlock(i: number, b: Block, props = b.props, pseudos = b.pseudos,
                      notes: Record<string, string[]> = {}): string[] {
   const out: string[] = [];
   const lines = Object.entries(props).map(([p, v]) => {
-    const rem = remHint(p, v, rootPx);
-    const hints = [...(rem ? [rem] : []), ...(notes[p] ?? [])];
+    const hints = [tokenHint(i, p, v), remHint(p, v, rootPx), ...(notes[p] ?? [])].filter((h): h is string => !!h);
     return `  ${p}: ${v};${hints.length ? ` /* ${hints.join(" · ")} */` : ""}`;
   });
   if (lines.length) out.push(`${sel(i)} { /* ${b.label}${b.rect ? ` ${b.rect[0]}×${b.rect[1]}` : ""} */\n${lines.join("\n")}\n}`);
@@ -275,6 +274,8 @@ function breakpointNote(media: MediaRule[], id: number, prop: string, width: num
 
 /** The page's root font-size at pick time — what every rem hint is measured against. */
 let rootPx = 16;
+/** Token sources for the current pick, by element index. Set once per capture, like `rootPx`. */
+let sources: Record<number, VarSource> = {};
 
 /** Only what changed vs the desktop blocks. */
 function diffBlocks(desktop: Blocks, other: Blocks, media: MediaRule[] = [], width = 0): string[] {
@@ -302,8 +303,41 @@ function diffBlocks(desktop: Blocks, other: Blocks, media: MediaRule[] = [], wid
 }
 
 // ---------- stylesheet rules: states, media queries, keyframes, font faces ----------
+/**
+ * A rule's declarations as authored, read from its text.
+ *
+ * Not from `CSSStyleDeclaration`: a `var()` inside a shorthand becomes a pending-substitution
+ * value, so `background: var(--gray-a3)` enumerates as `background-color` … with every longhand
+ * reporting an empty string. The token is only visible in the text.
+ */
+function declarations(r: CSSStyleRule): [string, string][] {
+  const body = r.cssText.slice(r.cssText.indexOf("{") + 1, r.cssText.lastIndexOf("}"));
+  const parts: string[] = [];
+  let depth = 0, cur = "";
+  for (const ch of body) {
+    if (ch === "(") depth++; else if (ch === ")") depth--;
+    if (ch === ";" && !depth) { parts.push(cur); cur = ""; } else cur += ch;
+  }
+  parts.push(cur);
+  return parts.map((p) => {
+    const i = p.indexOf(":");
+    return i < 0 ? null : ([p.slice(0, i).trim(), p.slice(i + 1).trim()] as [string, string]);
+  }).filter((d): d is [string, string] => !!d && !!d[0]);
+}
+
+/** Does this rule name a design token — either using one, or defining one? */
+const declaresVar = (r: CSSStyleRule) =>
+  declarations(r).some(([p, v]) => p.startsWith("--") || v.includes("var("));
+
+const holdsNow = (cond: string | null) => {
+  if (!cond) return true;
+  try { return matchMedia(cond).matches; } catch { return false; }
+};
+
 function sheetRules() {
   const styleRules: { r: CSSStyleRule; cond: string | null }[] = [];
+  /** Rules that could explain a resolved value as a token — the input to `varSources`. */
+  const varRules: CSSStyleRule[] = [];
   const keyframes: Record<string, string> = {};
   const fontFaces: CSSFontFaceRule[] = [];
   const walk = (rules: CSSRuleList, cond: string | null): void => {
@@ -314,11 +348,109 @@ function sheetRules() {
         if (!/print/.test(r.conditionText)) walk(r.cssRules, cond ? `${cond} and ${r.conditionText}` : r.conditionText);
       } else if (r instanceof CSSStyleRule) {
         if (cond || STATE_RE.test(r.selectorText)) styleRules.push({ r, cond });
+        // A `:hover` rule's token is not what the resting value came from, and a media rule that
+        // does not currently hold explains nothing about what is on screen.
+        if (!STATE_RE.test(r.selectorText) && holdsNow(cond) && declaresVar(r)) varRules.push(r);
       } else if ((r as CSSGroupingRule).cssRules) walk((r as CSSGroupingRule).cssRules, cond);
     }
   };
   for (const s of document.styleSheets) { try { walk(s.cssRules, null); } catch { /* cross-origin sheet */ } }
-  return { styleRules, keyframes, fontFaces };
+  return { styleRules, varRules, keyframes, fontFaces };
+}
+
+/** Elements of the picked subtree a selector hits, ignoring the state and pseudo-element parts. */
+function matchIds(root: Element, index: Map<Element, number>, selectorText: string): { ids: number[]; hits: Element[] } | null {
+  const base = selectorText.replace(new RegExp(STATE_RE.source, "g"), "").replace(new RegExp(PSEUDO_EL_RE.source, "g"), "").trim();
+  if (!base || base === "*" || /^[>+~,]|[>+~,]$/.test(base)) return null;
+  let hits: Element[];
+  try { hits = [...root.querySelectorAll(base)]; if (root.matches(base)) hits.unshift(root); } catch { return null; }
+  const ids = hits.map((el) => index.get(el)).filter((n): n is number => n !== undefined);
+  return ids.length ? { ids, hits } : null;
+}
+
+/** What an element's author stylesheet said, for properties whose value came from a token. */
+interface VarSource {
+  /** property → the declaration as authored, e.g. `background-color` → `var(--gray-a3)`. */
+  props: Record<string, string>;
+  /** custom property → its authored value, so `--tw-*` plumbing can be followed to a real name. */
+  customs: Record<string, string>;
+}
+
+/**
+ * Where each resolved value came from.
+ *
+ * `rgba(176, 199, 217, 0.145)` is the truth about pixels, but `var(--gray-a3)` is the portable
+ * truth: it is the half that maps onto the target project's own tokens, and the only half that is
+ * greppable. Later declarations win, which approximates the cascade well enough to name a token.
+ *
+ * ponytail: source order, not specificity. A low-specificity rule later in the sheet can win here
+ * and it cannot in the browser; the value printed beside it is always the real computed one.
+ */
+function varSources(root: Element, els: Element[], varRules: CSSStyleRule[]): Record<number, VarSource> {
+  const index = new Map(els.map((el, i) => [el, i]));
+  const out: Record<number, VarSource> = {};
+  const at = (i: number) => (out[i] ??= { props: {}, customs: {} });
+  const absorb = (i: number, decls: [string, string][]) => {
+    for (const [p, v] of decls) {
+      if (p.startsWith("--")) { at(i).customs[p] = v; continue; }
+      if (v.includes("var(")) { at(i).props[p] = v; continue; }
+      // A later literal overrides the token that was recorded for the same knob — printing
+      // `var(--gray-a3)` next to a value an inline style actually set would be a lie.
+      for (const seen of Object.keys(at(i).props)) if (sameKnob(seen, p)) delete at(i).props[seen];
+    }
+  };
+  for (const r of varRules.slice(0, 20000)) {
+    const m = matchIds(root, index, r.selectorText);
+    if (m) { const decls = declarations(r); for (const i of m.ids) absorb(i, decls); }
+  }
+  // Inline styles are the last word, so they are absorbed last.
+  els.forEach((el, i) => {
+    const st = (el as HTMLElement).style;
+    if (!st?.length) return;
+    absorb(i, Array.from({ length: st.length }, (_, n) => [st.item(n), st.getPropertyValue(st.item(n))] as [string, string]));
+  });
+  return out;
+}
+
+/**
+ * Tailwind v4 routes a utility's token through `--tw-*` plumbing: `bg-gray-a3` sets
+ * `--tw-bg: var(--gray-a3)`. Printing the plumbing helps nobody, so it is followed to the name a
+ * person actually wrote.
+ */
+function expandTw(expr: string, customs: Record<string, string>): string {
+  for (let hop = 0; hop < 6 && /var\(--tw-/.test(expr); hop++) {
+    const next = expr.replace(/var\((--tw-[\w-]+)(?:\s*,\s*([^()]*))?\)/g, (m, name, fb) => customs[name]?.trim() || (fb ?? m));
+    if (next === expr) break;
+    expr = next;
+  }
+  return expr;
+}
+
+/**
+ * Every token the bundle ended up naming, resolved.
+ *
+ * Read back off the finished Markdown rather than collected while rendering: the hints are the
+ * only place tokens appear, so scanning them cannot drift out of sync with what was printed.
+ */
+function tokensSection(md: string[], root: Element): string | null {
+  const names = new Set<string>();
+  for (const m of md.join("\n").matchAll(/var\((--[\w-]+)/g)) if (!m[1].startsWith("--tw-")) names.add(m[1]);
+  if (!names.size) return null;
+  const here = getComputedStyle(root), doc = getComputedStyle(document.documentElement);
+  const lines = [...names].sort().map((n) => `${n}: ${(here.getPropertyValue(n) || doc.getPropertyValue(n)).trim() || "/* not resolvable from this element */"};`);
+  return `## Tokens used\n\`\`\`css\n${lines.join("\n")}\n\`\`\``;
+}
+
+/** The token behind a printed property, if the stylesheet named one. */
+function tokenHint(i: number, prop: string, value: string): string | null {
+  const src = sources[i];
+  if (!src) return null;
+  const found = Object.entries(src.props).filter(([p]) => sameKnob(p, prop)).pop();
+  if (!found) return null;
+  const expr = expandTw(found[1].trim(), src.customs);
+  if (!expr.includes("var(")) return null; // the plumbing resolved to a literal; the value already says it
+  const space = / in ([a-z-]+)/.exec(value); // gradients keep their interpolation space
+  return expr + (space ? ` — interpolation: ${space[1]}` : "");
 }
 
 /** Which forced state a `:hover`/`:focus…`/`:active` selector asks for. */
@@ -331,12 +463,9 @@ function matchRules(root: Element, els: Element[], styleRules: { r: CSSStyleRule
   // Hovering a child hovers its ancestors, so the picked root always counts as hovered.
   const stateIdx: Record<StateName, Set<number>> = { hover: new Set([0]), "focus-visible": new Set(), active: new Set() };
   for (const { r, cond } of styleRules.slice(0, 20000)) {
-    const base = r.selectorText.replace(new RegExp(STATE_RE.source, "g"), "").replace(new RegExp(PSEUDO_EL_RE.source, "g"), "").trim();
-    if (!base || base === "*" || /^[>+~,]|[>+~,]$/.test(base)) continue;
-    let hits: Element[];
-    try { hits = [...root.querySelectorAll(base)]; if (root.matches(base)) hits.unshift(root); } catch { continue; }
-    const ids = hits.map((el) => index.get(el)).filter((n): n is number => n !== undefined);
-    if (!ids.length) continue;
+    const m = matchIds(root, index, r.selectorText);
+    if (!m) continue;
+    const { ids, hits } = m;
     const css = resolveVars(r.cssText, getComputedStyle(hits.find((el) => index.has(el))!));
     const text = cond ? `@media ${cond} {\n  ${css}\n}` : css;
     found.push(`/* → ${ids.slice(0, 8).map(sel).join(", ")}${ids.length > 8 ? ", …" : ""} */\n${text}`);
@@ -456,8 +585,9 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
 }
 
 async function build(root: Element, all: Element[], eligible: Element[], els: Element[], onStatus: (s: string) => void): Promise<string> {
-  const { styleRules, keyframes, fontFaces } = sheetRules();
+  const { styleRules, varRules, keyframes, fontFaces } = sheetRules();
   const { found: rules, states, media } = matchRules(root, els, styleRules);
+  sources = varSources(root, els, varRules);
 
   // Everything measurable is measured in one debugger session, starting with the resting
   // desktop state — the pointer is still on the element the user just clicked, and reading
@@ -502,6 +632,8 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     md.push(`## Responsive: ${v.name} ${v.width}×${v.height} (DPR ${v.dpr}) — root renders ${v.root[0]}×${v.root[1]}\n` +
       (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"));
   }
+  const tokens = tokensSection(md, root);
+  if (tokens) md.push(tokens);
   if (kf.length) md.push(`## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   md.push(`## Fonts\n- Families used: ${font.fams.join(", ")}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +

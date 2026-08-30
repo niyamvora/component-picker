@@ -2,9 +2,9 @@
 <title>Component Picker self-check</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  .card { flex-direction: column; }
+  .card { flex-direction: column; background: var(--panel); --tw-pad: var(--pad); padding: var(--tw-pad); }
   .card * { border: 0 solid red; }            /* Tailwind-preflight shape: must not be reported as a border */
-  :root { --accent: red; --ease: cubic-bezier(0.4, 0, 0.2, 1); }
+  :root { --accent: red; --ease: cubic-bezier(0.4, 0, 0.2, 1); --panel: rgb(250, 250, 250); --pad: 16px; }
   .btn { position: relative; animation: spin 1s linear infinite; transition: background-color .2s var(--ease), color .3s ease; }
   .btn:hover { background: var(--accent); color: var(--missing, blue); }
   .btn:active { background: green; }
@@ -15,7 +15,7 @@
   @media (max-width: 600px) { .card { flex-direction: row; } }
   @keyframes spin { to { transform: rotate(1turn); } }
 </style>
-<div id="card" class="card" style="display:flex;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
+<div id="card" class="card" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
   <h2 class="title">Hello</h2>
   <button class="btn" onclick="alert(1)">Go</button>
   <a href="/rel">rel link</a>
@@ -39,9 +39,12 @@
     const tab = await window.__cp.extract(document.querySelector(".tab"));
     const must = [
       '<div id="card" class="card"', 'data-cp="1"',                // root stamped
-      "flex-direction: column;", "gap: 12px; /* 0.75rem */", "padding: 16px; /* 1rem */",
+      "flex-direction: column;", "gap: 12px; /* 0.75rem */",
       "margin: 19.92px 0px; /* 1.245rem 0 */",                      // h2 UA margin vs neutral baseline
       "font-size: 24px; /* 1.5rem */",                              // #6 rem hints
+      "background-color: rgb(250, 250, 250); /* var(--panel) */",   // #8 token names beside values
+      "padding: 16px; /* var(--pad) · 1rem */",                     // #8 --tw-* plumbing followed to a real token
+      "## Tokens used", "--panel: rgb(250, 250, 250);", "--pad: 16px;",
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted
