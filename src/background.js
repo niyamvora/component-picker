@@ -13,7 +13,7 @@ const VIEWPORTS = [
 ];
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
-  const job = msg.type === "responsive" ? responsive(sender.tab.id)
+  const job = msg.type === "measure" ? measure(sender.tab.id, msg.states)
     : msg.type === "probe" ? probe(sender.tab.id) : null;
   if (!job) return;
   job.then(reply, (e) => reply({ error: String(e.message || e) }));
@@ -53,21 +53,66 @@ async function probe(tabId) {
   return r.result;
 }
 
-async function responsive(tabId) {
+const send = (target, method, params) => chrome.debugger.sendCommand(target, method, params);
+/** Ask the content script to measure the picked subtree once the page has settled. */
+const snap = (tabId, settle) => chrome.tabs.sendMessage(tabId, { type: "snapshot", settle });
+
+/**
+ * One debugger session for the whole capture: resting desktop, each viewport, each forced state.
+ * `states` is { hover: [elementIndex…], "focus-visible": […], active: […] } from the content script.
+ */
+async function measure(tabId, states = {}) {
   const target = { tabId };
   await chrome.debugger.attach(target, "1.3");
-  const out = [];
+  const out = { viewports: [], states: [] };
   try {
+    // The pointer is still sitting where the user clicked, so the site's :hover styles are live
+    // and would be measured as if they were the resting state. Park it in the corner first.
+    // ponytail: an element at (0,0) stays hovered; rare, and the alternative is guessing a free pixel.
+    await send(target, "Input.dispatchMouseEvent", { type: "mouseMoved", x: 0, y: 0 });
+    out.viewports.push({ name: "desktop", ...(await snap(tabId, 400)) });
     for (const v of VIEWPORTS) {
-      await chrome.debugger.sendCommand(target, "Emulation.setDeviceMetricsOverride", {
+      await send(target, "Emulation.setDeviceMetricsOverride", {
         width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile,
       });
-      const snap = await chrome.tabs.sendMessage(tabId, { type: "snapshot" });
-      out.push({ ...v, ...snap });
+      out.viewports.push({ ...v, ...(await snap(tabId, 400)) });
     }
+    await send(target, "Emulation.clearDeviceMetricsOverride");
+    await forceStates(target, tabId, states, out);
   } finally {
-    await chrome.debugger.sendCommand(target, "Emulation.clearDeviceMetricsOverride").catch(() => {});
+    await send(target, "Emulation.clearDeviceMetricsOverride").catch(() => {});
     await chrome.debugger.detach(target).catch(() => {});
   }
-  return { viewports: out };
+  return out;
+}
+
+// :focus-visible only applies while :focus does, so it is forced as a pair.
+const PSEUDO = { hover: ["hover"], "focus-visible": ["focus", "focus-visible"], active: ["active"] };
+const MAX_FORCED = 20;
+
+/**
+ * Measure the picked subtree with interaction states forced on, the way DevTools does it.
+ * Every element the site has a state rule for is forced — not just the picked root — because a
+ * card's hover styling usually lives on a child. They are forced together, so what comes back is
+ * "this component with everything hovered", not one pointer position.
+ */
+async function forceStates(target, tabId, states, out) {
+  const wanted = Object.keys(PSEUDO).filter((s) => states[s]?.length);
+  if (!wanted.length) return;
+  await send(target, "DOM.enable");
+  await send(target, "CSS.enable");
+  const { root } = await send(target, "DOM.getDocument", { depth: 0 });
+  for (const state of wanted) {
+    const nodes = [];
+    for (const i of states[state].slice(0, MAX_FORCED)) {
+      const { nodeId } = await send(target, "DOM.querySelector", { nodeId: root.nodeId, selector: `[data-cp-tmp="${i}"]` });
+      if (nodeId) nodes.push(nodeId);
+    }
+    if (!nodes.length) continue;
+    for (const nodeId of nodes) await send(target, "CSS.forcePseudoState", { nodeId, forcedPseudoClasses: PSEUDO[state] });
+    // A forced state does not reflow, so the only wait needed is the page's own transition,
+    // which the content script measures for itself.
+    out.states.push({ name: state, ...(await snap(tabId, 0)) });
+    for (const nodeId of nodes) await send(target, "CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
+  }
 }

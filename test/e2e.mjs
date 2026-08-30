@@ -46,10 +46,17 @@ async function targets() {
 
 try {
   const connect = async (t) => { const ws = new WebSocket(t.webSocketDebuggerUrl); await new Promise((r) => (ws.onopen = r)); return ws; };
-  const evalIn = (ws, expression) => new Promise((resolve, reject) => {
-    ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id !== 1) return; d.error || d.result.exceptionDetails ? reject(new Error(JSON.stringify(d))) : resolve(d.result.result.value); };
-    ws.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression, awaitPromise: true, returnByValue: true } }));
+  let msgId = 0;
+  const cmd = (ws, method, params) => new Promise((resolve, reject) => {
+    const id = ++msgId;
+    ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id !== id) return; d.error ? reject(new Error(JSON.stringify(d))) : resolve(d.result); };
+    ws.send(JSON.stringify({ id, method, params }));
   });
+  const evalIn = async (ws, expression) => {
+    const r = await cmd(ws, "Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
+    if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails));
+    return r.result.value;
+  };
   // Several extensions ship a service worker; ours is the one whose manifest says so.
   let ws;
   for (let i = 0; i < 50 && !ws; i++) {
@@ -62,6 +69,18 @@ try {
   }
   if (!ws) throw new Error("extension service worker not found");
   const evaluate = (e) => evalIn(ws, e);
+
+  // Put a real pointer on the animated button and leave it there. Everything the picker measures
+  // afterwards must be the RESTING state — this is the regression test for the :hover leak.
+  const page = (await targets()).find((t) => t.type === "page" && t.url.includes("fixture.html"));
+  const pws = await connect(page);
+  const [hx, hy] = JSON.parse(await evalIn(pws, `(() => { const r = document.querySelector(".btn").getBoundingClientRect(); return JSON.stringify([Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]); })()`));
+  await cmd(pws, "Input.dispatchMouseEvent", { type: "mouseMoved", x: hx, y: hy });
+  await sleep(400);
+  if (!/rgb\(255, 0, 0\)/.test(await evalIn(pws, `getComputedStyle(document.querySelector(".btn")).backgroundColor`)))
+    throw new Error("test setup: the synthetic hover did not take, so the leak cannot be detected");
+  pws.close();
+
   const md = await evaluate(`(async () => {
     const [tab] = await chrome.tabs.query({});
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["picker.js"] });
@@ -70,14 +89,25 @@ try {
   })()`);
   ws.close();
 
-  const mobile = md.slice(md.indexOf("## Responsive: mobile"), md.indexOf("## Responsive: tablet"));
+  const section = (name, next) => md.slice(md.indexOf(name), next ? md.indexOf(next) : undefined);
+  const mobile = section("## Responsive: mobile", "## Responsive: tablet");
+  const resting = section("## CSS (desktop, resting state)", "## State:");
+  const hover = section("## State: hover", "## State: focus-visible");
+  const active = section("## State: active", "## Source rules");
   const must = ["## Responsive: mobile 390×844 (DPR 3)", "## Responsive: tablet 768×1024 (DPR 2)", "data-cp=\"1\"",
     "Framework: React.", "Component chain: Card › Page.", '[data-cp="1"] onClick: function handleCard() { return 1; }'];
   const fails = must.filter((s) => !md.includes(s));
+  // #1 — the pointer is on .btn while the capture runs; the resting block must not show its hover colour.
+  if (/background-color: rgb\(255, 0, 0\)/.test(resting)) fails.push("hover colour leaked into the resting desktop CSS");
+  // #2 — forced states, measured on the child that owns the rule, not just the picked root.
+  if (!/background-color: rgb\(255, 0, 0\)/.test(hover)) fails.push("State: hover is missing the forced :hover colour");
+  if (!/background-color: rgb\(0, 128, 0\)/.test(active)) fails.push("State: active is missing the forced :active colour");
+  // Settle must outlast the page's own transition, or a state is read part-way through the fade.
+  if (!/color: rgb\(0, 0, 255\);/.test(hover)) fails.push("State: hover colour was measured mid-transition");
   if (!/\[data-cp="1"\][^}]*flex-direction: row;/.test(mobile)) fails.push("mobile diff lacks flex-direction: row on root");
   if (/transform: matrix/.test(md)) fails.push("animated transform leaked into CSS");
   if (/transform-origin/.test(md)) fails.push("default transform-origin leaked into CSS");
-  console.log(fails.length ? `FAIL\n${fails.map((s) => "MISSING " + s).join("\n")}\n\n${md}` : `PASS ${md.length} chars\n` + md.slice(md.indexOf("## Responsive")));
+  console.log(fails.length ? `FAIL\n${fails.map((s) => "MISSING " + s).join("\n")}\n\n${md}` : `PASS ${md.length} chars\n` + md.slice(md.indexOf(process.env.SHOW || "## Responsive")));
   process.exitCode = fails.length ? 1 : 0;
 } catch (e) {
   console.error("FAIL", e);

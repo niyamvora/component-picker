@@ -3,9 +3,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   .card { flex-direction: column; }
+  .card * { border: 0 solid red; }            /* Tailwind-preflight shape: must not be reported as a border */
   :root { --accent: red; --ease: cubic-bezier(0.4, 0, 0.2, 1); }
   .btn { position: relative; animation: spin 1s linear infinite; transition: background-color .2s var(--ease), color .3s ease; }
   .btn:hover { background: var(--accent); color: var(--missing, blue); }
+  .btn:active { background: green; }
+  .tab[aria-selected="true"] { color: rgb(255, 0, 0); }
+  .tab[aria-selected="false"] { color: rgb(128, 128, 128); font-weight: 700; }
   @font-face { font-family: Georgia; src: url("../media/georgia.woff2") format("woff2"); }
   .btn::after { content: "→"; margin-left: 4px; }
   @media (max-width: 600px) { .card { flex-direction: row; } }
@@ -18,6 +22,10 @@
   <span hidden><b>secret child</b></span>
   <script>window.__cpEvil = true</script>
 </div>
+<ul id="tabs" style="display:flex;gap:8px;list-style:none;padding:0">
+  <li class="tab" aria-selected="true">A</li>
+  <li class="tab" aria-selected="false">B</li>
+</ul>
 <pre id="result">RUNNING</pre>
 <pre id="md" hidden></pre>
 <script>
@@ -28,6 +36,7 @@
 <script>
   (async () => {
     const md = await window.__cp.extract(document.getElementById("card"));
+    const tab = await window.__cp.extract(document.querySelector(".tab"));
     const must = [
       '<div id="card" class="card"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px;", "padding: 16px;", "margin: 19.92px 0px;",   // h2 UA margin vs neutral baseline
@@ -41,13 +50,18 @@
       "display: none;",                                             // hidden span
       'href="' + location.origin + '/rel"',                         // absolutized
       'onclick="alert(1)"',                                         // inline handler listed
-      "Mobile/tablet snapshot unavailable",                         // no extension runtime here
+      "Viewport and interaction-state snapshots unavailable",       // no extension runtime here
+      "## CSS (desktop, resting state)",
     ];
     const mustNot = ["<script", "__cpEvil", 'onclick="alert(1)">Go</button>',                  // on* stripped from HTML
-                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130"];
+                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "border: 0px solid", "data-cp-tmp", "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130"];
+    // Sibling variants: picking the selected tab must describe the unselected one.
+    const tabMust = ["## Variants (siblings of the picked element)", '[aria-selected="false"]',
+                     "color: rgb(128, 128, 128);", "font-weight: 700;"];
     const fails = [...must.filter((s) => !md.includes(s)).map((s) => "MISSING " + JSON.stringify(s)),
-                   ...mustNot.filter((s) => md.includes(s)).map((s) => "PRESENT " + JSON.stringify(s))];
-    document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md : "PASS " + md.length + " chars";
+                   ...mustNot.filter((s) => md.includes(s)).map((s) => "PRESENT " + JSON.stringify(s)),
+                   ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s))];
+    document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
 </script>

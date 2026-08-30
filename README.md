@@ -43,7 +43,9 @@ need the `chrome.debugger` API, which only Chromium exposes to extensions.
 | Header | — | URL, picked size/position, viewport, root font-size (for rem), framework, React component chain |
 | HTML | `cloneNode` | scripts/styles/`on*` stripped, URLs absolutized, `data-cp="n"` ids link nodes to CSS |
 | CSS (desktop) | `getComputedStyle` | diff vs a neutral `div` baseline for box props, vs the **parent** for inherited props; `/* … W×H */` = rendered box; `::before/::after` included |
-| Hover/focus + media rules | `document.styleSheets` | matched to the subtree; cross-origin sheets can't be read (Chrome restriction) |
+| State: hover / focus-visible / active | CDP `CSS.forcePseudoState` | resolved values, diffed against the resting capture; forced on every element with a state rule |
+| Variants (siblings) | sibling scan | siblings differing only by `data-state`/`aria-selected`/`disabled`…, diffed against the picked element |
+| Source rules (hover/focus/media) | `document.styleSheets` | matched to the subtree; cross-origin sheets can't be read (Chrome restriction) |
 | Responsive: mobile 390×844 / tablet 768×1024 | CDP device emulation on the same tab | only what **changes** vs desktop, plus elements that appear/disappear |
 | Keyframes / Fonts | stylesheets | only the ones the subtree uses |
 | JS / handlers | React fiber `memoizedProps`, inline `on*` | handler source (minified on prod sites, still shows intent) |
@@ -106,5 +108,6 @@ including values inside form fields, so check a bundle before pasting it somewhe
 
 - Width/height are emitted only for replaced elements, absolutely-positioned boxes, or when set inline/by
   attribute — computed values are always px, so fluid widths would lie. The `W×H` comment carries the real size.
+- Interaction states are forced on the elements the site has state rules for, all at once — so a component with several hoverable parts shows every part hovered, not one pointer position.
 - Shadow DOM internals and cross-origin iframes are not entered.
 - CSS custom properties are emitted resolved (values), not as tokens.

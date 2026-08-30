@@ -10,6 +10,15 @@ publishes the Release.
 
 ## [Unreleased]
 
+### Added
+- **Interaction states** (#2): `:hover`, `:focus-visible` and `:active` are forced through the Chrome DevTools Protocol and emitted as diffs against the resting capture. States are forced on every element the site has a rule for — not just the picked root — so a card whose hover styling lives on a child is captured correctly.
+- **Sibling variants** (#3): siblings that differ from the picked element only by `data-state` / `aria-selected` / `aria-current` / `disabled` (and similar) are captured as diffs — a stepper's done and pending steps, a tab bar's unselected tabs.
+
+### Fixed
+- **Hover leak** (#1): the resting desktop CSS was measured while the pointer still sat on the element the user had just clicked, so the site's `:hover` styles were recorded as if they were the resting ones. The capture now parks the pointer before measuring anything, and every measurement — desktop included — comes from one debugger session.
+- **Zero-width borders** (#4): Tailwind's preflight sets `border: 0 solid` on every element, which was reported as a border on every node. A zero-width border is no border.
+- Interaction states are no longer read part-way through a CSS transition: the settle time is derived from the page's own longest `transition-duration` instead of a fixed guess.
+
 ### Changed
 - Repository layout: the extension now lives in `src/` (load **that** folder unpacked), checks in `test/`, release tooling in `scripts/`.
 - `test/check.sh` honours a `CHROME` environment variable so it can run on Linux CI.

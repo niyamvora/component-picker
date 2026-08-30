@@ -6,6 +6,7 @@
   if (window.__cp) { window.__cp.toggle(); return; }
 
   const UI = "data-cp-ui";
+  const TMP = "data-cp-tmp"; // element index, readable from the MAIN world and from CDP while capturing
   const MAX_ELEMENTS = 300; // ponytail: hard cap; past this the bundle stops being pasteable
   const MAX_OUT = 180_000;
   const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "LINK", "META"]);
@@ -121,8 +122,9 @@
     }
     if (props["row-gap"] && props["row-gap"] === props["column-gap"]) { props.gap = props["row-gap"]; delete props["row-gap"]; delete props["column-gap"]; }
     const side = (src) => SIDES.map((s) => {
-      const st = val(src, `border-${s}-style`);
-      return st === "none" ? "none" : `${val(src, `border-${s}-width`)} ${st} ${val(src, `border-${s}-color`)}`;
+      const st = val(src, `border-${s}-style`), w = val(src, `border-${s}-width`);
+      // Tailwind preflight sets `border: 0 solid` on every element; a zero-width border is no border.
+      return st === "none" || w === "0px" ? "none" : `${w} ${st} ${val(src, `border-${s}-color`)}`;
     });
     const b = side(cs), db = side(def);
     if (b.join() !== db.join()) {
@@ -224,9 +226,14 @@
     return { styleRules, keyframes, fontFaces };
   }
 
+  /** Which forced state a `:hover`/`:focus…`/`:active` selector asks for. */
+  const forcedState = (pseudo) => (pseudo === "hover" ? "hover" : pseudo.startsWith("focus") ? "focus-visible" : pseudo === "active" ? "active" : null);
+
   function matchRules(root, els, styleRules) {
     const index = new Map(els.map((el, i) => [el, i]));
     const found = [];
+    // Hovering a child hovers its ancestors, so the picked root always counts as hovered.
+    const stateIdx = { hover: new Set([0]), "focus-visible": new Set(), active: new Set() };
     for (const { r, cond } of styleRules.slice(0, 20000)) {
       const base = r.selectorText.replace(new RegExp(STATE_RE.source, "g"), "").replace(new RegExp(PSEUDO_EL_RE.source, "g"), "").trim();
       if (!base || base === "*" || /^[>+~,]|[>+~,]$/.test(base)) continue;
@@ -237,8 +244,12 @@
       const css = resolveVars(r.cssText, getComputedStyle(hits.find((el) => index.has(el))));
       const text = cond ? `@media ${cond} {\n  ${css}\n}` : css;
       found.push(`/* → ${ids.slice(0, 8).map(sel).join(", ")}${ids.length > 8 ? ", …" : ""} */\n${text}`);
+      for (const m of r.selectorText.matchAll(new RegExp(STATE_RE.source, "g"))) {
+        const state = forcedState(m[1]);
+        if (state) for (const i of ids) stateIdx[state].add(i);
+      }
     }
-    return found;
+    return { found, states: Object.fromEntries(Object.entries(stateIdx).map(([k, v]) => [k, [...v]])) };
   }
 
   /** Substitute var(--x[, fallback]) with the element's computed custom property, innermost first. */
@@ -262,6 +273,36 @@
     return { fams: [...fams], faces, links };
   }
 
+  // ---------- sibling variants: the same component in its other states ----------
+  const VARIANT_ATTRS = ["data-state", "aria-selected", "aria-current", "aria-checked", "aria-expanded",
+    "aria-pressed", "disabled", "data-active", "data-highlighted", "data-disabled"];
+  const attrOf = (el, a) => (el.hasAttribute(a) ? el.getAttribute(a) || "true" : null);
+
+  /**
+   * A stepper's done/pending steps and a tab bar's unselected tabs are on the page already — the
+   * user just cannot pick two things at once. Siblings that differ from the picked element only by
+   * a state attribute are captured as diffs against it.
+   */
+  function variantsOf(root, els, desktop) {
+    const parent = root.parentElement;
+    if (!parent) return [];
+    const out = [];
+    for (const s of [...parent.children]) {
+      if (out.length >= 6) break;
+      if (s === root || s.tagName !== root.tagName || s.closest(`[${UI}]`)) continue;
+      const differing = VARIANT_ATTRS.filter((a) => attrOf(s, a) !== attrOf(root, a));
+      if (!differing.length) continue;
+      const selector = differing.map((a) => (s.hasAttribute(a) ? `[${a}="${attrOf(s, a)}"]` : `:not([${a}])`)).join("");
+      const all = [s, ...s.querySelectorAll("*")].filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
+      const diff = diffBlocks(desktop, computeBlocks(all.slice(0, els.length)));
+      const r = s.getBoundingClientRect();
+      const note = all.length !== els.length ? ` (markup differs — ${all.length} vs ${els.length} elements)` : "";
+      out.push(`${selector} — ${label(s)} ${Math.round(r.width)}×${Math.round(r.height)}${note} — diff vs picked:\n` +
+        (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style differences._"));
+    }
+    return out;
+  }
+
   // ---------- framework: React fiber (component names + handler source), Vue ----------
   // Page-JS expandos (__reactFiber$…) are invisible from this isolated world, so background.js runs
   // pageProbe() in the MAIN world; elements are handed over via a temporary data-cp-tmp attribute.
@@ -269,12 +310,10 @@
     const info = { framework: "not detected", chain: [], handlers: [] };
     els.forEach((el, i) => { for (const a of el.attributes) if (/^on/i.test(a.name)) info.handlers.push(`${sel(i)} ${a.name}="${a.value.slice(0, 300)}"`); });
     if (!globalThis.chrome?.runtime?.sendMessage) return info;
-    els.forEach((el, i) => el.setAttribute("data-cp-tmp", i));
     try {
       const r = await chrome.runtime.sendMessage({ type: "probe" });
       if (r && !r.error) { info.framework = r.framework; info.chain = r.chain; info.handlers.push(...r.handlers); }
     } catch { /* keep defaults */ }
-    finally { els.forEach((el) => el.removeAttribute("data-cp-tmp")); }
     return info;
   }
 
@@ -292,7 +331,10 @@
       else if ((el.tagName === "VIDEO" || el.tagName === "SOURCE") && el.src) c.setAttribute("src", el.src);
     });
     clone.querySelectorAll(`script,style,noscript,template,link,meta,[${UI}]`).forEach((n) => n.remove());
-    for (const c of clones) for (const a of [...c.attributes]) if (/^on/i.test(a.name)) c.removeAttribute(a.name);
+    for (const c of clones) {
+      c.removeAttribute(TMP);
+      for (const a of [...c.attributes]) if (/^on/i.test(a.name)) c.removeAttribute(a.name);
+    }
     return clone.outerHTML;
   }
 
@@ -304,10 +346,25 @@
     const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
     const els = eligible.slice(0, MAX_ELEMENTS);
     pending = { els };
+    els.forEach((el, i) => el.setAttribute(TMP, i));
+    try {
+      return await build(root, all, eligible, els, onStatus);
+    } finally {
+      els.forEach((el) => el.removeAttribute(TMP));
+    }
+  }
 
-    const desktop = computeBlocks(els);
+  async function build(root, all, eligible, els, onStatus) {
     const { styleRules, keyframes, fontFaces } = sheetRules();
-    const rules = matchRules(root, els, styleRules);
+    const { found: rules, states } = matchRules(root, els, styleRules);
+
+    // Everything measurable is measured in one debugger session, starting with the resting
+    // desktop state — the pointer is still on the element the user just clicked, and reading
+    // getComputedStyle here would record its :hover styles as if they were the resting ones.
+    onStatus("Measuring viewports + states…");
+    const resp = await measureAll(states);
+    const desktop = resp.viewports?.[0]?.blocks ?? computeBlocks(els);
+
     const stamp = new Set([0]);
     for (const i of Object.keys(desktop)) if (Object.keys(desktop[i].props).length || Object.keys(desktop[i].pseudos).length) stamp.add(+i);
     for (const line of rules) for (const m of line.matchAll(/data-cp="(\d+)"/g)) stamp.add(+m[1] - 1);
@@ -317,10 +374,8 @@
     const kf = [...anims].map((n) => keyframes[n]).filter(Boolean);
     const font = fonts(els, fontFaces);
     const { framework, chain, handlers: js } = await frameworkInfo(els);
+    const variants = variantsOf(root, els, desktop);
     const rect = root.getBoundingClientRect();
-
-    onStatus("Measuring mobile + tablet…");
-    const resp = await responsiveSnapshots();
 
     const md = [];
     md.push(`# Component picked from ${document.title || location.hostname} — ${location.href}`);
@@ -328,12 +383,20 @@
       `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. Root font-size ${getComputedStyle(document.documentElement).fontSize}. ` +
       `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
       `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
-    md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. Responsive sections list ONLY what changes vs desktop at that viewport. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
+    md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
     md.push(`## HTML\n\`\`\`html\n${html}\n\`\`\``);
-    md.push(`## CSS (desktop, resolved)\n\`\`\`css\n${Object.keys(desktop).flatMap((i) => renderBlock(+i, desktop[i])).join("\n\n")}\n\`\`\``);
-    if (rules.length) md.push(`## Hover/focus + media-query rules (from the site's stylesheets)\n\`\`\`css\n${rules.join("\n\n")}\n\`\`\``);
-    if (resp.error) md.push(`## Responsive\n_Mobile/tablet snapshot unavailable: ${resp.error}. Use the media-query rules above._`);
-    for (const v of resp.viewports || []) {
+    md.push(`## CSS (desktop, resting state)` +
+      (resp.error ? `\n_Measured with the pointer still on the element — hover styles may be included._` : "") +
+      `\n\`\`\`css\n${Object.keys(desktop).flatMap((i) => renderBlock(+i, desktop[i])).join("\n\n")}\n\`\`\``);
+    for (const st of resp.states || []) {
+      const diff = diffBlocks(desktop, st.blocks);
+      md.push(`## State: ${st.name} (diff vs resting)\n` +
+        (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No changes._"));
+    }
+    if (variants.length) md.push(`## Variants (siblings of the picked element)\n\n${variants.join("\n\n")}`);
+    if (rules.length) md.push(`## Source rules (hover/focus/media, from the site's stylesheets)\n\`\`\`css\n${rules.join("\n\n")}\n\`\`\``);
+    if (resp.error) md.push(`## Responsive + states\n_Viewport and interaction-state snapshots unavailable: ${resp.error}. Use the source rules above._`);
+    for (const v of (resp.viewports || []).slice(1)) {
       const diff = diffBlocks(desktop, v.blocks);
       md.push(`## Responsive: ${v.name} ${v.width}×${v.height} (DPR ${v.dpr}) — root renders ${v.root[0]}×${v.root[1]}\n` +
         (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"));
@@ -349,19 +412,39 @@
     return out;
   }
 
-  async function responsiveSnapshots() {
+  async function measureAll(states) {
     if (!globalThis.chrome?.runtime?.sendMessage) return { error: "not running as an extension" };
-    try { return (await chrome.runtime.sendMessage({ type: "responsive" })) || { error: "no response" }; }
+    try { return (await chrome.runtime.sendMessage({ type: "measure", states })) || { error: "no response" }; }
     catch (e) { return { error: String(e.message || e) }; }
+  }
+
+  /**
+   * How long the picked subtree still needs before its styles are final.
+   *
+   * A forced :hover on a button with `transition: background-color .3s` reads a colour part-way
+   * through the fade if measured too early — `rgb(0, 0, 251)` where the answer is `rgb(0, 0, 255)`.
+   * A fixed guess would be either wrong or slow, so the wait comes from the page's own longest
+   * transition, capped so one `transition: 10s` cannot stall the capture.
+   */
+  function settleMs(els) {
+    let max = 0;
+    for (const el of els) {
+      const cs = getComputedStyle(el);
+      const durations = splitList(cs.transitionDuration), delays = splitList(cs.transitionDelay);
+      durations.forEach((d, i) => {
+        max = Math.max(max, (parseFloat(d) || 0) + (parseFloat(delays[i % delays.length]) || 0));
+      });
+    }
+    return Math.min(max * 1000 + 50, 1200);
   }
 
   globalThis.chrome?.runtime?.onMessage?.addListener((msg, _sender, reply) => {
     if (msg.type !== "snapshot" || !pending) return;
-    // Let the emulated viewport reflow (and CSS transitions settle) before measuring.
+    // Let the emulated viewport reflow and the page's transitions settle before measuring.
     setTimeout(() => requestAnimationFrame(() => {
       const r = pending.els[0].getBoundingClientRect();
       reply({ blocks: computeBlocks(pending.els), root: [Math.round(r.width), Math.round(r.height)] });
-    }), 400);
+    }), Math.max(msg.settle ?? 400, settleMs(pending.els)));
     return true;
   });
 
