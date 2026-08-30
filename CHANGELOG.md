@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-08-31
+
 ### Added
 - **W3C design-token JSON** (#35): the Tokens section can emit the tokens again as [W3C Design Tokens format](https://www.designtokens.org/tr/drafts/format/) JSON — what Style Dictionary, Tokens Studio and Figma Variables read. `$type` is inferred from the resolved value and omitted rather than guessed when the value does not clearly fit.
 - **Tailwind class output** (#36): the resolved CSS again as Tailwind v4 utilities, preferring the *token* behind a value (`bg-gray-a3`, not a hex arbitrary value) — the one thing every paid competitor charges for. Lossy by nature; the resolved CSS stays authoritative and nothing is silently dropped.
@@ -105,7 +107,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.1.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.2.0...main
+[1.2.0]: https://github.com/niyamvora/component-picker/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/niyamvora/component-picker/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/niyamvora/component-picker/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/niyamvora/component-picker/compare/v0.2.1...v0.3.0
