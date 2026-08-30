@@ -12,6 +12,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ## [Unreleased]
 
 ### Added
+- **Box-model overlay and breadcrumb bar** (#19): padding and margin are shaded the way DevTools shades them, because a single outline says where an element ends but not where its own space stops and its spacing begins. The breadcrumb (`main › section.pricing › div.card › button`) is hoverable and clickable — ↑/↓ alone made reaching the right ancestor slow.
+- **Multi-select and whole-page capture** (#22): shift-click adds elements to the selection, `Backspace` removes the last, and the next plain click captures them all as one bundle with per-component `data-cp` prefixes. `P` selects the page's top-level sections, for a landing page section by section.
 - **Element screenshots** (#15): a PNG of the picked element at each viewport, embedded as a data URI so it renders inline where you paste it. An AI that can see the target *and* read its CSS makes far fewer mistakes than one that can only read. Appended after the text, so an oversized bundle never trades CSS for a picture.
 - **Theme pairs** (#13): the same component in the theme you are not looking at, as a diff. `prefers-color-scheme` is emulated through the debugger; a `.dark` class or `data-theme` attribute is flipped in the page and put back. A site whose framework re-applies its own theme on mutation is reported as such rather than returning a mislabelled snapshot of the theme you already had.
 - **Compare with a reference** (#14): press `R` while the copy toast is up to store a pick, then pick again anywhere — the bundle ends with only what differs, each line carrying the reference value. `Shift+R` clears it. This is the reference → ours → fix → re-pick loop, minus the by-hand part.

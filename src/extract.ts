@@ -820,6 +820,24 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   return out;
 }
 
+/**
+ * Several picks in one bundle.
+ *
+ * Sometimes the unit is "these three cards" or a whole landing page. Each component keeps its own
+ * `data-cp` numbering, prefixed so the ids stay unambiguous once they are all in one document.
+ */
+export async function extractMany(roots: Element[], onStatus: (s: string) => void = () => {}): Promise<string> {
+  if (roots.length === 1) return extract(roots[0], onStatus);
+  const parts: string[] = [];
+  for (const [i, root] of roots.entries()) {
+    onStatus(`Component ${i + 1} of ${roots.length}…`);
+    const one = await extract(root, () => {});
+    // c1-1, c2-1, … so two components' ids can never collide in the pasted document.
+    parts.push(`# Component ${i + 1} of ${roots.length}\n\n` + one.replace(/data-cp="(\d+)"/g, `data-cp="c${i + 1}-$1"`).replace(/^# /, "## Source: "));
+  }
+  return parts.join("\n\n---\n\n");
+}
+
 const ago = (at: number) => {
   const mins = Math.round((Date.now() - at) / 60000);
   return mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : `${Math.round(mins / 60)} h ago`;
