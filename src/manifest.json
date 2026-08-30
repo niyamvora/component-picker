@@ -8,7 +8,8 @@
     "scripting",
     "clipboardWrite",
     "debugger",
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "background": {
     "service_worker": "background.js"
@@ -23,5 +24,8 @@
         "default": "Alt+Shift+C"
       }
     }
+  },
+  "side_panel": {
+    "default_path": "panel.html"
   }
 }

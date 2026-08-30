@@ -7,7 +7,7 @@
 
 import { DEFAULT_OPTIONS } from "./options";
 import type {
-  HistoryEntry, MeasureResult, Message, Options, ProbeResult, Snapshot, StateIndices, StateName, ThemeInfo,
+  HistoryEntry, MeasureResult, Message, Options, Preview, ProbeResult, Snapshot, StateIndices, StateName, ThemeInfo,
 } from "./types";
 
 /** Injected by name, so this must match what build.mjs emits into dist/. */
@@ -40,11 +40,24 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
     : msg.type === "get-reference" ? chrome.storage.local.get("reference").then((s) => s.reference ?? null)
     : msg.type === "remember" ? remember(msg.entry)
     : msg.type === "picking" ? chrome.action.setBadgeText({ tabId, text: msg.on ? "ON" : "" })
+    : msg.type === "preview" ? showPreview(tabId, msg.preview)
     : null;
   if (!job) return;
   job.then(reply, (e: unknown) => reply({ error: e instanceof Error ? e.message : String(e) }));
   return true; // keeps the message channel open for the async reply
 });
+
+/**
+ * Hand the capture to the side panel, and open the panel if it is not already there.
+ *
+ * The payload is stored as well as sent: a panel opened later would otherwise sit empty until the
+ * next pick, and the message it missed is not replayed.
+ */
+async function showPreview(tabId: number | undefined, preview: Preview) {
+  await chrome.storage.local.set({ preview });
+  if (tabId !== undefined) await chrome.sidePanel.open({ tabId }).catch(() => {});
+  await chrome.runtime.sendMessage({ type: "preview", preview }).catch(() => {});
+}
 
 async function remember(entry: HistoryEntry) {
   const { history = [] } = await chrome.storage.local.get("history");

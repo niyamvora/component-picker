@@ -20,7 +20,9 @@ execFileSync(process.execPath, [join(ROOT, "build.mjs")], { cwd: ROOT, stdio: "i
 
 // No toolbar click here, so no activeTab grant: load a temp copy of the extension with a localhost host permission.
 const EXT = mkdtempSync(join(tmpdir(), "cp-ext-"));
-for (const f of ["manifest.json", "background.js", "picker.js", "popup.html", "popup.js"]) cpSync(join(ROOT, "dist", f), join(EXT, f));
+// The whole build, not a file list: a manifest that names a page the copy is missing (a side
+// panel, a popup) makes Chrome reject the extension outright.
+cpSync(join(ROOT, "dist"), EXT, { recursive: true });
 const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
 writeFileSync(join(EXT, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${PORT}/*`] }));
 

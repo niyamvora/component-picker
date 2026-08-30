@@ -774,9 +774,10 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const context = contextOf(root);
   if (context) md.push(`## Context (what the picked element sits in)\n\`\`\`css\n${context}\n\`\`\``);
   md.push(`## HTML\n\`\`\`html\n${html}\n\`\`\``);
+  const cssText = Object.keys(desktop).flatMap((i) => renderBlock(+i, desktop[+i])).join("\n\n");
   md.push(`## CSS (desktop, resting state)` +
     (resp.error ? `\n_Measured with the pointer still on the element — hover styles may be included._` : "") +
-    `\n\`\`\`css\n${Object.keys(desktop).flatMap((i) => renderBlock(+i, desktop[+i])).join("\n\n")}\n\`\`\``);
+    `\n\`\`\`css\n${cssText}\n\`\`\``);
   for (const st of resp.states || []) {
     const diff = diffBlocks(desktop, st.blocks);
     md.push(`## State: ${st.name} (diff vs resting)\n` +
@@ -813,6 +814,16 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   // The cap applies to the text; images are appended after it, because a bundle whose CSS was
   // truncated to make room for a picture is the wrong trade.
   if (out.length > MAX_OUT) out = out.slice(0, MAX_OUT) + "\n\n<!-- truncated: bundle exceeded size cap; pick a smaller component -->";
+  // The side panel renders the capture in isolation, so the preview carries exactly what the
+  // bundle carries — nothing that only looks right because the real page was still behind it.
+  void send({
+    type: "preview",
+    preview: {
+      html, css: cssText, fontLinks: font.links,
+      shot: resp.shots?.find((s) => s.name === "desktop")?.png,
+      height: Math.round(rect.height), bundle: out,
+    },
+  }).catch(() => {});
   if (resp.shots?.length) {
     out += `\n\n## Screenshots\n${resp.shots.map((s) =>
       `${s.name} ${s.width}×${s.height} @${s.dpr}x:\n\n![${s.name}](data:image/png;base64,${s.png})`).join("\n\n")}`;

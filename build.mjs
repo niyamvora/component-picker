@@ -8,7 +8,7 @@ const watch = process.argv.includes("--watch");
 const version = readFileSync("VERSION", "utf8").trim();
 
 const options = {
-  entryPoints: ["src/picker.ts", "src/background.ts", "src/popup.ts"],
+  entryPoints: ["src/picker.ts", "src/background.ts", "src/popup.ts", "src/panel.ts"],
   outdir: "dist",
   bundle: true,
   format: "iife",
@@ -22,7 +22,7 @@ mkdirSync("dist", { recursive: true });
 const manifest = JSON.parse(readFileSync("src/manifest.json", "utf8"));
 manifest.version = version; // VERSION is the single source of truth; release.sh bumps it
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2) + "\n");
-cpSync("src/popup.html", "dist/popup.html");
+for (const page of ["popup.html", "panel.html"]) cpSync(`src/${page}`, `dist/${page}`);
 cpSync("README.md", "dist/README.md");
 
 if (watch) {

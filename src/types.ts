@@ -116,6 +116,17 @@ export interface HistoryEntry {
   bundle: string;
 }
 
+/** What the side panel needs to re-render a capture on its own (#20). */
+export interface Preview {
+  html: string;
+  css: string;
+  fontLinks: string[];
+  /** Base64 PNG of the desktop capture, when screenshots are on. */
+  shot?: string;
+  height: number;
+  bundle: string;
+}
+
 export type Message =
   | { type: "measure"; states: StateIndices; theme: ThemeInfo | null; options: Options }
   | { type: "probe" }
@@ -124,4 +135,5 @@ export type Message =
   | { type: "get-reference" }
   | { type: "clear-reference" }
   | { type: "picking"; on: boolean }
-  | { type: "remember"; entry: HistoryEntry };
+  | { type: "remember"; entry: HistoryEntry }
+  | { type: "preview"; preview: Preview };

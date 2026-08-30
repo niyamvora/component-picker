@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Component Picker preview</title>
+<style>
+  :root { color-scheme: light dark; --fg: #111827; --dim: #6b7280; --line: #e5e7eb; --bg: #fff; --accent: #2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f3f4f6; --dim: #9ca3af; --line: #374151; --bg: #111827; } }
+  body { margin: 0; padding: 10px; font: 13px/1.45 -apple-system, system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+  .bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  select, button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; cursor: pointer; }
+  #stage { border: 1px solid var(--line); border-radius: 8px; overflow: auto; background: #fff; }
+  @media (prefers-color-scheme: dark) { #stage { background: #0b0b0d; } }
+  iframe { border: 0; display: block; }
+  img { max-width: 100%; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; }
+  .empty { color: var(--dim); padding: 24px 8px; text-align: center; }
+</style>
+
+<div class="bar">
+  <select id="width" title="Preview width">
+    <option value="0">Fit panel</option>
+    <option value="390">390 — mobile</option>
+    <option value="768">768 — tablet</option>
+    <option value="1280">1280 — desktop</option>
+  </select>
+  <button id="copy">Copy bundle</button>
+</div>
+<div id="stage"><div class="empty">Pick a component and its rendering appears here.</div></div>
+<img id="shot" hidden alt="Screenshot of the picked element">
+
+<script src="panel.js"></script>
