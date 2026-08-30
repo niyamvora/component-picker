@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-08-30
+
 ### Added
 - **A real toolbar icon and a Firefox build** (#23): `npm run build` now also writes `dist-firefox/`, loadable through `about:debugging`. Firefox has no `chrome.debugger`, so the viewport, state, theme and screenshot sections are absent there and the bundle says so; everything else is identical. Releases carry both zips.
 - **Named icons** (#18): an inline `<svg>` whose geometry matches a known icon is tagged `data-icon="lucide:eye-off"` and listed in the header. 1,733 icons ship as a 53 KB hash table (`scripts/gen-icons.mjs` rebuilds it); matching is on path geometry alone, so formatting, stroke width and viewBox do not matter. The raw paths stay in the HTML for exact parity when no name is found.
@@ -81,7 +83,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.3.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.0.0...main
+[1.0.0]: https://github.com/niyamvora/component-picker/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/niyamvora/component-picker/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/niyamvora/component-picker/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/niyamvora/component-picker/compare/v0.1.0...v0.2.0
