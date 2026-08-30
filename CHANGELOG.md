@@ -11,6 +11,13 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Edit before capturing** (#52): press `E` on the highlighted element for a small panel of the six most-changed properties (padding, gap, radius, font-size, background, colour). Changes apply live and are captured as-is, with `> Edited before capture: gap 12px → 16px` in the bundle; Esc reverts the page exactly, since it is someone else's.
+- **A landing page and a committed example** (#51): a static one-pager in `web/` (drop in a `demo.gif`), and a real capture at `examples/sample-capture.md` so a reader can judge the output quality without installing anything.
+
+### Chore
+- **Chrome Web Store listing prepared** (#50): draft copy, permission justifications, data disclosure and a promo tile in `store/`. The submission itself is deferred — it needs a paid developer account and review, which is a person's step, not code.
+
 ## [1.3.0] — 2026-08-31
 
 ### Added
