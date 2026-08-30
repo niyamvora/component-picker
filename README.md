@@ -8,20 +8,28 @@ Paste it into Claude/Cursor with "rebuild this in our Next.js project" and you g
 ## Layout
 
 ```
-src/      TypeScript sources — extract.ts (the engine) · picker.ts (overlay + messaging)
-          background.ts (debugger driver, storage) · popup.* (options + history)
-          panel.* (side-panel preview) · options.ts · types.ts (the cross-world contracts)
-          icons.json (1,733 icon hashes) · icon.svg → icons/*.png
-dist/     built extension — load THIS folder unpacked (created by `npm run build`)
-dist-firefox/  the same build with a Firefox manifest
-test/     check.sh (engine, headless) · e2e.mjs (real extension + CDP) · fixture.html
-scripts/  release.sh · gen-icons.mjs (rebuild the icon table) · gen-icon.mjs (render the PNGs)
+src/core/     the extraction engine, one concern per file —
+              const · defaults · props · blocks · rules · tokens · context · fonts
+              walk · icons · html · snapshot · messaging · compare · bundle · state
+src/ui/       picker (entry) · handlers (keys and pointer) · overlay (what is drawn)
+              note · popup.ts/.html (options + history) · panel.ts/.html (preview)
+src/bg/       service-worker (router + storage) · measure (the debugger session) · probe (MAIN world)
+src/shared/   types.ts (the cross-world contracts) · options.ts
+src/assets/   icons.json (1,733 icon hashes) · icon.svg → icons/*.png
+dist/         built extension — load THIS folder unpacked (created by `npm run build`)
+dist-firefox/ the same build with a Firefox manifest
+test/         check.sh (engine, headless) · e2e.mjs (real extension + CDP) · fixture.html
+scripts/      release.sh · gen-icons.mjs (rebuild the icon table) · gen-icon.mjs (render the PNGs)
 ```
 
-The three worlds — content script, page MAIN world, service worker — never share a call stack, so
-their message payloads live in [`src/types.ts`](src/types.ts): a rename on one side is a compile
-error on the other. `npm run build` bundles each entry into a standalone IIFE with esbuild
-(~10 ms); nothing is minified, so what ships stays readable.
+Every file is under 200 lines and owns one concern. The three execution worlds — content script,
+page MAIN world, service worker — never share a call stack, so their message payloads live in
+[`src/shared/types.ts`](src/shared/types.ts): a rename on one side is a compile error on the other.
+`dist/` output filenames stay flat (`picker.js`, `background.js`, …) because the manifest and
+`chrome.scripting.executeScript({ files: [...] })` address them by bare name.
+
+`npm run build` bundles each entry into a standalone IIFE with esbuild (~15 ms); nothing is
+minified, so what ships stays readable.
 
 ## Install (once)
 

@@ -127,6 +127,14 @@ export interface Preview {
   bundle: string;
 }
 
+/** What an element's author stylesheet said, for properties whose value came from a token. */
+export interface VarSource {
+  /** property → the declaration as authored, e.g. `background-color` → `var(--gray-a3)`. */
+  props: Record<string, string>;
+  /** custom property → its authored value, so `--tw-*` plumbing can be followed to a real name. */
+  customs: Record<string, string>;
+}
+
 export type Message =
   | { type: "measure"; states: StateIndices; theme: ThemeInfo | null; options: Options }
   | { type: "probe" }

@@ -32,3 +32,16 @@ export async function loadOptions(): Promise<Options | null> {
     return null;
   }
 }
+
+/**
+ * The live options for the current capture. One mutable object so the picker can hand it out as
+ * `window.__cp.opts`, the popup can drive it from storage, and a capture can read it without
+ * threading it through every function.
+ */
+export const options: Options = { ...DEFAULT_OPTIONS };
+
+/** Refresh `options` from storage — called before each capture, so the popup takes effect at once. */
+export async function refreshOptions() {
+  const stored = await loadOptions();
+  if (stored) Object.assign(options, stored);
+}

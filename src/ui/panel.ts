@@ -6,7 +6,7 @@
  * stylesheet was still loaded shows up here as wrong, which is the entire point.
  */
 
-import type { Preview } from "./types";
+import type { Preview } from "../shared/types";
 
 const $ = <T extends Element>(sel: string) => document.querySelector<T>(sel)!;
 
