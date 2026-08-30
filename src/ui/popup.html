@@ -17,6 +17,7 @@
   label { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; }
   .vp { display: flex; align-items: center; gap: 5px; padding: 2px 0; color: var(--dim); }
+  #inventory { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); font: 11px/1.4 ui-monospace, monospace; resize: vertical; }
   .vp input { width: 46px; padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--fg); font: inherit; }
   .vp b { color: var(--fg); font-weight: 500; min-width: 46px; }
   .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 3px 0; }
@@ -38,12 +39,27 @@
     <label><input type="checkbox" data-opt="themes"> themes</label>
     <label><input type="checkbox" data-opt="js"> JS/handlers</label>
     <label><input type="checkbox" data-opt="fontFace"> @font-face</label>
+    <label><input type="checkbox" data-opt="a11y"> accessibility</label>
+    <label><input type="checkbox" data-opt="tailwind"> Tailwind classes</label>
+    <label><input type="checkbox" data-opt="jsx"> JSX component</label>
+    <label><input type="checkbox" data-opt="tokensJson"> tokens JSON</label>
+    <label title="No debugger bar: skip viewports, states, themes, screenshots"><input type="checkbox" data-opt="fast"> fast (no debugger)</label>
   </div>
+</fieldset>
+
+<fieldset>
+  <legend>Your components (for mapping)</legend>
+  <textarea id="inventory" rows="3" placeholder="Button  button, [role=button]  variant, size&#10;Card  .card  &#10;Icon  svg  name"></textarea>
 </fieldset>
 
 <fieldset>
   <legend>Viewports</legend>
   <div id="viewports"></div>
+</fieldset>
+
+<fieldset>
+  <legend>MCP bridge (advanced)</legend>
+  <label title="Lets a local MCP server request captures. Opens a localhost connection only while on."><input type="checkbox" id="bridge"> let a local agent request picks (npx component-picker-mcp)</label>
 </fieldset>
 
 <fieldset>

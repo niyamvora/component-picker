@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_OPTIONS } from "../shared/options";
+import { deliverToBridge, startBridge, stopBridge } from "./bridge";
 import { measure } from "./measure";
 import { probe } from "./probe";
 import type { HistoryEntry, Message, Preview } from "../shared/types";
@@ -32,6 +33,8 @@ chrome.action.onClicked.addListener(async (tab) => {
   await inject(tab.id);
 });
 
+chrome.storage.local.get("bridge").then((s) => { if (s.bridge) startBridge(); });
+
 chrome.runtime.onInstalled.addListener(async () => {
   const { options } = await chrome.storage.local.get("options");
   if (!options) await chrome.storage.local.set({ options: DEFAULT_OPTIONS });
@@ -45,6 +48,9 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
     : msg.type === "set-reference" ? chrome.storage.local.set({ reference: msg.reference })
     : msg.type === "clear-reference" ? chrome.storage.local.remove("reference")
     : msg.type === "get-reference" ? chrome.storage.local.get("reference").then((s) => s.reference ?? null)
+    : msg.type === "get-inventory" ? chrome.storage.local.get("inventory").then((s) => s.inventory ?? null)
+    : msg.type === "bridge" ? (msg.on ? startBridge() : stopBridge(), chrome.storage.local.set({ bridge: msg.on }))
+    : msg.type === "bridge-result" ? deliverToBridge(msg.bundle)
     : msg.type === "remember" ? remember(msg.entry)
     : msg.type === "picking" ? chrome.action.setBadgeText({ tabId, text: msg.on ? "ON" : "" })
     : msg.type === "preview" ? showPreview(tabId, msg.preview)

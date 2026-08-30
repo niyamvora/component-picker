@@ -123,6 +123,18 @@ async function init() {
       save();
     });
   }
+  const inv = $<HTMLTextAreaElement>("#inventory");
+  const { inventory = "" } = await chrome.storage.local.get("inventory");
+  inv.value = inventory as string;
+  inv.addEventListener("input", () => chrome.storage.local.set({ inventory: inv.value }));
+  const bridge = $<HTMLInputElement>("#bridge");
+  const { bridge: bridgeOn = false } = await chrome.storage.local.get("bridge");
+  bridge.checked = Boolean(bridgeOn);
+  bridge.addEventListener("change", async () => {
+    // The localhost host permission is requested only when the bridge is switched on.
+    if (bridge.checked) { const ok = await chrome.permissions.request({ origins: ["http://127.0.0.1/*"] }); if (!ok) { bridge.checked = false; return; } }
+    chrome.runtime.sendMessage({ type: "bridge", on: bridge.checked });
+  });
   renderViewports();
   await Promise.all([renderReference(), renderHistory()]);
 }
