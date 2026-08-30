@@ -3,6 +3,7 @@
  */
 
 import { extractMany } from "../core/bundle";
+import { commitEdits, revert, toggleEdit } from "./edit";
 import { label } from "../core/blocks";
 import { UI } from "../core/const";
 import { blocksOfLastPick } from "../core/state";
@@ -50,6 +51,7 @@ const onKey = (e: KeyboardEvent) => {
   else if (e.key === "ArrowUp" && currentEl()?.parentElement && currentEl()!.parentElement !== document.documentElement) { lockXY = lastXY; highlight(currentEl()!.parentElement); }
   else if (e.key === "ArrowDown" && currentEl()?.firstElementChild) { lockXY = lastXY; highlight(currentEl()!.firstElementChild); }
   else if (e.key === "m" || e.key === "M") { measuring = !measuring; if (!measuring) clearMeasure(); else if (currentEl()) drawMeasure(currentEl()); }
+    else if (e.key === "e" || e.key === "E") toggleEdit(currentEl());
     else if (e.key === "f" || e.key === "F") setFrozen(!frozen);
   else if (e.key === "Backspace" && selection.length) { selection.pop(); unmark(); highlight(currentEl()); }
   else if (e.key === "p" || e.key === "P") {
@@ -98,6 +100,7 @@ export function stop() {
   window.removeEventListener("scroll", onScroll, true);
   frozen = false;
   selection = [];
+  revert();
   chrome.runtime?.sendMessage?.({ type: "picking", on: false } satisfies Message).catch(() => {});
 }
 
@@ -110,10 +113,13 @@ async function finish(el: Element) {
   const t = toast("Extracting…");
   try {
     // The capture and the note run together: the debugger work takes seconds, the typing does too.
+    const made = commitEdits();
     const picks = [...selection.filter((s) => s !== el), el];
     selection = [];
     const [bundle, note] = await Promise.all([extractMany(picks, (s) => { t.textContent = s; }), askForNote()]);
-    const full = note ? bundle.replace(/\n/, `\n\n> Note: ${note}\n`) : bundle;
+    const editNote = made.length ? `> Edited before capture: ${made.join(", ")}` : "";
+    const notes = [editNote, note ? `> Note: ${note}` : ""].filter(Boolean).join("\n");
+    const full = notes ? bundle.replace(/\n/, `\n\n${notes}\n`) : bundle;
     if (window.__cp) window.__cp.last = full;
     await copy(full);
     chrome.runtime?.sendMessage?.({

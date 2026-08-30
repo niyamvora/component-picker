@@ -85,6 +85,13 @@
     const many = await window.__cp.extractMany([document.getElementById("card"), document.querySelector(".tab")]);
     // #37 repeat detection
     const list = await window.__cp.extract(document.getElementById("cards"));
+    // #52 — live edit records a change and reverts cleanly
+    const editTarget = document.getElementById("waapi");
+    window.__cp.edit.toggle(editTarget);
+    window.__cp.edit.apply("gap", "24px");
+    const editApplied = getComputedStyle(editTarget).gap === "24px" && window.__cp.edit.made().some((e) => e.includes("24px"));
+    window.__cp.edit.revert();
+    const editReverted = editApplied && editTarget.style.getPropertyValue("gap") === "";
     // #35/#36/#41/#40 — turn on the extra outputs and capture once more
     Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true, vue: true, svelte: true, htmlCss: true });
     const full = await window.__cp.extract(document.getElementById("card"));
@@ -168,6 +175,7 @@
                    ...manyMust.filter((s) => !many.includes(s)).map((s) => "MISSING (multi) " + JSON.stringify(s)),
                    ...fullMust.filter((s) => !full.includes(s)).map((s) => "MISSING (full) " + JSON.stringify(s)),
                    ...listMust.filter((s) => !list.includes(s)).map((s) => "MISSING (list) " + JSON.stringify(s))];
+    if (!editReverted) fails.push("#52 edit did not revert the inline style");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
