@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-08-30
+
 ### Added
 - `px` values on scale properties (font-size, spacing, radius…) carry their `rem` equivalent as a comment (#6) — `14px` is `.875rem` is Tailwind's `text-sm`, and only the rem is greppable in the target repo. Conversions nobody would have typed (a UA button's `13.3333px`) stay px.
 - Responsive diffs name the `@media` rule that caused each change, and say whether it applies or no longer applies at that viewport (#5) — `font-size: 16px` on mobile is a breakpoint stopping, not the layout reflowing, and the two want different fixes.
@@ -57,6 +59,7 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.2.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.2.1...main
+[0.2.1]: https://github.com/niyamvora/component-picker/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/niyamvora/component-picker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/niyamvora/component-picker/releases/tag/v0.1.0
