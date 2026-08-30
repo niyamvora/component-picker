@@ -31,7 +31,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 - **Sibling variants** (#3): siblings that differ from the picked element only by `data-state` / `aria-selected` / `aria-current` / `disabled` (and similar) are captured as diffs — a stepper's done and pending steps, a tab bar's unselected tabs.
 
 ### Changed
-- CI runs the typecheck, the build and both suites on every push and pull request against Chrome for Testing (#7).
+- `npm test` (typecheck + build + both suites) is the gate before pushing. The GitHub Actions workflow added in 0.2.1 (#7) has been removed and Actions disabled for the repository — the minutes are billed, and the same checks run locally in seconds.
 
 ### Removed
 - The header's `Root font-size` line (#6): every value in the bundle was already px, so it explained nothing. The root size now appears where it is actually used — in the note explaining the `rem` comments.
