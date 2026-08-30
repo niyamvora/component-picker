@@ -48,6 +48,9 @@
   (async () => {
     const md = await window.__cp.extract(document.getElementById("card"));
     const tab = await window.__cp.extract(document.querySelector(".tab"));
+    window.__cp.opts.fontFace = true;
+    const withFaces = await window.__cp.extract(document.getElementById("card"));
+    window.__cp.opts.fontFace = false;
     const must = [
       '<div id="card" class="card"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -64,13 +67,16 @@
       "## Context (what the picked element sits in)", "section#wrap {", "padding: 20px;",
       "Siblings of the picked element:", "- aside ", "(after)", "position: absolute; top: 0px; right: 6px;",
       "UI: Radix + shadcn/ui + Tailwind.",                          // #11 component-library hint
+      // #12 — typography as a developer writes it, and the @font-face block held back
+      "- Georgia 700 — 24px/normal (h2.title)", "- Arial 400 — 13.3333px/normal (button.btn)",
+      "@font-face rule(s) omitted",
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted
       ".btn:hover", "@media (max-width: 600px)", "@keyframes spin", "animation: spin 1s",
       "transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0s, color 0.3s ease 0s",
       ".btn:hover { background: red; color: blue; }",                // var() resolved, fallback used
-      `src: url("${new URL("../media/georgia.woff2", location.href).href}")`,   // @font-face URL absolutized '::after {\n  content: "→";',
+      '::after {\n  content: "→";',                                 // the pseudo-element assertion this line used to hide
       "display: none;",                                             // hidden span
       'href="' + location.origin + '/rel"',                         // absolutized
       'onclick="alert(1)"',                                         // inline handler listed
@@ -82,16 +88,20 @@
                      "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130",
                      "left: 710",   // #10 — layout values Chrome resolved, not ones anyone wrote
                      // #6 — the header line is gone, and conversions nobody typed (13.3333px) stay px.
-                     "Root font-size", "13.3333px; /*"];
+                     "Root font-size", "13.3333px; /*", "@font-face { font-family: Georgia;"];
     // The relative-positioned button must not report insets Chrome reports as 0px (see #1's sibling bug).
     const btn = md.slice(md.indexOf('[data-cp="3"] {'), md.indexOf("}", md.indexOf('[data-cp="3"] {')));
+    // #12 — the @font-face block, with its URL absolutized, appears only when asked for
+    const facesMust = ["@font-face { font-family: Georgia;",
+                       `src: url("${new URL("../media/georgia.woff2", location.href).href}")`];
     // Sibling variants: picking the selected tab must describe the unselected one.
     const tabMust = ["## Variants (siblings of the picked element)", '[aria-selected="false"]',
                      "color: rgb(128, 128, 128);", "font-weight: 700;"];
     const fails = [...must.filter((s) => !md.includes(s)).map((s) => "MISSING " + JSON.stringify(s)),
                    ...mustNot.filter((s) => md.includes(s)).map((s) => "PRESENT " + JSON.stringify(s)),
                    ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s)),
-                   ...(btn.includes("top: 0px") ? ["PRESENT inset on a position:relative element"] : [])];
+                   ...(btn.includes("top: 0px") ? ["PRESENT inset on a position:relative element"] : []),
+                   ...facesMust.filter((s) => !withFaces.includes(s)).map((s) => "MISSING (opts.fontFace) " + JSON.stringify(s))];
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

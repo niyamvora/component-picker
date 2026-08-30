@@ -272,6 +272,12 @@ function breakpointNote(media: MediaRule[], id: number, prop: string, width: num
   return `@media ${hit.cond} ${hit.selector}${says}`;
 }
 
+/**
+ * What the bundle includes. Mutable so the picker can hand it out as `window.__cp.opts`; the
+ * options popup (#16) will drive the same object from `chrome.storage`.
+ */
+export const options = { fontFace: false };
+
 /** The page's root font-size at pick time — what every rem hint is measured against. */
 let rootPx = 16;
 /** Token sources for the current pick, by element index. Set once per capture, like `rootPx`. */
@@ -498,12 +504,40 @@ function resolveVars(text: string, cs: CSSStyleDeclaration): string {
   return text;
 }
 
+/** Does this element paint any text of its own? Only those decide a typographic style. */
+const hasOwnText = (el: Element) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim());
+
+/**
+ * Typography as a developer writes it: `Inter 500 — 14px/20px`.
+ *
+ * The `@font-face` block is behind an option: it is rarely what a rebuild needs and costs a lot
+ * of tokens, while the family, weight and metrics are exactly what gets typed.
+ */
 function fonts(els: Element[], fontFaces: CSSFontFaceRule[]) {
-  const fams = new Set(els.map((el) => getComputedStyle(el).fontFamily.split(",")[0].replace(/['"]/g, "").trim()));
+  const family = (cs: CSSStyleDeclaration) => cs.fontFamily.split(",")[0].replace(/['"]/g, "").trim();
+  const fams = new Set(els.map((el) => family(getComputedStyle(el))));
+
+  // "family weight" → "14px/20px" → the elements wearing it
+  const styles = new Map<string, Map<string, string[]>>();
+  for (const el of els) {
+    if (!hasOwnText(el)) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === "none") continue;
+    const key = `${family(cs)} ${cs.fontWeight}`;
+    const metric = `${cs.fontSize}/${cs.lineHeight}`;
+    const sizes = styles.get(key) ?? styles.set(key, new Map()).get(key)!;
+    sizes.set(metric, [...(sizes.get(metric) ?? []), label(el)]);
+  }
+  const lines = [...styles].map(([key, sizes]) => {
+    const parts = [...sizes].map(([metric, who]) =>
+      `${metric} (${who.slice(0, 3).join(", ")}${who.length > 3 ? `, +${who.length - 3} more` : ""})`);
+    return `- ${key} — ${parts.join(" · ")}`;
+  });
+
   const faces = fontFaces.filter((f) => fams.has(f.style.fontFamily.replace(/['"]/g, "").trim())).map((f) =>
     f.cssText.replace(/url\((["']?)([^)"']+)\1\)/g, (_m, _q, u) => `url("${new URL(u, f.parentStyleSheet?.href || location.href).href}")`));
   const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel~="stylesheet"]')].map((l) => l.href).filter((h) => /font/i.test(h));
-  return { fams: [...fams], faces, links };
+  return { lines, faces, links };
 }
 
 // ---------- context: what holds the picked element in place ----------
@@ -745,9 +779,10 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const tokens = tokensSection(md, root, els);
   if (tokens) md.push(tokens);
   if (kf.length) md.push(`## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
-  md.push(`## Fonts\n- Families used: ${font.fams.join(", ")}` +
+  md.push(`## Fonts\n${font.lines.join("\n") || "- No text of its own."}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +
-    (font.faces.length ? `\n\`\`\`css\n${font.faces.join("\n")}\n\`\`\`` : ""));
+    (options.fontFace && font.faces.length ? `\n\`\`\`css\n${font.faces.join("\n")}\n\`\`\`` :
+      font.faces.length ? `\n- ${font.faces.length} @font-face rule(s) omitted — set \`window.__cp.opts.fontFace = true\` to include them.` : ""));
   if (js.length) md.push(`## JS / handlers (React props + inline)\n\`\`\`\n${js.join("\n")}\n\`\`\``);
 
   let out = md.join("\n\n");
