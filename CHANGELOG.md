@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-08-31
+
 ### Added
 - **Edit before capturing** (#52): press `E` on the highlighted element for a small panel of the six most-changed properties (padding, gap, radius, font-size, background, colour). Changes apply live and are captured as-is, with `> Edited before capture: gap 12px → 16px` in the bundle; Esc reverts the page exactly, since it is someone else's.
 - **A landing page and a committed example** (#51): a static one-pager in `web/` (drop in a `demo.gif`), and a real capture at `examples/sample-capture.md` so a reader can judge the output quality without installing anything.
@@ -123,7 +125,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.3.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.4.0...main
+[1.4.0]: https://github.com/niyamvora/component-picker/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/niyamvora/component-picker/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/niyamvora/component-picker/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/niyamvora/component-picker/compare/v1.0.0...v1.1.0
