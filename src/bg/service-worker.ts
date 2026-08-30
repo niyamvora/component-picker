@@ -51,6 +51,7 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
     : msg.type === "get-inventory" ? chrome.storage.local.get("inventory").then((s) => s.inventory ?? null)
     : msg.type === "bridge" ? (msg.on ? startBridge() : stopBridge(), chrome.storage.local.set({ bridge: msg.on }))
     : msg.type === "bridge-result" ? deliverToBridge(msg.bundle)
+    : msg.type === "assets" ? collectAssetsFromTab()
     : msg.type === "remember" ? remember(msg.entry)
     : msg.type === "picking" ? chrome.action.setBadgeText({ tabId, text: msg.on ? "ON" : "" })
     : msg.type === "preview" ? showPreview(tabId, msg.preview)
@@ -70,6 +71,14 @@ async function showPreview(tabId: number | undefined, preview: Preview) {
   await chrome.storage.local.set({ preview });
   if (tabId !== undefined) await chrome.sidePanel.open({ tabId }).catch(() => {});
   await chrome.runtime.sendMessage({ type: "preview", preview }).catch(() => {});
+}
+
+/** Ask the active tab's picker to zip the last pick's assets (#44). */
+async function collectAssetsFromTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return null;
+  const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__cp?.assets() ?? null });
+  return r.result;
 }
 
 async function remember(entry: HistoryEntry) {

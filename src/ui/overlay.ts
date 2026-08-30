@@ -113,9 +113,10 @@ export function mount() {
 }
 
 export function unmount() {
-  for (const el of [box, tip, banner, crumbs, cursorStyle, ...bands, ...marks]) el?.remove();
+  for (const el of [box, tip, banner, crumbs, cursorStyle, ...bands, ...marks, ...rulers]) el?.remove();
   bands = [];
   marks = [];
+  rulers = [];
   current = null;
 }
 
@@ -140,6 +141,27 @@ export function mark(el: Element) {
 
 export const unmark = () => marks.pop()?.remove();
 export const clearMarks = () => marks.splice(0).forEach((m) => m.remove());
+
+let rulers: HTMLDivElement[] = [];
+/** Distances from the hovered element to its parent's content edges and nearest siblings (#47). */
+export function drawMeasure(el: Element | null) {
+  rulers.splice(0).forEach((r) => r.remove());
+  if (!el || !el.parentElement) return;
+  const r = el.getBoundingClientRect(), p = el.parentElement.getBoundingClientRect();
+  const line = (x: number, y: number, w: number, h: number, text: string) => {
+    const d = document.createElement("div");
+    d.setAttribute(UI, "");
+    d.style.cssText = `position:fixed;z-index:2147483645;pointer-events:none;left:${x}px;top:${y}px;width:${Math.max(w,1)}px;height:${Math.max(h,1)}px;background:rgba(236,72,153,.9);font:10px/1 -apple-system,sans-serif;color:#ec4899`;
+    if (text) { const l = document.createElement("span"); l.textContent = text; l.style.cssText = "position:absolute;left:2px;top:-12px;background:#111827;color:#fff;padding:1px 3px;border-radius:3px;white-space:nowrap"; d.append(l); }
+    document.documentElement.append(d);
+    rulers.push(d);
+  };
+  line(p.left, r.top, r.left - p.left, 0, `${Math.round(r.left - p.left)}`);          // to parent left
+  line(r.right, r.top, p.right - r.right, 0, `${Math.round(p.right - r.right)}`);      // to parent right
+  line(r.left, p.top, 0, r.top - p.top, `${Math.round(r.top - p.top)}`);              // to parent top
+  line(r.left, r.bottom, 0, p.bottom - r.bottom, `${Math.round(p.bottom - r.bottom)}`); // to parent bottom
+}
+export const clearMeasure = () => rulers.splice(0).forEach((r) => r.remove());
 
 /** Let the crumb buttons drive selection without importing the picker (which imports us). */
 export let onCrumbPick: (el: Element) => void = highlight;

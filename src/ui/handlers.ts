@@ -8,11 +8,11 @@ import { UI } from "../core/const";
 import { blocksOfLastPick } from "../core/state";
 import { askForNote, copy } from "./note";
 import {
-  clearMarks, currentEl, highlight, mark, mount, setCrumbHandler, setFrozenChrome, toast, unmark, unmount,
+  clearMarks, clearMeasure, currentEl, drawMeasure, highlight, mark, mount, setCrumbHandler, setFrozenChrome, toast, unmark, unmount,
 } from "./overlay";
 import type { Message } from "../shared/types";
 
-let active = false, frozen = false;
+let active = false, frozen = false, measuring = false;
 let selection: Element[] = [];
 let lastXY: [number, number] | null = null, lockXY: [number, number] | null = null;
 
@@ -49,7 +49,8 @@ const onKey = (e: KeyboardEvent) => {
   else if (e.key === "Enter" && currentEl()) finish(currentEl()!);
   else if (e.key === "ArrowUp" && currentEl()?.parentElement && currentEl()!.parentElement !== document.documentElement) { lockXY = lastXY; highlight(currentEl()!.parentElement); }
   else if (e.key === "ArrowDown" && currentEl()?.firstElementChild) { lockXY = lastXY; highlight(currentEl()!.firstElementChild); }
-  else if (e.key === "f" || e.key === "F") setFrozen(!frozen);
+  else if (e.key === "m" || e.key === "M") { measuring = !measuring; if (!measuring) clearMeasure(); else if (currentEl()) drawMeasure(currentEl()); }
+    else if (e.key === "f" || e.key === "F") setFrozen(!frozen);
   else if (e.key === "Backspace" && selection.length) { selection.pop(); unmark(); highlight(currentEl()); }
   else if (e.key === "p" || e.key === "P") {
     // A landing page, section by section: each one is its own component in the bundle.

@@ -33,6 +33,22 @@ function render() {
 }
 
 $("#width").addEventListener("change", render);
+$("#assets").addEventListener("click", async () => {
+  const btn = $("#assets");
+  btn.textContent = "Collecting…";
+  const res = await chrome.runtime.sendMessage({ type: "assets" }).catch(() => null);
+  if (res?.dataUrl) {
+    const a = document.createElement("a");
+    a.href = res.dataUrl;
+    a.download = "component-assets.zip";
+    a.click();
+    btn.textContent = `${res.count} assets`;
+  } else {
+    btn.textContent = "No assets / failed";
+  }
+  setTimeout(() => (btn.textContent = "Download assets"), 2500);
+});
+
 $("#copy").addEventListener("click", async () => {
   if (!preview) return;
   await navigator.clipboard.writeText(preview.bundle);

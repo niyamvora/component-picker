@@ -126,7 +126,7 @@ try {
       // #38 — a two-line inventory the capture should map onto
       inventory: ["Card  .card", "Button  button, [role=button]  variant"].join(String.fromCharCode(10)),
       options: { screenshots: false, fontFace: false, js: true, states: false, themes: false,
-                 tokensJson: false, tailwind: false, jsx: false, a11y: true, fast: false,
+                 tokensJson: false, tailwind: false, jsx: false, a11y: true, fast: false, extraMedia: true, vue: false, svelte: false, htmlCss: false,
                  viewports: [{ name: "phone", width: 320, height: 600, dpr: 2, mobile: true }] },
     });
     const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
@@ -164,6 +164,9 @@ try {
   if (!compared.includes("## Responsive: phone 320×600 (DPR 2)")) fails.push("stored viewport list was ignored");
   if (compared.includes("## Screenshots")) fails.push("screenshots were captured with the option off");
   if (compared.includes("## State: hover")) fails.push("states were captured with the option off");
+  // #45 — forced-colors is captured as a diff (deterministic in headless; it inverts the palette).
+  if (!/## Media: forced-colors: active \(diff vs default\)/.test(compared)) fails.push("#45 forced-colors media section missing");
+  if (!/(background-)?color: rgb\(/.test(compared.slice(compared.indexOf("## Media: forced-colors")))) fails.push("#45 forced-colors diff is empty");
   // #38 — the inventory maps the card and the button, and lists what it could not place.
   if (!/## Mapping to your components/.test(compared)) fails.push("#38 mapping section missing");
   if (!/\[data-cp="1"\] → <Card/.test(compared)) fails.push("#38 card did not map to <Card>");
