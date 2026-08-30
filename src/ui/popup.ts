@@ -6,8 +6,8 @@
  * the page, not this window.
  */
 
-import { DEFAULT_OPTIONS, loadOptions } from "./options";
-import type { HistoryEntry, Options, Reference, Viewport } from "./types";
+import { DEFAULT_OPTIONS, loadOptions } from "../shared/options";
+import type { HistoryEntry, Options, Reference, Viewport } from "../shared/types";
 
 const $ = <T extends Element>(sel: string) => document.querySelector<T>(sel)!;
 

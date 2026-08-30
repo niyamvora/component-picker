@@ -14,9 +14,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CHROME = process.env.CHROME ||
   `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
 
-const svg = readFileSync(join(ROOT, "src", "icon.svg"), "utf8");
+const svg = readFileSync(join(ROOT, "src", "assets", "icon.svg"), "utf8");
 const scratch = mkdtempSync(join(tmpdir(), "cp-icon-"));
-mkdirSync(join(ROOT, "src", "icons"), { recursive: true });
+mkdirSync(join(ROOT, "src", "assets", "icons"), { recursive: true });
 
 for (const size of [16, 48, 128]) {
   const page = join(scratch, `${size}.html`);
@@ -25,5 +25,5 @@ for (const size of [16, 48, 128]) {
     "--headless=new", "--disable-gpu", "--no-sandbox", "--default-background-color=00000000",
     `--window-size=${size},${size}`, `--screenshot=${join(ROOT, "src", "icons", `${size}.png`)}`, `file://${page}`,
   ], { stdio: "ignore" });
-  console.log(`src/icons/${size}.png`);
+  console.log(`src/assets/icons/${size}.png`);
 }

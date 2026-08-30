@@ -11,6 +11,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Changed
+- `src/` is split into `core/` (the engine, one concern per file), `ui/`, `bg/`, `shared/` and `assets/`, with every file under 200 lines (#53). `extract.ts` had grown to 1,100 lines and every planned feature added another section to it. Build output is unchanged — `dist/` keeps the same four flat filenames, because the manifest and `executeScript({ files })` address them by bare name.
+
 ## [1.0.0] — 2026-08-30
 
 ### Added

@@ -8,7 +8,14 @@ const watch = process.argv.includes("--watch");
 const version = readFileSync("VERSION", "utf8").trim();
 
 const options = {
-  entryPoints: ["src/picker.ts", "src/background.ts", "src/popup.ts", "src/panel.ts"],
+  // Explicit in/out: the sources live in folders, but dist stays flat because the manifest and
+  // chrome.scripting.executeScript({ files: [...] }) address these by bare filename.
+  entryPoints: [
+    { in: "src/ui/picker.ts", out: "picker" },
+    { in: "src/bg/service-worker.ts", out: "background" },
+    { in: "src/ui/popup.ts", out: "popup" },
+    { in: "src/ui/panel.ts", out: "panel" },
+  ],
   outdir: "dist",
   bundle: true,
   format: "iife",
@@ -22,8 +29,8 @@ mkdirSync("dist", { recursive: true });
 const manifest = JSON.parse(readFileSync("src/manifest.json", "utf8"));
 manifest.version = version; // VERSION is the single source of truth; release.sh bumps it
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2) + "\n");
-for (const page of ["popup.html", "panel.html"]) cpSync(`src/${page}`, `dist/${page}`);
-cpSync("src/icons", "dist/icons", { recursive: true });
+for (const page of ["popup.html", "panel.html"]) cpSync(`src/ui/${page}`, `dist/${page}`);
+cpSync("src/assets/icons", "dist/icons", { recursive: true });
 
 // Firefox build: same code, a manifest without the Chrome-only pieces. The debugger API does not
 // exist there, so viewport, state, theme and screenshot sections are absent — the picker already

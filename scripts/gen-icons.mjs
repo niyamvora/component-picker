@@ -1,5 +1,5 @@
 /**
- * Build `src/icons.json`: a hash of every icon's path geometry → its name.
+ * Build `src/assets/icons.json`: a hash of every icon's path geometry → its name.
  *
  * Dev-time only, run by hand when the icon sets move (`node scripts/gen-icons.mjs`). The packages
  * are fetched into a scratch directory rather than added as dependencies — the extension ships the
@@ -59,5 +59,5 @@ for (const set of SETS) {
   }
 }
 
-writeFileSync(join(ROOT, "src", "icons.json"), JSON.stringify(out));
-console.log(`${Object.keys(out).length} distinct icons from ${count} files → src/icons.json`);
+writeFileSync(join(ROOT, "src", "assets", "icons.json"), JSON.stringify(out));
+console.log(`${Object.keys(out).length} distinct icons from ${count} files → src/assets/icons.json`);

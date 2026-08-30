@@ -1,109 +1,12 @@
 /**
- * The service worker: injects the picker, drives the one debugger session that every measurement
- * flows through — resting desktop, each viewport, each forced state, the other theme, the
- * screenshots — and owns the two things that must outlive a page: the options and the reference
- * pick everything else is diffed against.
- */
-
-import { DEFAULT_OPTIONS } from "./options";
-import type {
-  HistoryEntry, MeasureResult, Message, Options, Preview, ProbeResult, Snapshot, StateIndices, StateName, ThemeInfo,
-} from "./types";
-
-/** Injected by name, so this must match what build.mjs emits into dist/. */
-const PICKER = "picker.js";
-const MAX_HISTORY = 10;
-
-/**
- * Inject into every frame, not just the top one.
+ * The one debugger session every measurement flows through.
  *
- * Stripe fields, cookie banners and docs demos live in iframes; a picker that only runs in the top
- * document simply cannot see them. Each frame gets its own picker, and the one that receives the
- * click owns the capture — a cross-origin frame could not be reached from the parent anyway.
+ * Everything shares it deliberately: attaching shows the user a "Component Picker started
+ * debugging this browser" bar, and doing it once per section would flash that bar five times and
+ * re-run the page's resize handlers in between.
  */
-export async function inject(tabId: number) {
-  await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: [PICKER] });
-}
 
-// With a popup declared, chrome.action.onClicked no longer fires — the popup's Pick button calls
-// inject() instead. This listener stays for the case where the popup is disabled.
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab.id || !/^(https?|file):/.test(tab.url || "")) return;
-  await inject(tab.id);
-});
-
-chrome.runtime.onInstalled.addListener(async () => {
-  const { options } = await chrome.storage.local.get("options");
-  if (!options) await chrome.storage.local.set({ options: DEFAULT_OPTIONS });
-});
-
-chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
-  const tabId = sender.tab?.id;
-  const job =
-    msg.type === "measure" && tabId !== undefined ? measure(tabId, msg)
-    : msg.type === "probe" && tabId !== undefined ? probe(tabId)
-    : msg.type === "set-reference" ? chrome.storage.local.set({ reference: msg.reference })
-    : msg.type === "clear-reference" ? chrome.storage.local.remove("reference")
-    : msg.type === "get-reference" ? chrome.storage.local.get("reference").then((s) => s.reference ?? null)
-    : msg.type === "remember" ? remember(msg.entry)
-    : msg.type === "picking" ? chrome.action.setBadgeText({ tabId, text: msg.on ? "ON" : "" })
-    : msg.type === "preview" ? showPreview(tabId, msg.preview)
-    : null;
-  if (!job) return;
-  job.then(reply, (e: unknown) => reply({ error: e instanceof Error ? e.message : String(e) }));
-  return true; // keeps the message channel open for the async reply
-});
-
-/**
- * Hand the capture to the side panel, and open the panel if it is not already there.
- *
- * The payload is stored as well as sent: a panel opened later would otherwise sit empty until the
- * next pick, and the message it missed is not replayed.
- */
-async function showPreview(tabId: number | undefined, preview: Preview) {
-  await chrome.storage.local.set({ preview });
-  if (tabId !== undefined) await chrome.sidePanel.open({ tabId }).catch(() => {});
-  await chrome.runtime.sendMessage({ type: "preview", preview }).catch(() => {});
-}
-
-async function remember(entry: HistoryEntry) {
-  const { history = [] } = await chrome.storage.local.get("history");
-  await chrome.storage.local.set({ history: [entry, ...(history as HistoryEntry[])].slice(0, MAX_HISTORY) });
-}
-
-// Runs in the page's MAIN world, where React's __reactFiber$ expandos are visible.
-// Self-contained: executeScript serializes it. Elements arrive tagged data-cp-tmp="<index>".
-function pageProbe(): ProbeResult {
-  const fiberOf = (el: any) => { const k = Object.keys(el).find((k) => k.startsWith("__reactFiber$")); return k ? el[k] : null; };
-  const typeName = (t: any): string | undefined => t && typeof t !== "string" &&
-    (t.displayName || t.name || (t.render && (t.render.displayName || t.render.name)) || (t.type && (t.type.displayName || t.type.name)));
-  const els = [...document.querySelectorAll<HTMLElement>("[data-cp-tmp]")]
-    .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
-  const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [] };
-  if (!root) return out;
-  if (fiberOf(root)) {
-    const next = (window as any).__NEXT_DATA__ || document.getElementById("__next") || document.querySelector('script[src*="/_next/"]');
-    out.framework = next ? "React (Next.js)" : "React";
-    for (let f = fiberOf(root); f && out.chain.length < 8; f = f.return) { const n = typeName(f.type); if (n) out.chain.push(n); }
-    for (const el of els) {
-      const p = fiberOf(el)?.memoizedProps;
-      if (!p || typeof p !== "object") continue;
-      for (const [k, v] of Object.entries(p)) {
-        if (typeof v === "function" && out.handlers.length < 25) out.handlers.push(`[data-cp="${Number(el.dataset.cpTmp) + 1}"] ${k}: ${v.toString().replace(/\s+/g, " ").slice(0, 300)}`);
-      }
-    }
-  } else if ((root as any).__vueParentComponent || (root as any).__vue__) {
-    const vue = (root as any).__vueParentComponent || (root as any).__vue__;
-    out.framework = `Vue (${vue.type?.name || vue.$options?.name || "component"})`;
-  }
-  return out;
-}
-
-async function probe(tabId: number): Promise<ProbeResult> {
-  const [r] = await chrome.scripting.executeScript({ target: { tabId }, world: "MAIN", func: pageProbe });
-  return r.result as ProbeResult;
-}
+import type { MeasureResult, Message, Options, Snapshot, StateIndices, StateName, ThemeInfo } from "../shared/types";
 
 const send = (target: chrome.debugger.Debuggee, method: string, params?: object): Promise<any> =>
   chrome.debugger.sendCommand(target, method, params) as Promise<any>;
@@ -118,7 +21,7 @@ const snap = (tabId: number, settle: number, theme?: "flip"): Promise<Snapshot> 
  * debugging this browser" bar, and doing it once per section would flash that bar five times and
  * re-run the page's resize handlers in between.
  */
-async function measure(tabId: number, msg: { states: StateIndices; theme: ThemeInfo | null; options: Options }): Promise<MeasureResult> {
+export async function measure(tabId: number, msg: { states: StateIndices; theme: ThemeInfo | null; options: Options }): Promise<MeasureResult> {
   const { states, theme, options } = msg;
   const target = { tabId };
   await chrome.debugger.attach(target, "1.3");
