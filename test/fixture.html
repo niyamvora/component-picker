@@ -24,6 +24,11 @@
   html.dark .card { background: rgb(20, 20, 20); color: rgb(240, 240, 240); }
   .reveal { opacity: 0; }
   .reveal.is-visible { opacity: 1; }
+  .card { container-type: inline-size; }
+  @container (min-width: 100px) { .title { letter-spacing: 1px; } }
+  .card:has(> .grad) { outline: 3px solid rgb(1, 2, 3); }
+  @media print { .card { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .btn { animation-name: none; } }
   @keyframes spin { to { transform: rotate(1turn); } }
 </style>
 <section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
@@ -81,9 +86,9 @@
     // #37 repeat detection
     const list = await window.__cp.extract(document.getElementById("cards"));
     // #35/#36/#41/#40 — turn on the extra outputs and capture once more
-    Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true });
+    Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true, vue: true, svelte: true, htmlCss: true });
     const full = await window.__cp.extract(document.getElementById("card"));
-    Object.assign(window.__cp.opts, { tokensJson: false, tailwind: false, jsx: false, fast: false });
+    Object.assign(window.__cp.opts, { tokensJson: false, tailwind: false, jsx: false, fast: false, vue: false, svelte: false, htmlCss: false });
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -107,6 +112,8 @@
       "## Animations (running)", "400ms", "opacity: 1;",
       // #32 — the reveal-on-scroll element is flagged, both states shown
       "## Scroll behaviour", "hidden at rest (opacity: 0)", "revealed by adding `.is-visible`",
+      // #43 — a container query reaches the source rules; a :has() rule now matches (its outline applies)
+      "@container", "letter-spacing: 1px", "outline-color: rgb(1, 2, 3);", "container-type: inline-size;",
       // #21 — the shadow root travels as declarative shadow DOM, and its content is measured
       '<template shadowrootmode="open">', 'class="pill"', "background-color: rgb(30, 64, 175);",
       'data-icon="lucide:x"', "Icons: lucide:x.",                     // #18 named icons
@@ -125,7 +132,7 @@
     ];
     const mustNot = ["<script", "__cpEvil", 'onclick="alert(1)">Go</button>',                  // on* stripped from HTML
                      "min-width: auto", "transform-origin", 'url("../', "border: 0px solid", "data-cp-tmp",
-                     "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130",
+                     "matrix(1, 0, 0, 1, 0, 0)", "height: 130",
                      "left: 710",   // #10 — layout values Chrome resolved, not ones anyone wrote
                      // #6 — the header line is gone, and conversions nobody typed (13.3333px) stay px.
                      "Root font-size", "13.3333px; /*", "@font-face { font-family: Georgia;"];
@@ -140,6 +147,9 @@
       "## Component (JSX)", 'className="card w-container"', "<path",  // #41 JSX with renamed attrs
       "## Accessibility",                                            // #40
       "fast mode (no debugger)",                                    // #46
+      "## Component (Vue SFC)", "<template>", "<style scoped>",      // #48
+      "## Component (Svelte)",                                       // #48
+      "## Palette and type", "Colours:",                            // #47
     ];
     // #37 — the repeat list collapses to one row plus a table
     const listMust = ["## Repeated structure", "repeats 4×", "Starter", "$0",

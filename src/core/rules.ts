@@ -51,6 +51,10 @@ export function sheetRules() {
       else if (r instanceof CSSFontFaceRule) fontFaces.push(r);
       else if (r instanceof CSSMediaRule) {
         if (!/print/.test(r.conditionText)) walk(r.cssRules, cond ? `${cond} and ${r.conditionText}` : r.conditionText);
+      } else if (typeof CSSContainerRule !== "undefined" && r instanceof CSSContainerRule) {
+        // A container query is a breakpoint against an ancestor's width, not the viewport's; carry
+        // it like a media condition so matched rules still surface, tagged `@container`.
+        walk(r.cssRules, cond ? `${cond} and @container ${r.conditionText}` : `@container ${r.conditionText}`);
       } else if (r instanceof CSSStyleRule) {
         if (cond || STATE_RE.test(r.selectorText)) styleRules.push({ r, cond });
         if (allRules.length < 20000) allRules.push({ selectorText: r.selectorText, cssText: r.cssText });
@@ -65,8 +69,27 @@ export function sheetRules() {
 }
 
 /** Elements of the picked subtree a selector hits, ignoring the state and pseudo-element parts. */
+/**
+ * Strip the state and pseudo-element parts of a selector, leaving what `querySelectorAll` needs —
+ * without corrupting anything inside `:has(...)`, `:is(...)` or `:where(...)`. The old blind regex
+ * mangled `:has(> img)`; this skips over balanced parentheses.
+ */
+function stripStates(selector: string): string {
+  let out = "", depth = 0;
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    out += ch;
+  }
+  if (depth === 0) {
+    out = out.replace(new RegExp(STATE_RE.source, "g"), "").replace(new RegExp(PSEUDO_EL_RE.source, "g"), "");
+  }
+  return out.trim();
+}
+
 export function matchIds(root: Element, index: Map<Element, number>, selectorText: string): { ids: number[]; hits: Element[] } | null {
-  const base = selectorText.replace(new RegExp(STATE_RE.source, "g"), "").replace(new RegExp(PSEUDO_EL_RE.source, "g"), "").trim();
+  const base = stripStates(selectorText);
   if (!base || base === "*" || /^[>+~,]|[>+~,]$/.test(base)) return null;
   let hits: Element[];
   try { hits = [...root.querySelectorAll(base)]; if (root.matches(base)) hits.unshift(root); } catch { return null; }
