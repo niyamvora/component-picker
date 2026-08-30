@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+      # Chrome for Testing, not branded Chrome: branded builds refuse --load-extension outright,
+      # which is exactly what the end-to-end suite needs. @puppeteer/browsers is the official
+      # downloader for it and prints "chrome@<version> <path>".
+      - name: install Chrome for Testing
+        id: cft
+        run: echo "path=$(npx --yes @puppeteer/browsers install chrome@stable | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+
+      - name: extraction engine (test/check.sh)
+        env:
+          CHROME: ${{ steps.cft.outputs.path }}
+        run: ./test/check.sh | tee check.log && grep -q '^PASS' check.log
+
+      - name: real extension + debugger (test/e2e.mjs)
+        env:
+          CHROME: ${{ steps.cft.outputs.path }}
+        run: xvfb-run -a node test/e2e.mjs | tee e2e.log && grep -q '^PASS' e2e.log

@@ -57,6 +57,16 @@ export interface ProbeResult {
   error?: string;
 }
 
+/** A rule that only applies inside a media query, and which elements of the subtree it hits. */
+export interface MediaRule {
+  ids: number[];
+  /** The query as authored, e.g. `(min-width: 40rem)`. */
+  cond: string;
+  selector: string;
+  /** Declared property names, so a diff can tell which change this rule explains. */
+  props: string[];
+}
+
 export type Message =
   | { type: "measure"; states: StateIndices }
   | { type: "probe" }

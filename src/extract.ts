@@ -6,7 +6,7 @@
  * extension loaded at all.
  */
 
-import type { Block, Blocks, Message, MeasureResult, ProbeResult, Snapshot, StateIndices, StateName } from "./types";
+import type { Block, Blocks, MediaRule, Message, MeasureResult, ProbeResult, Snapshot, StateIndices, StateName } from "./types";
 
 export const UI = "data-cp-ui";
 const TMP = "data-cp-tmp"; // element index, readable from the MAIN world and from CDP while capturing
@@ -184,9 +184,50 @@ function computeBlocks(els: Element[]): Blocks {
   return blocks;
 }
 
-function renderBlock(i: number, b: Block, props = b.props, pseudos = b.pseudos): string[] {
+/**
+ * Properties whose px values are worth reading as rem — the ones a design system's scale is
+ * built from. `box-shadow` and `transform` are deliberately absent: nobody writes those in rem.
+ */
+const REM_PROPS = new Set(["font-size", "line-height", "letter-spacing", "text-underline-offset",
+  "padding", "margin", "gap", "row-gap", "column-gap", "border-radius", "width", "height",
+  "min-width", "max-width", "min-height", "max-height", "top", "right", "bottom", "left"]);
+
+/**
+ * `14px` is `.875rem` is Tailwind's `text-sm` — the px value is what the browser resolved, the rem
+ * is what the design system was written in, and only one of them is greppable in the target repo.
+ *
+ * Only clean conversions are shown: 13.3333px (a UA-default button) is 0.8333rem, which nobody
+ * typed and which would be noise on every line.
+ *
+ * ponytail: uses the root size captured at pick time for every viewport; a page that changes its
+ * root font-size per breakpoint would need it captured per snapshot.
+ */
+function remHint(prop: string, value: string, rootPx: number): string | null {
+  if (!REM_PROPS.has(prop) || !rootPx) return null;
+  let converted = false;
+  const out = value.split(" ").map((token) => {
+    const m = /^(-?[\d.]+)px$/.exec(token);
+    if (!m) return token;
+    const n = parseFloat(m[1]);
+    if (n === 0) return "0";
+    const rem = n / rootPx;
+    // Only a value that survives the round-trip: 13.3333px is 0.8333rem, which nobody typed and
+    // which would put a wrong-looking number on every UA-styled line.
+    if (Math.abs(parseFloat(rem.toFixed(3)) - rem) > 0.0001) return token;
+    converted = true;
+    return `${parseFloat(rem.toFixed(3))}rem`;
+  });
+  return converted ? out.join(" ") : null;
+}
+
+function renderBlock(i: number, b: Block, props = b.props, pseudos = b.pseudos,
+                     notes: Record<string, string[]> = {}): string[] {
   const out: string[] = [];
-  const lines = Object.entries(props).map(([p, v]) => `  ${p}: ${v};`);
+  const lines = Object.entries(props).map(([p, v]) => {
+    const rem = remHint(p, v, rootPx);
+    const hints = [...(rem ? [rem] : []), ...(notes[p] ?? [])];
+    return `  ${p}: ${v};${hints.length ? ` /* ${hints.join(" · ")} */` : ""}`;
+  });
   if (lines.length) out.push(`${sel(i)} { /* ${b.label}${b.rect ? ` ${b.rect[0]}×${b.rect[1]}` : ""} */\n${lines.join("\n")}\n}`);
   for (const [ps, pp] of Object.entries(pseudos)) {
     out.push(`${sel(i)}${ps} {\n${Object.entries(pp).map(([p, v]) => `  ${p}: ${v};`).join("\n")}\n}`);
@@ -194,8 +235,49 @@ function renderBlock(i: number, b: Block, props = b.props, pseudos = b.pseudos):
   return out;
 }
 
+/**
+ * Does this query hold at `width`? `null` when the condition is something other than a plain
+ * width bound — an orientation or hover-capability query gets quoted without a verdict rather
+ * than guessed at.
+ */
+const WIDTH_COND = /\(\s*(min|max)-width\s*:\s*([\d.]+)(px|rem|em)\s*\)/g;
+function condApplies(cond: string, width: number): boolean | null {
+  let judged = false, holds = true;
+  for (const m of cond.matchAll(WIDTH_COND)) {
+    judged = true;
+    const px = parseFloat(m[2]) * (m[3] === "px" ? 1 : 16);
+    holds &&= m[1] === "min" ? width >= px : width <= px;
+  }
+  return judged ? holds : null;
+}
+
+/** `row-gap` and `gap` are the same knob; so are `padding` and `padding-top`. */
+const sameKnob = (a: string, b: string) => {
+  const norm = (p: string) => p.replace(/^(row|column)-gap$/, "gap");
+  const [x, y] = [norm(a), norm(b)];
+  return x === y || x.startsWith(`${y}-`) || y.startsWith(`${x}-`);
+};
+
+/**
+ * The rule that explains a property changing at this viewport.
+ *
+ * Without it a responsive section reads as though the layout reflowed, when in fact a breakpoint
+ * stopped applying — `font-size: 16px` on mobile is Tailwind's `text-base sm:text-sm`, not a
+ * consequence of the narrower box, and the two want completely different fixes.
+ */
+function breakpointNote(media: MediaRule[], id: number, prop: string, width: number): string | null {
+  const hit = media.filter((m) => m.ids.includes(id) && m.props.some((p) => sameKnob(p, prop))).pop();
+  if (!hit) return null;
+  const verdict = condApplies(hit.cond, width);
+  const says = verdict === null ? "" : verdict ? " applies" : " no longer applies";
+  return `@media ${hit.cond} ${hit.selector}${says}`;
+}
+
+/** The page's root font-size at pick time — what every rem hint is measured against. */
+let rootPx = 16;
+
 /** Only what changed vs the desktop blocks. */
-function diffBlocks(desktop: Blocks, other: Blocks): string[] {
+function diffBlocks(desktop: Blocks, other: Blocks, media: MediaRule[] = [], width = 0): string[] {
   const out: string[] = [];
   for (const i of Object.keys(other)) {
     const m = other[+i], d = desktop[+i];
@@ -209,7 +291,12 @@ function diffBlocks(desktop: Blocks, other: Blocks): string[] {
     for (const [ps, pp] of Object.entries(m.pseudos)) {
       if (JSON.stringify(pp) !== JSON.stringify(d && d.pseudos[ps])) pseudos[ps] = pp;
     }
-    out.push(...renderBlock(+i, m, changed, pseudos));
+    const notes: Record<string, string[]> = {};
+    if (width) for (const k of Object.keys(changed)) {
+      const note = breakpointNote(media, +i, k, width);
+      if (note) notes[k] = [note];
+    }
+    out.push(...renderBlock(+i, m, changed, pseudos, notes));
   }
   return out;
 }
@@ -240,6 +327,7 @@ const forcedState = (pseudo: string): StateName | null => (pseudo === "hover" ? 
 function matchRules(root: Element, els: Element[], styleRules: { r: CSSStyleRule; cond: string | null }[]) {
   const index = new Map(els.map((el, i) => [el, i]));
   const found: string[] = [];
+  const media: MediaRule[] = [];
   // Hovering a child hovers its ancestors, so the picked root always counts as hovered.
   const stateIdx: Record<StateName, Set<number>> = { hover: new Set([0]), "focus-visible": new Set(), active: new Set() };
   for (const { r, cond } of styleRules.slice(0, 20000)) {
@@ -252,13 +340,17 @@ function matchRules(root: Element, els: Element[], styleRules: { r: CSSStyleRule
     const css = resolveVars(r.cssText, getComputedStyle(hits.find((el) => index.has(el))!));
     const text = cond ? `@media ${cond} {\n  ${css}\n}` : css;
     found.push(`/* → ${ids.slice(0, 8).map(sel).join(", ")}${ids.length > 8 ? ", …" : ""} */\n${text}`);
+    if (cond) {
+      const props = Array.from({ length: r.style.length }, (_, n) => r.style.item(n));
+      media.push({ ids, cond, selector: r.selectorText, props });
+    }
     for (const m of r.selectorText.matchAll(new RegExp(STATE_RE.source, "g"))) {
       const state = forcedState(m[1]);
       if (state) for (const i of ids) stateIdx[state].add(i);
     }
   }
   const states = Object.fromEntries(Object.entries(stateIdx).map(([k, v]) => [k, [...v]])) as StateIndices;
-  return { found, states };
+  return { found, states, media };
 }
 
 /** Substitute var(--x[, fallback]) with the element's computed custom property, innermost first. */
@@ -354,6 +446,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
   const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
   const els = eligible.slice(0, MAX_ELEMENTS);
   pending = els;
+  rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   els.forEach((el, i) => el.setAttribute(TMP, String(i)));
   try {
     return await build(root, all, eligible, els, onStatus);
@@ -364,7 +457,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
 
 async function build(root: Element, all: Element[], eligible: Element[], els: Element[], onStatus: (s: string) => void): Promise<string> {
   const { styleRules, keyframes, fontFaces } = sheetRules();
-  const { found: rules, states } = matchRules(root, els, styleRules);
+  const { found: rules, states, media } = matchRules(root, els, styleRules);
 
   // Everything measurable is measured in one debugger session, starting with the resting
   // desktop state — the pointer is still on the element the user just clicked, and reading
@@ -388,10 +481,10 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const md: string[] = [];
   md.push(`# Component picked from ${document.title || location.hostname} — ${location.href}`);
   md.push(`Picked: ${label(root)} ${Math.round(rect.width)}×${Math.round(rect.height)} at (${Math.round(rect.left + scrollX)}, ${Math.round(rect.top + scrollY)}). ` +
-    `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. Root font-size ${getComputedStyle(document.documentElement).fontSize}. ` +
+    `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. ` +
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
-  md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
+  md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
   md.push(`## HTML\n\`\`\`html\n${html}\n\`\`\``);
   md.push(`## CSS (desktop, resting state)` +
     (resp.error ? `\n_Measured with the pointer still on the element — hover styles may be included._` : "") +
@@ -405,7 +498,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (rules.length) md.push(`## Source rules (hover/focus/media, from the site's stylesheets)\n\`\`\`css\n${rules.join("\n\n")}\n\`\`\``);
   if (resp.error) md.push(`## Responsive + states\n_Viewport and interaction-state snapshots unavailable: ${resp.error}. Use the source rules above._`);
   for (const v of (resp.viewports || []).slice(1)) {
-    const diff = diffBlocks(desktop, v.blocks);
+    const diff = diffBlocks(desktop, v.blocks, media, v.width);
     md.push(`## Responsive: ${v.name} ${v.width}×${v.height} (DPR ${v.dpr}) — root renders ${v.root[0]}×${v.root[1]}\n` +
       (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"));
   }

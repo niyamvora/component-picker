@@ -34,6 +34,9 @@ const server = createServer(async (req, res) => {
 
 const chrome = spawn(CHROME, [
   "--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${CDP}`,
+  // Chrome/Chromium ≥137 ignore --load-extension unless this feature is switched back off.
+  // Harmless on builds that never had it.
+  "--disable-features=DisableLoadExtensionCommandLineSwitch",
   `--user-data-dir=${mkdtempSync(join(tmpdir(), "cp-e2e-"))}`,
   `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
   `http://localhost:${PORT}/test/fixture.html`,
@@ -70,7 +73,10 @@ try {
     }
     if (!ws) await sleep(200);
   }
-  if (!ws) throw new Error("extension service worker not found");
+  if (!ws) {
+    const seen = (await targets()).map((t) => `${t.type} ${t.url}`).join("\n  ");
+    throw new Error(`extension service worker not found. Targets:\n  ${seen}`);
+  }
   const evaluate = (e) => evalIn(ws, e);
 
   // Put a real pointer on the animated button and leave it there. Everything the picker measures
@@ -107,6 +113,9 @@ try {
   if (!/background-color: rgb\(0, 128, 0\)/.test(active)) fails.push("State: active is missing the forced :active colour");
   // Settle must outlast the page's own transition, or a state is read part-way through the fade.
   if (!/color: rgb\(0, 0, 255\);/.test(hover)) fails.push("State: hover colour was measured mid-transition");
+  // #5 — a responsive change caused by a breakpoint must say so, not read as a reflow.
+  if (!/flex-direction: row;\s*\/\* @media \(max-width: 600px\) \.card applies \*\//.test(mobile))
+    fails.push("mobile diff does not name the @media rule that caused it");
   if (!/\[data-cp="1"\][^}]*flex-direction: row;/.test(mobile)) fails.push("mobile diff lacks flex-direction: row on root");
   if (/transform: matrix/.test(md)) fails.push("animated transform leaked into CSS");
   if (/transform-origin/.test(md)) fails.push("default transform-origin leaked into CSS");
