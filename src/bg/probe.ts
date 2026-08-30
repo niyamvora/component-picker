@@ -64,11 +64,14 @@ function pageProbe(): ProbeResult {
   // ---- Platform: the builder behind the page ----
   const has = (sel: string) => !!document.querySelector(sel);
   const attrOnScan = (prefix: string) => els.some((el) => [...el.attributes].some((a) => a.name.startsWith(prefix)));
-  const clsCount = (prefix: string) => els.filter((el) => [...el.classList].some((c) => c.startsWith(prefix))).length;
-  if (document.documentElement.hasAttribute("data-wf-page") || (window as any).Webflow || clsCount("w-") >= 3) {
+  // Webflow's own classes are specific words (w-container, w-row, w-nav…) — never Tailwind's
+  // w-[270px] / w-full / w-1/2. Matching a bare "w-" prefix false-positives on every Tailwind site.
+  const WF = /^w-(container|row|col|nav|navbar|button|inline-block|embed|form|dropdown|slider|tab|tabs|richtext|dyn-list|dyn-item|clearfix|layout|node|widget|lightbox|background-video)\b/;
+  const wfClassCount = els.filter((el) => [...el.classList].some((c) => WF.test(c))).length;
+  if (document.documentElement.hasAttribute("data-wf-page") || (window as any).Webflow || wfClassCount >= 2) {
     out.platform = "Webflow";
     const wClasses = new Set<string>();
-    for (const el of els) for (const c of el.classList) if (/^w-/.test(c)) wClasses.add(c);
+    for (const el of els) for (const c of el.classList) if (WF.test(c)) wClasses.add(c);
     if (wClasses.size) out.platformNotes.push(`Webflow grid/util classes to replace: ${[...wClasses].join(", ")}`);
     const wids = els.filter((el) => el.hasAttribute("data-w-id")).map((el) => `[data-cp="${idxOf(el as HTMLElement) + 1}"]`);
     if (wids.length) out.platformNotes.push(`IX2 interaction targets: ${wids.join(", ")} (data-w-id).`);

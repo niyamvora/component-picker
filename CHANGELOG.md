@@ -11,6 +11,12 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Fixed
+- **SVG internals no longer bloat the bundle**: an `<svg>`'s descendants — every `<path>`, `<filter>`, `<stop>`, `<mask>` — were each given a `data-cp` and a CSS block that was almost always just `box-sizing: border-box`. That could be hundreds of lines of noise for one icon. The `<svg>` element itself is still captured (size, colour, filter matter) and its full markup stays in the HTML; only the per-node CSS blocks are dropped. Icon naming (#18) still works.
+- **False "Platform: Webflow"** on Tailwind sites: the detector matched any class starting with `w-`, which Tailwind uses heavily (`w-full`, `w-[270px]`). It now matches Webflow's actual class names (`w-container`, `w-row`, `w-nav`…).
+- **`.undefined` in the Repeated-structure labels** for class-less SVG nodes (`rect.undefined` → `rect`).
+- **Side-panel flicker**: every capture called `chrome.sidePanel.open()` from an async handler with no user gesture, so Chrome flashed the panel open-and-shut with nothing to show. The preview is now stored and pushed to the panel if it is already open; open it yourself from Chrome's side-panel button when you want it.
+
 ## [1.4.0] — 2026-08-31
 
 ### Added

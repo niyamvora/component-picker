@@ -28,7 +28,11 @@ import { options, refreshOptions } from "../shared/options";
 
 export async function extract(root: Element, onStatus: (s: string) => void = () => {}): Promise<string> {
   const all = walk(root);
-  const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
+  // An <svg>'s internals — every <path>, <filter>, <stop> — are complete in the HTML already, so
+  // do not give each one a data-cp and a CSS block (almost always just `box-sizing: border-box`).
+  // Keep the <svg> element itself; its size, colour and filter matter.
+  const svgInternal = (e: Element) => e.tagName.toLowerCase() !== "svg" && !!e.closest("svg");
+  const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`) && !svgInternal(e));
   const els = eligible.slice(0, MAX_ELEMENTS);
   state.pending = els;
   await refreshOptions();

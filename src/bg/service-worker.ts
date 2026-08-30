@@ -34,6 +34,8 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.storage.local.get("bridge").then((s) => { if (s.bridge) startBridge(); });
+// The side panel opens from Chrome's side-panel button; it is never force-opened on a capture.
+chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false }).catch(() => {});
 
 chrome.runtime.onInstalled.addListener(async () => {
   const { options } = await chrome.storage.local.get("options");
@@ -61,15 +63,13 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
   return true; // keeps the message channel open for the async reply
 });
 
-/**
- * Hand the capture to the side panel, and open the panel if it is not already there.
- *
- * The payload is stored as well as sent: a panel opened later would otherwise sit empty until the
- * next pick, and the message it missed is not replayed.
- */
-async function showPreview(tabId: number | undefined, preview: Preview) {
+/** Store the latest capture for the side panel, and push it to the panel if it is already open. */
+async function showPreview(_tabId: number | undefined, preview: Preview) {
+  // Store it and push it to the panel if it is already open. Do NOT call sidePanel.open() here:
+  // this runs in an async message handler with no user gesture, so Chrome refuses it and flashes
+  // the panel open-then-shut — a flicker with nothing to show for it. The panel reads the stored
+  // preview when the user opens it themselves from Chrome's side-panel button.
   await chrome.storage.local.set({ preview });
-  if (tabId !== undefined) await chrome.sidePanel.open({ tabId }).catch(() => {});
   await chrome.runtime.sendMessage({ type: "preview", preview }).catch(() => {});
 }
 

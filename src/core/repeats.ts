@@ -29,7 +29,7 @@ function dataColumns(instances: Element[]): { header: string; rows: string[] }[]
       return src || text;
     });
     if (new Set(cells).size > 1 && cells.some(Boolean)) {
-      cols.push({ pos, header: walked[0][pos].tagName.toLowerCase() + (walked[0][pos].className ? "." + [...walked[0][pos].classList][0] : ""), rows: cells });
+      cols.push({ pos, header: walked[0][pos].tagName.toLowerCase() + (walked[0][pos].classList.length ? "." + walked[0][pos].classList[0] : ""), rows: cells });
     }
     if (cols.length >= MAX_COLS) break;
   }
@@ -61,7 +61,7 @@ export function findRepeats(_root: Element, els: Element[], sameStructure: (a: E
       const first = instances[0];
       const cols = dataColumns(instances);
       const count = els.indexOf(first);
-      let text = `${first.tagName.toLowerCase()}${first.className ? "." + [...first.classList][0] : ""} repeats ${set.length}× (siblings, identical structure).`;
+      let text = `${first.tagName.toLowerCase()}${first.classList.length ? "." + first.classList[0] : ""} repeats ${set.length}× (siblings, identical structure).`;
       if (cols.length) {
         text += `\nOnly these differ between instances; everything else is shared:\n\n`;
         text += `| # | ${cols.map((c) => c.header).join(" | ")} |\n|${"---|".repeat(cols.length + 1)}\n`;
