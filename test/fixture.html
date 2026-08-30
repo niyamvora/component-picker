@@ -39,7 +39,9 @@
     const tab = await window.__cp.extract(document.querySelector(".tab"));
     const must = [
       '<div id="card" class="card"', 'data-cp="1"',                // root stamped
-      "flex-direction: column;", "gap: 12px;", "padding: 16px;", "margin: 19.92px 0px;",   // h2 UA margin vs neutral baseline
+      "flex-direction: column;", "gap: 12px; /* 0.75rem */", "padding: 16px; /* 1rem */",
+      "margin: 19.92px 0px; /* 1.245rem 0 */",                      // h2 UA margin vs neutral baseline
+      "font-size: 24px; /* 1.5rem */",                              // #6 rem hints
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted
@@ -54,7 +56,10 @@
       "## CSS (desktop, resting state)",
     ];
     const mustNot = ["<script", "__cpEvil", 'onclick="alert(1)">Go</button>',                  // on* stripped from HTML
-                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "border: 0px solid", "data-cp-tmp", "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130"];
+                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "border: 0px solid", "data-cp-tmp",
+                     "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130",
+                     // #6 — the header line is gone, and conversions nobody typed (13.3333px) stay px.
+                     "Root font-size", "13.3333px; /*"];
     // Sibling variants: picking the selected tab must describe the unselected one.
     const tabMust = ["## Variants (siblings of the picked element)", '[aria-selected="false"]',
                      "color: rgb(128, 128, 128);", "font-weight: 700;"];

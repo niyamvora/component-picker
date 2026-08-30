@@ -12,6 +12,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ## [Unreleased]
 
 ### Added
+- `px` values on scale properties (font-size, spacing, radius…) carry their `rem` equivalent as a comment (#6) — `14px` is `.875rem` is Tailwind's `text-sm`, and only the rem is greppable in the target repo. Conversions nobody would have typed (a UA button's `13.3333px`) stay px.
 - Responsive diffs name the `@media` rule that caused each change, and say whether it applies or no longer applies at that viewport (#5) — `font-size: 16px` on mobile is a breakpoint stopping, not the layout reflowing, and the two want different fixes.
 
 ## [0.2.0] — 2026-08-30
@@ -19,6 +20,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ### Added
 - **Interaction states** (#2): `:hover`, `:focus-visible` and `:active` are forced through the Chrome DevTools Protocol and emitted as diffs against the resting capture. States are forced on every element the site has a rule for — not just the picked root — so a card whose hover styling lives on a child is captured correctly.
 - **Sibling variants** (#3): siblings that differ from the picked element only by `data-state` / `aria-selected` / `aria-current` / `disabled` (and similar) are captured as diffs — a stepper's done and pending steps, a tab bar's unselected tabs.
+
+### Removed
+- The header's `Root font-size` line (#6): every value in the bundle was already px, so it explained nothing. The root size now appears where it is actually used — in the note explaining the `rem` comments.
 
 ### Fixed
 - **Hover leak** (#1): the resting desktop CSS was measured while the pointer still sat on the element the user had just clicked, so the site's `:hover` styles were recorded as if they were the resting ones. The capture now parks the pointer before measuring anything, and every measurement — desktop included — comes from one debugger session.

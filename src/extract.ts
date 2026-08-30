@@ -184,11 +184,48 @@ function computeBlocks(els: Element[]): Blocks {
   return blocks;
 }
 
+/**
+ * Properties whose px values are worth reading as rem — the ones a design system's scale is
+ * built from. `box-shadow` and `transform` are deliberately absent: nobody writes those in rem.
+ */
+const REM_PROPS = new Set(["font-size", "line-height", "letter-spacing", "text-underline-offset",
+  "padding", "margin", "gap", "row-gap", "column-gap", "border-radius", "width", "height",
+  "min-width", "max-width", "min-height", "max-height", "top", "right", "bottom", "left"]);
+
+/**
+ * `14px` is `.875rem` is Tailwind's `text-sm` — the px value is what the browser resolved, the rem
+ * is what the design system was written in, and only one of them is greppable in the target repo.
+ *
+ * Only clean conversions are shown: 13.3333px (a UA-default button) is 0.8333rem, which nobody
+ * typed and which would be noise on every line.
+ *
+ * ponytail: uses the root size captured at pick time for every viewport; a page that changes its
+ * root font-size per breakpoint would need it captured per snapshot.
+ */
+function remHint(prop: string, value: string, rootPx: number): string | null {
+  if (!REM_PROPS.has(prop) || !rootPx) return null;
+  let converted = false;
+  const out = value.split(" ").map((token) => {
+    const m = /^(-?[\d.]+)px$/.exec(token);
+    if (!m) return token;
+    const n = parseFloat(m[1]);
+    if (n === 0) return "0";
+    const rem = n / rootPx;
+    // Only a value that survives the round-trip: 13.3333px is 0.8333rem, which nobody typed and
+    // which would put a wrong-looking number on every UA-styled line.
+    if (Math.abs(parseFloat(rem.toFixed(3)) - rem) > 0.0001) return token;
+    converted = true;
+    return `${parseFloat(rem.toFixed(3))}rem`;
+  });
+  return converted ? out.join(" ") : null;
+}
+
 function renderBlock(i: number, b: Block, props = b.props, pseudos = b.pseudos,
                      notes: Record<string, string[]> = {}): string[] {
   const out: string[] = [];
   const lines = Object.entries(props).map(([p, v]) => {
-    const hints = notes[p] ?? [];
+    const rem = remHint(p, v, rootPx);
+    const hints = [...(rem ? [rem] : []), ...(notes[p] ?? [])];
     return `  ${p}: ${v};${hints.length ? ` /* ${hints.join(" · ")} */` : ""}`;
   });
   if (lines.length) out.push(`${sel(i)} { /* ${b.label}${b.rect ? ` ${b.rect[0]}×${b.rect[1]}` : ""} */\n${lines.join("\n")}\n}`);
@@ -235,6 +272,9 @@ function breakpointNote(media: MediaRule[], id: number, prop: string, width: num
   const says = verdict === null ? "" : verdict ? " applies" : " no longer applies";
   return `@media ${hit.cond} ${hit.selector}${says}`;
 }
+
+/** The page's root font-size at pick time — what every rem hint is measured against. */
+let rootPx = 16;
 
 /** Only what changed vs the desktop blocks. */
 function diffBlocks(desktop: Blocks, other: Blocks, media: MediaRule[] = [], width = 0): string[] {
@@ -406,6 +446,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
   const eligible = all.filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase()) && !e.closest(`[${UI}]`));
   const els = eligible.slice(0, MAX_ELEMENTS);
   pending = els;
+  rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   els.forEach((el, i) => el.setAttribute(TMP, String(i)));
   try {
     return await build(root, all, eligible, els, onStatus);
@@ -440,10 +481,10 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const md: string[] = [];
   md.push(`# Component picked from ${document.title || location.hostname} — ${location.href}`);
   md.push(`Picked: ${label(root)} ${Math.round(rect.width)}×${Math.round(rect.height)} at (${Math.round(rect.left + scrollX)}, ${Math.round(rect.top + scrollY)}). ` +
-    `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. Root font-size ${getComputedStyle(document.documentElement).fontSize}. ` +
+    `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. ` +
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
-  md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
+  md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
   md.push(`## HTML\n\`\`\`html\n${html}\n\`\`\``);
   md.push(`## CSS (desktop, resting state)` +
     (resp.error ? `\n_Measured with the pointer still on the element — hover styles may be included._` : "") +
