@@ -69,6 +69,8 @@ export interface MeasureResult {
   shots: Shot[];
   /** The other theme, measured — absent when the page has only one, or when flipping failed. */
   theme?: (Snapshot & { name: "dark" | "light"; how: string }) | { error: string };
+  /** print / reduced-motion / forced-colors, each measured (#45). */
+  media?: (Snapshot & { name: string })[];
   error?: string;
 }
 
@@ -139,6 +141,14 @@ export interface Options {
   a11y: boolean;
   /** No debugger attach: skip viewport, state, theme and screenshot capture (#46). */
   fast: boolean;
+  /** print / reduced-motion / forced-colors captures (#45). */
+  extraMedia: boolean;
+  /** Vue SFC output (#48). */
+  vue: boolean;
+  /** Svelte output (#48). */
+  svelte: boolean;
+  /** Plain HTML + CSS files output (#48). */
+  htmlCss: boolean;
   viewports: Viewport[];
 }
 
@@ -185,6 +195,7 @@ export type Message =
   | { type: "get-inventory" }
   | { type: "bridge"; on: boolean }
   | { type: "bridge-result"; bundle: string }
+  | { type: "assets" }
   | { type: "clear-reference" }
   | { type: "picking"; on: boolean }
   | { type: "remember"; entry: HistoryEntry }

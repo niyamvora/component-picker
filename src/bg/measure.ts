@@ -48,6 +48,7 @@ export async function measure(tabId: number, msg: { states: StateIndices; theme:
 
     if (options.states) await forceStates(target, tabId, states, out);
     if (options.themes && theme) out.theme = await otherTheme(target, tabId, theme);
+    if (options.extraMedia) await extraMedia(target, tabId, out);
   } finally {
     await send(target, "Emulation.clearDeviceMetricsOverride").catch(() => {});
     await send(target, "Emulation.setEmulatedMedia", { features: [] }).catch(() => {});
@@ -130,4 +131,26 @@ async function otherTheme(target: chrome.debugger.Debuggee, tabId: number, theme
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Print, reduced-motion and forced-colors, each as a diff against the default rendering.
+ *
+ * The same emulate-snapshot-diff shape as themes. Behind an option and off by default: it adds
+ * ~1.2s and, unlike themes, is usually empty — most components differ in none of the three.
+ */
+async function extraMedia(target: chrome.debugger.Debuggee, tabId: number, out: MeasureResult) {
+  // Each case sets the FULL media state (features AND media together), so one does not leak into
+  // the next — a forced-colors override left on during the print pass would mask the print rules.
+  const cases: { name: string; params: object }[] = [
+    { name: "prefers-reduced-motion: reduce", params: { media: "screen", features: [{ name: "prefers-reduced-motion", value: "reduce" }] } },
+    { name: "forced-colors: active", params: { media: "screen", features: [{ name: "forced-colors", value: "active" }] } },
+    { name: "print", params: { media: "print", features: [] } },
+  ];
+  out.media = [];
+  for (const c of cases) {
+    await send(target, "Emulation.setEmulatedMedia", c.params);
+    out.media.push({ name: c.name, ...(await snap(tabId, 300)) });
+  }
+  await send(target, "Emulation.setEmulatedMedia", { features: [], media: "" });
 }
