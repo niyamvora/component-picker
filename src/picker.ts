@@ -3,13 +3,13 @@
  * service worker. Injected by name on toolbar click — injecting it again toggles it off.
  */
 
-import { extract, label, snapshot, UI } from "./extract";
+import { extract, label, options, snapshot, UI } from "./extract";
 import type { Message } from "./types";
 
 declare global {
   interface Window {
     /** The picker's handle on the page, also used to detect a second injection. */
-    __cp?: { extract: typeof extract; start: () => void; stop: () => void; toggle: () => void; last: string };
+    __cp?: { extract: typeof extract; start: () => void; stop: () => void; toggle: () => void; last: string; opts: typeof options };
     /** Set by the test fixture so the picker can be driven without the overlay. */
     __cpNoAutostart?: boolean;
   }
@@ -134,6 +134,6 @@ if (window.__cp) {
     }
   }
 
-  window.__cp = { extract, start, stop, toggle: () => (active ? stop() : start()), last: "" };
+  window.__cp = { extract, start, stop, toggle: () => (active ? stop() : start()), last: "", opts: options };
   if (!window.__cpNoAutostart) start();
 }

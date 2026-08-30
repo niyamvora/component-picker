@@ -11,6 +11,13 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Typography as a developer writes it** (#12): `- Inter 500 — 14px/20px (button.btn, a)`, grouped by family and weight, listing the elements wearing each size. The `@font-face` block is now behind `window.__cp.opts.fontFace` (the options popup in #16 will drive the same switch) — it is rarely what a rebuild needs and costs a lot of tokens.
+- **Component-library hint** in the header (#11): `UI: Base UI + Tailwind v4`. Recognises Base UI, Radix, shadcn/ui, Headless UI, MUI, Chakra, Ant Design, Mantine, Bootstrap, styled-components, Emotion, Vue, Svelte, Angular, Astro and Tailwind v3 vs v4 — the difference between "rebuild this markup" and "this is a Radix tabs trigger".
+- **Context section** (#10): up to three ancestors and the siblings, layout properties only — the parent's padding, the wrapper's `position: relative`, the icon slot pinned at `right: 6px`. A picked element's own CSS never explains why it sits where it does. Values Chrome resolved rather than anyone writing (`left: 710.875px` on an `auto` inset) are left out.
+- **Gradients read as stop lists** (#9): the resolved stops are printed with the source expression beside them — `linear-gradient(to right in oklab, var(--green-a4) 0%, var(--green-a1) 100%)` — and the interpolation space (`oklab`) is called out, since it changes the midpoint colour and is easy to lose in a rebuild.
+- **Token names beside resolved values** (#8): `background-color: rgba(176, 199, 217, 0.145); /* var(--gray-a3) */`. The rgba is the truth about pixels; the token is the half that maps onto the target project's own scale and the only half that is greppable. Tailwind v4's `--tw-*` plumbing is followed through to the name a person actually wrote, and a **Tokens used** section resolves every token the bundle names.
+
 ## [0.2.1] — 2026-08-30
 
 ### Added
@@ -24,7 +31,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 - **Sibling variants** (#3): siblings that differ from the picked element only by `data-state` / `aria-selected` / `aria-current` / `disabled` (and similar) are captured as diffs — a stepper's done and pending steps, a tab bar's unselected tabs.
 
 ### Changed
-- CI runs the typecheck, the build and both suites on every push and pull request against Chrome for Testing (#7).
+- `npm test` (typecheck + build + both suites) is the gate before pushing. The GitHub Actions workflow added in 0.2.1 (#7) has been removed and Actions disabled for the repository — the minutes are billed, and the same checks run locally in seconds.
 
 ### Removed
 - The header's `Root font-size` line (#6): every value in the bundle was already px, so it explained nothing. The root size now appears where it is actually used — in the note explaining the `rem` comments.

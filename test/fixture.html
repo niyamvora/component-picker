@@ -2,12 +2,19 @@
 <title>Component Picker self-check</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  .card { flex-direction: column; }
+  .card { flex-direction: column; background: var(--panel); --tw-pad: var(--pad); padding: var(--tw-pad); }
   .card * { border: 0 solid red; }            /* Tailwind-preflight shape: must not be reported as a border */
-  :root { --accent: red; --ease: cubic-bezier(0.4, 0, 0.2, 1); }
+  :root { --accent: red; --ease: cubic-bezier(0.4, 0, 0.2, 1); --panel: rgb(250, 250, 250); --pad: 16px; }
   .btn { position: relative; animation: spin 1s linear infinite; transition: background-color .2s var(--ease), color .3s ease; }
   .btn:hover { background: var(--accent); color: var(--missing, blue); }
   .btn:active { background: green; }
+  /* Tailwind v4 shape: the stops are plumbed through --tw-* before reaching a real token. */
+  .grad {
+    --green-a4: rgba(0, 200, 83, 0.2); --green-a1: rgba(0, 200, 83, 0.05);
+    --tw-gradient-from: var(--green-a4); --tw-gradient-to: var(--green-a1);
+    --tw-gradient-stops: var(--tw-gradient-from) 0%, var(--tw-gradient-to) 100%;
+    background-image: linear-gradient(to right in oklab, var(--tw-gradient-stops));
+  }
   .tab[aria-selected="true"] { color: rgb(255, 0, 0); }
   .tab[aria-selected="false"] { color: rgb(128, 128, 128); font-weight: 700; }
   @font-face { font-family: Georgia; src: url("../media/georgia.woff2") format("woff2"); }
@@ -15,13 +22,17 @@
   @media (max-width: 600px) { .card { flex-direction: row; } }
   @keyframes spin { to { transform: rotate(1turn); } }
 </style>
-<div id="card" class="card" style="display:flex;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
-  <h2 class="title">Hello</h2>
-  <button class="btn" onclick="alert(1)">Go</button>
+<section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
+<div id="card" class="card" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
+  <h2 class="title" data-slot="title">Hello</h2>
+  <button class="btn" data-slot="trigger" data-state="open" data-orientation="horizontal" onclick="alert(1)">Go</button>
   <a href="/rel">rel link</a>
   <span hidden><b>secret child</b></span>
+  <div class="grad">gradient</div>
   <script>window.__cpEvil = true</script>
 </div>
+<aside style="position:absolute;right:6px;top:0">slot</aside>
+</section>
 <ul id="tabs" style="display:flex;gap:8px;list-style:none;padding:0">
   <li class="tab" aria-selected="true">A</li>
   <li class="tab" aria-selected="false">B</li>
@@ -37,18 +48,35 @@
   (async () => {
     const md = await window.__cp.extract(document.getElementById("card"));
     const tab = await window.__cp.extract(document.querySelector(".tab"));
+    window.__cp.opts.fontFace = true;
+    const withFaces = await window.__cp.extract(document.getElementById("card"));
+    window.__cp.opts.fontFace = false;
     const must = [
       '<div id="card" class="card"', 'data-cp="1"',                // root stamped
-      "flex-direction: column;", "gap: 12px; /* 0.75rem */", "padding: 16px; /* 1rem */",
+      "flex-direction: column;", "gap: 12px; /* 0.75rem */",
       "margin: 19.92px 0px; /* 1.245rem 0 */",                      // h2 UA margin vs neutral baseline
       "font-size: 24px; /* 1.5rem */",                              // #6 rem hints
+      "background-color: rgb(250, 250, 250); /* var(--panel) */",   // #8 token names beside values
+      "padding: 16px; /* var(--pad) · 1rem */",                     // #8 --tw-* plumbing followed to a real token
+      "## Tokens used", "--panel: rgb(250, 250, 250);", "--pad: 16px;",
+      // #9 — the gradient's stops named, and the interpolation space called out
+      "background-image: linear-gradient(to right in oklab, rgba(0, 200, 83, 0.2) 0%, rgba(0, 200, 83, 0.05) 100%);",
+      "/* linear-gradient(to right in oklab, var(--green-a4) 0%, var(--green-a1) 100%) — interpolation: oklab */",
+      "--green-a4: rgba(0, 200, 83, 0.2);",
+      // #10 — where the picked element sits: the wrapper's padding and the pinned sibling
+      "## Context (what the picked element sits in)", "section#wrap {", "padding: 20px;",
+      "Siblings of the picked element:", "- aside ", "(after)", "position: absolute; top: 0px; right: 6px;",
+      "UI: Radix + shadcn/ui + Tailwind.",                          // #11 component-library hint
+      // #12 — typography as a developer writes it, and the @font-face block held back
+      "- Georgia 700 — 24px/normal (h2.title)", "- Arial 400 — 13.3333px/normal (button.btn)",
+      "@font-face rule(s) omitted",
       "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
       "font-family: Georgia;", "color: rgb(17, 24, 39);",
       "width: 320px;",                                              // inline-sized → emitted
       ".btn:hover", "@media (max-width: 600px)", "@keyframes spin", "animation: spin 1s",
       "transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0s, color 0.3s ease 0s",
       ".btn:hover { background: red; color: blue; }",                // var() resolved, fallback used
-      `src: url("${new URL("../media/georgia.woff2", location.href).href}")`,   // @font-face URL absolutized '::after {\n  content: "→";',
+      '::after {\n  content: "→";',                                 // the pseudo-element assertion this line used to hide
       "display: none;",                                             // hidden span
       'href="' + location.origin + '/rel"',                         // absolutized
       'onclick="alert(1)"',                                         // inline handler listed
@@ -56,16 +84,24 @@
       "## CSS (desktop, resting state)",
     ];
     const mustNot = ["<script", "__cpEvil", 'onclick="alert(1)">Go</button>',                  // on* stripped from HTML
-                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "border: 0px solid", "data-cp-tmp",
+                     "min-width: auto", "transform-origin", 'url("../', "border: 0px solid", "data-cp-tmp",
                      "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130",
+                     "left: 710",   // #10 — layout values Chrome resolved, not ones anyone wrote
                      // #6 — the header line is gone, and conversions nobody typed (13.3333px) stay px.
-                     "Root font-size", "13.3333px; /*"];
+                     "Root font-size", "13.3333px; /*", "@font-face { font-family: Georgia;"];
+    // The relative-positioned button must not report insets Chrome reports as 0px (see #1's sibling bug).
+    const btn = md.slice(md.indexOf('[data-cp="3"] {'), md.indexOf("}", md.indexOf('[data-cp="3"] {')));
+    // #12 — the @font-face block, with its URL absolutized, appears only when asked for
+    const facesMust = ["@font-face { font-family: Georgia;",
+                       `src: url("${new URL("../media/georgia.woff2", location.href).href}")`];
     // Sibling variants: picking the selected tab must describe the unselected one.
     const tabMust = ["## Variants (siblings of the picked element)", '[aria-selected="false"]',
                      "color: rgb(128, 128, 128);", "font-weight: 700;"];
     const fails = [...must.filter((s) => !md.includes(s)).map((s) => "MISSING " + JSON.stringify(s)),
                    ...mustNot.filter((s) => md.includes(s)).map((s) => "PRESENT " + JSON.stringify(s)),
-                   ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s))];
+                   ...tabMust.filter((s) => !tab.includes(s)).map((s) => "MISSING (tab) " + JSON.stringify(s)),
+                   ...(btn.includes("top: 0px") ? ["PRESENT inset on a position:relative element"] : []),
+                   ...facesMust.filter((s) => !withFaces.includes(s)).map((s) => "MISSING (opts.fontFace) " + JSON.stringify(s))];
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

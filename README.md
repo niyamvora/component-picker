@@ -1,7 +1,5 @@
 # Component Picker
 
-[![ci](https://github.com/niyamvora/component-picker/actions/workflows/ci.yml/badge.svg)](https://github.com/niyamvora/component-picker/actions/workflows/ci.yml)
-
 Chrome extension: hover any component on any site, click, and your clipboard holds an AI-ready
 Markdown bundle — HTML, browser-resolved CSS, hover/focus + media-query rules, keyframes, fonts,
 React component chain + handler source, and **mobile/tablet diffs** measured on the live page.
@@ -92,7 +90,7 @@ Work is tracked on the [Component Picker Roadmap board](https://github.com/users
 
 1. Pick an issue from the board's *Todo* column and move it to *In Progress*.
 2. Branch off `main`; every issue names the exact file, function and steps.
-3. `npm test` must pass (typecheck + both suites) before pushing.
+3. `npm test` must pass (typecheck + build + both suites) before pushing — **this is the gate**. There is deliberately no CI: Actions minutes are billed, so the suites run locally and PRs are merged from the CLI once they are green.
 4. Add the assertions the issue lists under **Tests**, and a `CHANGELOG.md` line under `## [Unreleased]`.
 5. PR body says `Closes #<issue>`.
 
