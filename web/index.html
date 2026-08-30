@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Component Picker — copy any component as an AI-ready bundle</title>
+<style>
+  :root { color-scheme: light dark; --fg:#111827; --dim:#6b7280; --line:#e5e7eb; --bg:#fff; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#f3f4f6; --dim:#9ca3af; --line:#374151; --bg:#0b0b0d; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.6 -apple-system,system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+  .wrap { max-width:820px; margin:0 auto; padding:48px 24px 80px; }
+  h1 { font-size:34px; line-height:1.15; margin:0 0 12px; letter-spacing:-.02em; }
+  .tag { color:var(--dim); font-size:19px; margin:0 0 28px; }
+  .cta { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; padding:11px 20px; border-radius:9px; }
+  .ghost { display:inline-block; margin-left:10px; color:var(--accent); text-decoration:none; font-weight:600; }
+  h2 { font-size:22px; margin:44px 0 12px; letter-spacing:-.01em; }
+  ul { padding-left:20px; } li { margin:6px 0; }
+  code, pre { font-family:ui-monospace,Menlo,monospace; font-size:13px; }
+  pre { background:color-mix(in srgb, var(--fg) 6%, transparent); padding:14px 16px; border-radius:10px; overflow:auto; border:1px solid var(--line); }
+  .grid { display:grid; gap:14px; grid-template-columns:1fr 1fr; margin-top:8px; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card b { display:block; margin-bottom:4px; }
+  footer { color:var(--dim); font-size:14px; margin-top:56px; border-top:1px solid var(--line); padding-top:20px; }
+  .privacy { color:var(--dim); font-size:14px; }
+</style>
+<div class="wrap">
+  <h1>Copy any component as an AI-ready bundle.</h1>
+  <p class="tag">Hover, click, paste. HTML, browser-resolved CSS, interaction states, themes, tokens, animations and responsive diffs — everything an AI needs to rebuild it pixel-perfect.</p>
+  <a class="cta" href="https://github.com/niyamvora/component-picker/releases/latest">Download</a>
+  <a class="ghost" href="https://github.com/niyamvora/component-picker">GitHub →</a>
+
+  <!-- Replace with a 15s screen recording: hover → click → paste into Claude → rebuilt component. -->
+  <p style="margin-top:28px"><img src="demo.gif" alt="Component Picker in action" style="max-width:100%;border:1px solid var(--line);border-radius:12px" onerror="this.style.display='none'"></p>
+
+  <h2>What it captures</h2>
+  <div class="grid">
+    <div class="card"><b>Resolved CSS</b>Real px/rgb values diffed against browser defaults — not a flat DOM dump.</div>
+    <div class="card"><b>States & themes</b>Forced :hover/:focus/:active and the other colour theme, as diffs.</div>
+    <div class="card"><b>Tokens & Tailwind</b>Every var(--…) named and resolved; optional Tailwind and W3C token JSON.</div>
+    <div class="card"><b>Animations</b>Running WAAPI/CSS animations, Framer Motion props, GSAP timelines.</div>
+    <div class="card"><b>Components, not soup</b>Maps onto your own &lt;Button&gt;/&lt;Card&gt;; repeats collapse to one + data.</div>
+    <div class="card"><b>Accessibility</b>Roles, names, WCAG contrast and focus order — nobody else captures it.</div>
+  </div>
+
+  <h2>See the output</h2>
+  <p>A real capture is committed in the repo at <a href="https://github.com/niyamvora/component-picker/blob/main/examples/sample-capture.md">examples/sample-capture.md</a> — judge the quality before installing anything.</p>
+
+  <h2>Install</h2>
+  <pre>npm install &amp;&amp; npm run build   # or download the release zip
+chrome://extensions → Developer mode → Load unpacked → dist/</pre>
+
+  <p class="privacy"><b>Privacy:</b> everything runs locally in your browser. No network calls, no analytics, no account. The one exception — the optional MCP bridge — is off by default and localhost-only.</p>
+
+  <footer>MIT · <a href="https://github.com/niyamvora/component-picker">github.com/niyamvora/component-picker</a></footer>
+</div>

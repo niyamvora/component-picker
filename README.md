@@ -142,6 +142,12 @@ Everything runs locally in your browser. The extension makes no network requests
 and no server — the bundle only ever reaches your clipboard. It captures whatever the page contains,
 including values inside form fields, so check a bundle before pasting it somewhere public.
 
+## Landing page & example
+
+A static one-pager lives in [`web/`](web/index.html), and a real capture is committed at
+[`examples/sample-capture.md`](examples/sample-capture.md) so you can see exactly what a bundle
+looks like without installing anything.
+
 ## Options
 
 The toolbar popup controls what a capture includes (screenshots, states, themes, JS, `@font-face`),
