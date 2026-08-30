@@ -1,0 +1,53 @@
+<!doctype html>
+<title>Component Picker self-check</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  .card { flex-direction: column; }
+  :root { --accent: red; --ease: cubic-bezier(0.4, 0, 0.2, 1); }
+  .btn { position: relative; animation: spin 1s linear infinite; transition: background-color .2s var(--ease), color .3s ease; }
+  .btn:hover { background: var(--accent); color: var(--missing, blue); }
+  @font-face { font-family: Georgia; src: url("../media/georgia.woff2") format("woff2"); }
+  .btn::after { content: "→"; margin-left: 4px; }
+  @media (max-width: 600px) { .card { flex-direction: row; } }
+  @keyframes spin { to { transform: rotate(1turn); } }
+</style>
+<div id="card" class="card" style="display:flex;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
+  <h2 class="title">Hello</h2>
+  <button class="btn" onclick="alert(1)">Go</button>
+  <a href="/rel">rel link</a>
+  <span hidden><b>secret child</b></span>
+  <script>window.__cpEvil = true</script>
+</div>
+<pre id="result">RUNNING</pre>
+<pre id="md" hidden></pre>
+<script>
+  window.__cpNoAutostart = true;
+  document.getElementById("card").__reactFiber$test = { type: { name: "Card" }, memoizedProps: { onClick: function handleCard() { return 1; } }, return: { type: { displayName: "Page" }, return: null } };
+</script>
+<script src="picker.js"></script>
+<script>
+  (async () => {
+    const md = await window.__cp.extract(document.getElementById("card"));
+    const must = [
+      '<div id="card" class="card"', 'data-cp="1"',                // root stamped
+      "flex-direction: column;", "gap: 12px;", "padding: 16px;", "margin: 19.92px 0px;",   // h2 UA margin vs neutral baseline
+      "border: 1px solid rgb(221, 221, 221);", "border-radius: 8px;",
+      "font-family: Georgia;", "color: rgb(17, 24, 39);",
+      "width: 320px;",                                              // inline-sized → emitted
+      ".btn:hover", "@media (max-width: 600px)", "@keyframes spin", "animation: spin 1s",
+      "transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0s, color 0.3s ease 0s",
+      ".btn:hover { background: red; color: blue; }",                // var() resolved, fallback used
+      'src: url("file:///Users/niyamvora/Code/miniapp/chrome/media/georgia.woff2")', '::after {\n  content: "→";',
+      "display: none;",                                             // hidden span
+      'href="' + location.origin + '/rel"',                         // absolutized
+      'onclick="alert(1)"',                                         // inline handler listed
+      "Mobile/tablet snapshot unavailable",                         // no extension runtime here
+    ];
+    const mustNot = ["<script", "__cpEvil", 'onclick="alert(1)">Go</button>',                  // on* stripped from HTML
+                     "min-width: auto", "transform-origin", "top: 0px", 'url("../', "matrix(1, 0, 0, 1, 0, 0)", "outline-color", "height: 130"];
+    const fails = [...must.filter((s) => !md.includes(s)).map((s) => "MISSING " + JSON.stringify(s)),
+                   ...mustNot.filter((s) => md.includes(s)).map((s) => "PRESENT " + JSON.stringify(s))];
+    document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md : "PASS " + md.length + " chars";
+    document.getElementById("md").textContent = md;
+  })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
+</script>
