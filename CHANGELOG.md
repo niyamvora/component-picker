@@ -10,6 +10,8 @@ publishes the Release.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-30
+
 ### Added
 - **Interaction states** (#2): `:hover`, `:focus-visible` and `:active` are forced through the Chrome DevTools Protocol and emitted as diffs against the resting capture. States are forced on every element the site has a rule for — not just the picked root — so a card whose hover styling lives on a child is captured correctly.
 - **Sibling variants** (#3): siblings that differ from the picked element only by `data-state` / `aria-selected` / `aria-current` / `disabled` (and similar) are captured as diffs — a stepper's done and pending steps, a tab bar's unselected tabs.
@@ -44,5 +46,6 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.1.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v0.2.0...main
+[0.2.0]: https://github.com/niyamvora/component-picker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/niyamvora/component-picker/releases/tag/v0.1.0
