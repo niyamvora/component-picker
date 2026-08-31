@@ -45,6 +45,21 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
   }
 }
 
+/**
+ * Row labels for the sections whose Markdown heading is a sentence.
+ *
+ * A heading earns its length in the bundle — `## Theme: dark (diff vs light) — via class` says
+ * everything a reader needs — but the drawer's rows are 300px wide, so the ones that read as
+ * sentences get a name here. Everything absent takes its heading verbatim, which is why
+ * `Component (JSX)` and `Component (Vue SFC)` stay told apart.
+ */
+const TITLES: Record<string, string> = {
+  header: "Header", howto: "How to use", context: "Context", css: "CSS (desktop)",
+  states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive",
+  theme: "Theme", compare: "Compared with reference", media: "Media", tailwind: "Tailwind",
+  "css-modules": "CSS Modules", js: "JS / handlers", sources: "Source locations", props: "Props",
+};
+
 async function build(root: Element, all: Element[], eligible: Element[], els: Element[], onStatus: (s: string) => void): Promise<string> {
   const { styleRules, varRules, allRules, keyframes, fontFaces } = sheetRules();
   const { found: rules, states, media } = matchRules(root, els, styleRules);
@@ -88,15 +103,15 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   // named parts (what the drawer ticks, #80). One push routes to both, so the section list cannot
   // drift from what the bundle actually contains.
   const sections: CaptureSection[] = [];
-  const part = (id: string, text: string, title?: string) => {
+  const part = (id: string, text: string) => {
     md.push(text);
     const seen = sections.find((s) => s.id === id);
     // A section pushed several times — one per viewport, one per state — is one part; the bodies
     // concatenate with the same separator `md.join` uses, so joining the parts rebuilds the bundle.
     if (seen) seen.body += `\n\n${text}`;
-    else sections.push({ id, title: title ?? /^## (.+)/.exec(text)?.[1] ?? id, body: text });
+    else sections.push({ id, title: TITLES[id] ?? /^## (.+)/.exec(text)?.[1] ?? id, body: text });
   };
-  part("header", `# Component picked from ${document.title || location.hostname} — ${location.href}`, "Header");
+  part("header", `# Component picked from ${document.title || location.hostname} — ${location.href}`);
   part("header", `Picked: ${label(root)} ${Math.round(rect.width)}×${Math.round(rect.height)} at (${Math.round(rect.left + scrollX)}, ${Math.round(rect.top + scrollY)}). ` +
     `Desktop viewport ${innerWidth}×${innerHeight} @${devicePixelRatio}x. ` +
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
@@ -116,7 +131,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   for (const st of resp.states || []) {
     const diff = diffBlocks(desktop, st.blocks);
     part("states", `## State: ${st.name} (diff vs resting)\n` +
-      (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No changes._"), "States");
+      (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No changes._"));
   }
   if (variants.length) part("variants", `## Variants (siblings of the picked element)\n\n${variants.join("\n\n")}`);
   if (rules.length) part("source-rules", `## Source rules (hover/focus/media, from the site's stylesheets)\n\`\`\`css\n${rules.join("\n\n")}\n\`\`\``);
@@ -124,7 +139,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   for (const v of (resp.viewports || []).slice(1)) {
     const diff = diffBlocks(desktop, v.blocks, media, v.width);
     part("responsive", `## Responsive: ${v.name} ${v.width}×${v.height} (DPR ${v.dpr}) — root renders ${v.root[0]}×${v.root[1]}\n` +
-      (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"), "Responsive");
+      (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No style changes vs desktop; layout only reflows._"));
   }
   if (resp.theme) {
     part("theme", "error" in resp.theme
@@ -153,7 +168,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (palette) part("palette", palette);
   for (const m of resp.media ?? []) {
     const diff = diffBlocks(desktop, m.blocks);
-    if (diff.length) part("media", `## Media: ${m.name} (diff vs default)\n\`\`\`css\n${diff.join("\n\n")}\n\`\`\``, "Media");
+    if (diff.length) part("media", `## Media: ${m.name} (diff vs default)\n\`\`\`css\n${diff.join("\n\n")}\n\`\`\``);
   }
   const assetUrlList = assetUrls(els);
   if (assetUrlList.length) part("assets", `## Assets\n- ${assetUrlList.length} asset(s) referenced. Download them (with the HTML rewritten to local paths) from the extension's side panel.`);
