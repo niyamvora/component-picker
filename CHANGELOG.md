@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-08-31
+
 ### Changed
 - **The toolbar click now opens the dock and the side panel; the popup is gone.** Clicking the icon used to open a popup whose first button was "Pick on this page" — and a popup closes the moment you click the page, which is the one thing you always do next. The click now shows the in-page dock and opens the side panel beside it. Everything the popup held moved into the panel: the last capture's rendering and screenshot, Copy bundle, Download assets, recent picks, the library, the compare reference, the output options, viewports, your component inventory and the MCP bridge — with the settings sections collapsed by default so the capture stays the thing you see.
 
@@ -181,7 +183,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.7.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.8.0...main
+[1.8.0]: https://github.com/niyamvora/component-picker/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/niyamvora/component-picker/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/niyamvora/component-picker/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/niyamvora/component-picker/compare/v1.4.1...v1.5.0
