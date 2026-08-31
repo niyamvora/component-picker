@@ -11,7 +11,7 @@ import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
 import { currentEl, isActive, start, stop } from "./handlers";
 import { showDock } from "./hud";
-import { assembleSelection, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
+import { assembleSelection, group, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
 import { easingCurve, parseAnimations, parseFontLine, parsePaletteLine, parseTokens, visualise } from "./viz";
 import { ICONS } from "./icons-ui";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
@@ -41,7 +41,7 @@ declare global {
         remember: typeof rememberSelection; recall: typeof recallSelection;
         parsePalette: typeof parsePaletteLine; parseTokens: typeof parseTokens;
         parseFont: typeof parseFontLine; easing: typeof easingCurve; parseAnimations: typeof parseAnimations;
-        visualise: typeof visualise;
+        visualise: typeof visualise; group: typeof group;
       };
     };
     /** Set by the test fixture so the picker can be driven without the overlay. */
@@ -75,7 +75,7 @@ if (window.__cp) {
     ui: {
       sectionRows, assemble: assembleSelection, remember: rememberSelection, recall: recallSelection,
       parsePalette: parsePaletteLine, parseTokens, parseFont: parseFontLine,
-      easing: easingCurve, parseAnimations, visualise,
+      easing: easingCurve, parseAnimations, visualise, group,
     },
   };
   // Shown on every page (a content script on <all_urls>, #72) unless the user turns it off, and

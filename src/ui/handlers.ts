@@ -9,6 +9,7 @@ import { label } from "../core/blocks";
 import { UI } from "../core/const";
 import { blocksOfLastPick } from "../core/state";
 import { askForNote, copy } from "./note";
+import { closeDrawerIfOpen } from "./hud";
 import {
   clearMarks, clearMeasure, currentEl, drawMeasure, highlight, mark, mount, setCrumbHandler, setFrozenChrome, toast, unmark, unmount,
 } from "./overlay";
@@ -47,7 +48,8 @@ const onSwallow = (e: Event) => {
 };
 
 const onKey = (e: KeyboardEvent) => {
-  if (e.key === "Escape") stop();
+  // One Esc dismisses one thing: the drawer if it is open, the picker otherwise.
+  if (e.key === "Escape") { if (!closeDrawerIfOpen()) stop(); }
   else if (e.key === "Enter" && currentEl()) finish(currentEl()!);
   else if (e.key === "ArrowUp" && currentEl()?.parentElement && currentEl()!.parentElement !== document.documentElement) { lockXY = lastXY; highlight(currentEl()!.parentElement); }
   else if (e.key === "ArrowDown" && currentEl()?.firstElementChild) { lockXY = lastXY; highlight(currentEl()!.firstElementChild); }

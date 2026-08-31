@@ -149,6 +149,15 @@
       return !node || !node.childElementCount;
     });
     const drawnOk = drawn.length === 0 && !window.__cp.ui.visualise(parts.find((p) => p.id === "html"));
+    // #94 — a group builds its body on first expand and never again: the Design group renders a
+    // whole capture's swatches, specimens and curves, which no closed drawer should be paying for.
+    let builds = 0;
+    const g = window.__cp.ui.group("Design", () => builds++);
+    const lazy = builds === 0 && !g.isOpen();
+    g.setOpen(true);
+    const mounted = builds === 1 && g.isOpen();
+    g.setOpen(false); g.setOpen(true);
+    const groupOk = lazy && mounted && builds === 1 && g.node.textContent.includes("Design");
     // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
     const { remember, recall } = window.__cp.ui;
     const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
@@ -251,6 +260,7 @@
     if (!typeOk) fails.push("#86 a font line did not parse into a specimen, or a non-style line did");
     if (!animOk) fails.push("#87 an easing did not draw the expected curve");
     if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
+    if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

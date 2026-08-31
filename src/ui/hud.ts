@@ -7,15 +7,28 @@
  */
 
 import { ICONS } from "./icons-ui";
-import { mountSections } from "./drawer-sections";
-import { options, saveOptions } from "../shared/options";
-import type { Options } from "../shared/types";
+import { group, haveCapture, mountDesign, mountSections } from "./drawer-sections";
+import { mountCaptureOptions, mountExtension } from "./drawer-groups";
 
 const UI = "data-cp-ui";
 const GLASS = "background:rgba(22,22,26,.55);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 32px rgba(0,0,0,.35);color:#f5f5f7";
 
+/**
+ * The few rules inline styles cannot express: scrollbar pseudo-elements, a focus ring for buttons
+ * that `all:unset` stripped, and honouring reduced motion. Scoped to `[data-cp-ui]`, so the page's
+ * own scrollbars and transitions are untouched.
+ */
+const HUD_CSS = `
+[data-cp-ui]::-webkit-scrollbar,[data-cp-ui] ::-webkit-scrollbar{width:8px;height:8px}
+[data-cp-ui]::-webkit-scrollbar-thumb,[data-cp-ui] ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:4px}
+[data-cp-ui]::-webkit-scrollbar-track,[data-cp-ui] ::-webkit-scrollbar-track{background:transparent}
+[data-cp-ui] button:focus-visible,[data-cp-ui] input:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){[data-cp-ui],[data-cp-ui] *{transition:none!important;animation:none!important}}
+`;
+
 let dock: HTMLDivElement | null = null;
 let drawer: HTMLDivElement | null = null;
+let hudStyle: HTMLStyleElement | null = null;
 
 interface Action { icon: string; label: string; run: () => void; toggle?: () => boolean }
 
@@ -35,7 +48,8 @@ export function showDock(actions: Action[]) {
   const close = iconButton(ICONS.x, "Hide toolbar");
   close.addEventListener("click", hideDock);
   dock.append(gear, close);
-  document.documentElement.append(dock);
+  hudStyle = Object.assign(el("style", ""), { textContent: HUD_CSS });
+  document.documentElement.append(hudStyle, dock);
 }
 
 /**
@@ -46,7 +60,8 @@ export const dockClearance = () => (dock ? Math.round(dock.getBoundingClientRect
 
 export function hideDock() {
   dock?.remove(); dock = null;
-  drawer?.remove(); drawer = null;
+  hudStyle?.remove(); hudStyle = null;
+  closeDrawer();
 }
 
 /** Every piece of the HUD is built through this, so nothing it mounts can end up in a capture. */
@@ -72,23 +87,14 @@ function iconButton(icon: string, label: string): HTMLButtonElement {
 
 const divider = () => el("div", "width:1px;height:22px;background:rgba(255,255,255,.14);margin:0 3px");
 
-const OUTPUT_TOGGLES: { key: keyof Options; label: string }[] = [
-  { key: "screenshots", label: "Screenshots" }, { key: "states", label: "Interaction states" },
-  { key: "themes", label: "Light/dark themes" }, { key: "a11y", label: "Accessibility" },
-  { key: "tailwind", label: "Tailwind classes" }, { key: "jsx", label: "JSX component" },
-  { key: "tokensJson", label: "Tokens JSON" }, { key: "fast", label: "Fast mode (no debugger)" },
-  { key: "vue", label: "Vue SFC" }, { key: "svelte", label: "Svelte" },
-  { key: "styled", label: "styled-components" }, { key: "cssModules", label: "CSS Modules" },
-  { key: "fontFace", label: "@font-face" }, { key: "js", label: "JS / handlers" },
-];
-
 function toggleDrawer() {
-  if (drawer) { drawer.remove(); drawer = null; return; }
-  drawer = el("div", `position:fixed;z-index:2147483646;right:16px;top:16px;bottom:16px;width:300px;border-radius:18px;padding:16px;overflow:auto;font:13px/1.5 -apple-system,system-ui,sans-serif;${GLASS}`);
+  if (drawer) { closeDrawer(); return; }
+  drawer = el("div", `position:fixed;z-index:2147483646;right:16px;top:16px;bottom:16px;width:300px;border-radius:18px;padding:16px;overflow:auto;scrollbar-width:thin;font:13px/1.5 -apple-system,system-ui,sans-serif;${GLASS}`);
   drawer.append(Object.assign(el("div", "font-weight:600;font-size:14px;margin-bottom:6px"), { textContent: "Component Picker" }));
   // The compare reference is global (storage.local) — shown here so it is obviously retained
-  // across tabs, not lost on a switch (#73).
-  const refLine = el("div", "font-size:12px;color:rgba(245,245,247,.7);padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:8px");
+  // across tabs, not lost on a switch (#73). It stays in the header, above the groups: it is
+  // context for every capture rather than a setting inside one of them.
+  const refLine = el("div", "font-size:12px;color:rgba(245,245,247,.7);padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:4px");
   drawer.append(refLine);
   void chrome.storage?.session?.get?.("reference").then(({ reference }) => {
     if (reference) {
@@ -100,29 +106,52 @@ function toggleDrawer() {
       refLine.append(clear);
     } else refLine.textContent = "No compare reference set — press R after a pick.";
   });
-  // What the last capture contains, ticked and copied a piece at a time (#79) — above the output
-  // toggles, because it acts on the capture you already have rather than on the next one.
-  const sections = el("div", "margin-bottom:10px");
-  drawer.append(sections);
-  void mountSections(sections);
-  drawer.append(switchRow("Show dock on every page", options.dockEverywhere, (on) => { options.dockEverywhere = on; saveOptions(); }));
-  for (const t of OUTPUT_TOGGLES) drawer.append(switchRow(t.label, Boolean(options[t.key]), (on) => { (options[t.key] as boolean) = on; saveOptions(); }));
+
+  // Four groups, one open at a time (#93): after Stages 1–3 a flat list is ~30 rows of wall.
+  const made: ReturnType<typeof group>[] = [];
+  const add = (name: string, mount: (host: HTMLElement) => void) => {
+    const g = group(name, mount, () => {
+      for (const other of made) if (other !== g) other.setOpen(false);
+      void chrome.storage?.local?.set?.({ drawerGroup: name });
+    });
+    made.push(g);
+    drawer!.append(g.node);
+  };
+  add("Copy", (host) => void mountSections(host));
+  add("Design", (host) => void mountDesign(host));
+  add("Capture options", mountCaptureOptions);
+  add("Extension", mountExtension);
+  // What you just captured, or — with nothing captured yet — the settings that shape the next one.
+  const fallback = made.find((g) => g.title === (haveCapture() ? "Copy" : "Capture options")) ?? made[0];
+  fallback.setOpen(true);
+  void chrome.storage?.local?.get?.("drawerGroup")?.then(({ drawerGroup }) => {
+    const saved = made.find((g) => g.title === drawerGroup);
+    if (saved && saved !== fallback) { fallback.setOpen(false); saved.setOpen(true); }
+  }).catch(() => {});
+
   document.documentElement.append(drawer);
+  window.addEventListener("keydown", onDrawerKey, true);
 }
 
-function switchRow(label: string, on: boolean, onChange: (on: boolean) => void): HTMLElement {
-  const row = el("label", "display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;cursor:pointer");
-  row.append(Object.assign(document.createElement("span"), { textContent: label }));
-  const track = el("span", `flex:none;width:38px;height:22px;border-radius:11px;position:relative;transition:background .18s;background:${on ? "#2563eb" : "rgba(255,255,255,.18)"}`);
-  const knob = el("span", `position:absolute;top:2px;left:${on ? "18px" : "2px"};width:18px;height:18px;border-radius:50%;background:#fff;transition:left .18s;box-shadow:0 1px 3px rgba(0,0,0,.3)`);
-  track.append(knob);
-  row.append(track);
-  row.addEventListener("click", (e) => {
-    e.preventDefault();
-    on = !on;
-    track.style.background = on ? "#2563eb" : "rgba(255,255,255,.18)";
-    knob.style.left = on ? "18px" : "2px";
-    onChange(on);
-  });
-  return row;
+function closeDrawer() {
+  drawer?.remove();
+  drawer = null;
+  window.removeEventListener("keydown", onDrawerKey, true);
 }
+
+/**
+ * Esc closes the drawer and stops there. Without this the picker's own Esc handler would disarm
+ * the crosshair underneath an open drawer — two things dismissed by one keystroke.
+ */
+export function closeDrawerIfOpen(): boolean {
+  if (!drawer) return false;
+  closeDrawer();
+  return true;
+}
+
+const onDrawerKey = (e: KeyboardEvent) => {
+  if (e.key !== "Escape" || !drawer) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  closeDrawer();
+};

@@ -20,13 +20,62 @@ export const DEFAULT_SELECTION = ["html", "css"];
 /** The selection the rows mutate — module scope, so it survives the drawer being closed. */
 const selected = new Set<string>(DEFAULT_SELECTION);
 
+/** Is there a capture to show? Synchronous, so the drawer can pick its default group as it builds. */
+export const haveCapture = () => state.lastSections.length > 0;
+
+/** A one-line dim note. Every group says what it would hold rather than rendering a blank void. */
+export const hint = (text: string) => Object.assign(el("div", `font-size:12px;color:${DIM};padding:6px 0`), { textContent: text });
+
+/**
+ * A collapsible drawer group whose body is built on first expand.
+ *
+ * Lazy on purpose: Design renders swatches, specimens and an SVG curve per animation for a whole
+ * capture, and a drawer that pays for all four groups every time it opens is one nobody leaves open.
+ */
+export function group(title: string, mount: (host: HTMLElement) => void, onOpen?: () => void) {
+  const node = el("div", "");
+  const header = el("button", `all:unset;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:9px 0;cursor:pointer;font:600 13px/1.5 -apple-system,system-ui,sans-serif;border-bottom:${HAIRLINE}`);
+  const caret = Object.assign(el("span", `flex:none;width:12px;color:${DIM}`), { textContent: "▸" });
+  header.append(caret, Object.assign(el("span", "flex:1"), { textContent: title }));
+  // Set up front, not just on the first toggle: a collapsed group has to announce that it collapses.
+  header.setAttribute("aria-expanded", "false");
+  const body = el("div", "display:none;padding:2px 0 10px");
+  node.append(header, body);
+  let open = false, built = false;
+  const setOpen = (on: boolean) => {
+    open = on;
+    if (on && !built) { built = true; mount(body); }
+    caret.textContent = on ? "▾" : "▸";
+    body.style.display = on ? "block" : "none";
+    header.setAttribute("aria-expanded", String(on));
+  };
+  header.addEventListener("click", () => { setOpen(!open); if (open) onOpen?.(); });
+  return { title, node, setOpen, isOpen: () => open };
+}
+
+/** The sections that have a visual form, in the order a designer reads them. */
+const DESIGN_ORDER = ["palette", "tokens", "fonts", "animations"];
+
+/** The Design group: the capture drawn — colours, tokens, type, motion (#84, regrouped by #93). */
+export async function mountDesign(host: HTMLElement) {
+  const sections = await lastSections();
+  if (!sections.length) return void host.append(hint("Pick a component first — its colours, type and motion appear here."));
+  let drawn = 0;
+  for (const id of DESIGN_ORDER) {
+    const s = sections.find((x) => x.id === id);
+    const node = s && visualise(s);
+    if (!s || !node) continue;
+    drawn++;
+    host.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding:8px 0 0`), { textContent: s.title }), node);
+  }
+  if (!drawn) host.append(hint("This capture has no colours, type or motion to draw."));
+}
+
 /** Fill the drawer's section area. Async because the last capture may have happened in another frame. */
 export async function mountSections(host: HTMLElement) {
   const sections = await lastSections();
   if (!sections.length) {
-    host.append(Object.assign(el("div", `font-size:12px;color:${DIM};padding:8px 0`), {
-      textContent: "Pick a component first — its sections appear here.",
-    }));
+    host.append(hint("Pick a component first — its sections appear here."));
     return;
   }
   let store = await loadStore();
@@ -148,35 +197,32 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
     const name = Object.assign(el("span", "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"), { textContent: s.title, title: s.title });
     const size = Object.assign(el("span", `flex:none;font-size:11px;color:${DIM}`), { textContent: weigh(s.body) });
     const caret = Object.assign(el("button", `all:unset;flex:none;width:16px;text-align:center;color:${DIM};cursor:pointer`), { textContent: "▸", title: `Show ${s.title}` });
-    const body = el("pre", `display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:200px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
+    const body = el("pre", `display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:200px;overflow:auto;scrollbar-width:thin;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
     body.textContent = s.body;
-    // Colours, tokens, type and easing read better drawn than quoted (#84) — but the text is what
-    // actually gets pasted, so it stays one click away rather than being replaced.
-    const viz = visualise(s);
-    let open = false, drawn = Boolean(viz);
-    const flip = viz ? linkButton("text", () => { drawn = !drawn; show(); }) : null;
-    const show = () => {
-      caret.textContent = open ? "▾" : "▸";
-      body.style.display = open && !drawn ? "block" : "none";
-      if (viz) viz.style.display = open && drawn ? "block" : "none";
-      if (flip) { flip.style.display = open ? "inline" : "none"; flip.textContent = drawn ? "text" : "visual"; }
-    };
-    row.append(box, name, size, ...(flip ? [flip] : []), caret);
-    wrap.append(row, ...(viz ? [viz] : []), body);
-    show();
+    row.append(box, name, size, caret);
+    wrap.append(row, body);
     row.addEventListener("click", () => {
       if (picked.has(s.id)) picked.delete(s.id); else picked.add(s.id);
       paint();
       onChange();
     });
+    let open = false;
     caret.addEventListener("click", (e) => {
       e.stopPropagation(); // the caret shows the section; it does not tick it
       open = !open;
-      show();
+      caret.textContent = open ? "▾" : "▸";
+      body.style.display = open ? "block" : "none";
+      // Fade the cut edge only when the body really is taller than its cap — a fade over content
+      // that has already ended is a lie about there being more.
+      const fade = open && body.scrollHeight > body.clientHeight ? FADE : "";
+      body.style.setProperty("mask-image", fade);
+      body.style.setProperty("-webkit-mask-image", fade);
     });
     return wrap;
   });
 }
+
+const FADE = "linear-gradient(to bottom,#000 calc(100% - 18px),transparent)";
 
 /** The drawer's text button — `all`, `none`, `text`. The one link style the popup already uses. */
 function linkButton(text: string, run: () => void): HTMLButtonElement {
