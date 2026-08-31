@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-08-31
+
 ### Added
 - **Source file locations** (#60): on a React **dev build**, the bundle names where each component was written — `Source: src/components/Card.tsx:12:4` in the header, plus a `## Source locations` section. Read from the fiber's `_debugSource`; absent (no error) on production/minified sites. Covers what React Grab and MCP Pointer offer.
 - **Inferred prop shape** (#62): `## Props (inferred from the React fiber)` lists a component's props with inferred types (`variant: "primary" (string)`, `onClick: ƒ`) — the API to rebuild, not just the markup.
@@ -142,7 +144,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.4.1...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.5.0...main
+[1.5.0]: https://github.com/niyamvora/component-picker/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/niyamvora/component-picker/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/niyamvora/component-picker/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/niyamvora/component-picker/compare/v1.2.0...v1.3.0
