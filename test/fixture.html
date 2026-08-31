@@ -77,6 +77,8 @@
 <script>
   (async () => {
     const md = await window.__cp.extract(document.getElementById("card"));
+    // #80 — the same capture, kept as named parts the drawer can tick
+    const parts = window.__cp.lastSections();
     const tab = await window.__cp.extract(document.querySelector(".tab"));
     window.__cp.opts.fontFace = true;
     const withFaces = await window.__cp.extract(document.getElementById("card"));
@@ -176,7 +178,11 @@
                    ...facesMust.filter((s) => !withFaces.includes(s)).map((s) => "MISSING (opts.fontFace) " + JSON.stringify(s)),
                    ...manyMust.filter((s) => !many.includes(s)).map((s) => "MISSING (multi) " + JSON.stringify(s)),
                    ...fullMust.filter((s) => !full.includes(s)).map((s) => "MISSING (full) " + JSON.stringify(s)),
-                   ...listMust.filter((s) => !list.includes(s)).map((s) => "MISSING (list) " + JSON.stringify(s))];
+                   ...listMust.filter((s) => !list.includes(s)).map((s) => "MISSING (list) " + JSON.stringify(s)),
+                   // #80 — the registry names every part, and the parts still rejoin into the bundle
+                   ...["html", "css", "tokens"].filter((id) => !parts.some((p) => p.id === id)).map((id) => "MISSING (sections) " + id),
+                   ...(parts.map((p) => p.body).join("\n\n") === md ? [] : ["#80 sections do not rejoin into the bundle"]),
+                   ...(parts.every((p) => p.title && p.body) ? [] : ["#80 a section has no title or no body"])];
     if (!editReverted) fails.push("#52 edit did not revert the inline style");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;

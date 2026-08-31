@@ -77,6 +77,9 @@ async function showPreview(_tabId: number | undefined, preview: Preview) {
   // the panel open-then-shut — a flicker with nothing to show for it. The panel reads the stored
   // preview when the user opens it themselves from Chrome's side-panel button.
   await chrome.storage.local.set({ preview });
+  // The drawer's section rows read these (#80). Session-scoped, and readable from the content
+  // script, so a pick made inside an iframe still reaches a drawer mounted in the top document.
+  await chrome.storage.session.set({ sections: preview.sections ?? [] });
   await chrome.runtime.sendMessage({ type: "preview", preview }).catch(() => {});
 }
 

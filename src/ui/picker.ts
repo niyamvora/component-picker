@@ -8,7 +8,7 @@
 import { extract, extractMany } from "../core/bundle";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
-import { blocksOfLastPick } from "../core/state";
+import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
 import { currentEl, isActive, start, stop } from "./handlers";
 import { showDock } from "./hud";
 import { ICONS } from "./icons-ui";
@@ -25,6 +25,8 @@ declare global {
       last: string; opts: typeof options;
       /** The last capture's desktop blocks — what "set as reference" stores. */
       lastBlocks: typeof blocksOfLastPick;
+      /** The last capture as named parts — what the drawer ticks and copies (#80). */
+      lastSections: typeof sectionsOfLastPick;
       /** Zip of the last pick's assets, as a data: URL (#44). */
       assets: () => Promise<{ dataUrl: string; count: number } | null>;
       /** The element under the cursor while picking, for copy-as-image (#63). */
@@ -58,7 +60,7 @@ if (window.__cp) {
   window.__cp = {
     extract, extractMany, start, stop,
     toggle: () => (isActive() ? stop() : start()),
-    last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip, current: currentEl,
+    last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
   };
   // Shown on every page (a content script on <all_urls>, #72) unless the user turns it off, and
