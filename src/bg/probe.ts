@@ -16,7 +16,7 @@ function pageProbe(): ProbeResult {
     .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const idxOf = (el: HTMLElement) => Number(el.dataset.cpTmp);
   const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], canvases: [], sources: [], props: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], canvases: [], scrollTriggers: [], sources: [], props: [] };
   if (!root) return out;
 
   // A guarded stringify: motion/GSAP vars hold MotionValues, functions and cyclic refs.
@@ -155,6 +155,26 @@ function pageProbe(): ProbeResult {
       });
     } catch { /* skip this instance quietly */ }
   }
+
+  // ---- ScrollTrigger: on a scroll-driven site the trigger geometry is the design (#92) ----
+  const ST = (window as any).ScrollTrigger ?? (window as any).gsap?.ScrollTrigger;
+  try {
+    for (const t of (ST?.getAll?.() ?? []) as any[]) {
+      if (out.scrollTriggers.length >= 20) break;
+      const pinHost = hostOf(t?.pin);
+      const host = hostOf(t?.trigger) ?? pinHost;
+      if (!host) continue;
+      const v = t.vars ?? {};
+      // start/end may be authored as functions; those only exist as the px they resolved to.
+      const edge = (key: "start" | "end") =>
+        typeof v[key] === "string" ? `"${v[key]}"` : `${Math.round(Number(t[key]) || 0)}px (resolved)`;
+      out.scrollTriggers.push({
+        id: idxOf(host), start: edge("start"), end: edge("end"),
+        scrub: v.scrub === true ? "scrub" : typeof v.scrub === "number" ? `scrub ${v.scrub}s` : "",
+        pin: pinHost ? `[data-cp="${idxOf(pinHost) + 1}"]` : "",
+      });
+    }
+  } catch { /* ScrollTrigger internals vary by version; a miss is fine */ }
 
   // ---- Canvas / WebGL: detect it, name it, and say plainly that it is not code (#91) ----
   // A GPU scene cannot be captured as HTML/CSS. Pretending otherwise would be a lie; saying nothing

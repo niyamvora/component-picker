@@ -107,6 +107,14 @@ export interface AnimeInfo {
  */
 export interface CanvasScene { id: number; width: number; height: number; library: string }
 
+/**
+ * A GSAP ScrollTrigger whose trigger or pin is in the picked subtree (#92).
+ *
+ * On a scroll-driven site the trigger geometry *is* the design — where the animation starts, where
+ * it ends, whether it scrubs with the scrollbar or pins the section.
+ */
+export interface ScrollTriggerInfo { id: number; start: string; end: string; scrub: string; pin: string }
+
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
   framework: string;
@@ -126,6 +134,8 @@ export interface ProbeResult {
   anime: AnimeInfo[];
   /** Canvases in the subtree, with the rendering library when one is detectable (#91). */
   canvases: CanvasScene[];
+  /** ScrollTrigger geometry for triggers or pins in the subtree (#92). */
+  scrollTriggers: ScrollTriggerInfo[];
   /** Source file locations from the React dev build's fiber, when present (#60). */
   sources: SourceLoc[];
   /** Inferred prop shape of picked components (#62). */

@@ -117,6 +117,10 @@ try {
         wrapper: card, name: "hero-loader", animationData: { v: "5.9.6", fr: 30, layers: [] },
         totalFrames: 60, frameRate: 30, loop: true,
       }] };
+      // #92 — a ScrollTrigger on the card: a string start, a resolved-only end, scrub, and a pin
+      window.ScrollTrigger = { getAll: () => [{
+        trigger: card, pin: card, vars: { start: "top 80%", scrub: true }, end: 1240,
+      }] };
       // #91 — a WebGL hero: only the THREE global is planted, so detection is what is under test
       window.THREE = { REVISION: "160" };
       const gl = document.createElement("canvas");
@@ -175,6 +179,8 @@ try {
     "## Framer Motion", '[data-cp="1"] <motion.Card>', 'initial: {"opacity":0,"y":20}', 'transition: {"duration":0.4}',
     // #31 — the GSAP tween that targets the card
     "## GSAP", '[data-cp="1"]', '"power2.out"', "0.6s", "(paused — likely scroll-driven)",
+    // #92 — the trigger geometry, with an authored start kept verbatim and a function end resolved
+    '[data-cp="1"] ScrollTrigger — start "top 80%"', "end 1240px (resolved)", "· scrub", '· pins [data-cp="1"]',
     // #89 — Lottie: the frame metadata and the animationData JSON itself
     "## Lottie", '"hero-loader"', "60 frames @ 30fps", "2.0s", '"fr":30',
     // #90 — anime.js: the animated properties, timing and easing of the running instance
