@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-08-31
+
 ### Added
 - **In-page glass HUD** (#69): activating the extension on a tab now shows a frosted floating dock (bottom-centre, Apple-style glass — a backdrop blur over a dark translucent pill with a hairline border) instead of jumping straight to the crosshair. Lucide icons with tooltips: Pick, Fast-mode toggle, Measure, Copy image, Figma, Save to library, plus a **Settings** button that slides in a right glass drawer with every output toggle. Makes the tool mouse-discoverable rather than keyboard-only; recedes at rest, brightens on hover. (activeTab: the dock appears on the tab you activate, not automatically on every page.)
 
@@ -147,7 +149,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.5.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.6.0...main
+[1.6.0]: https://github.com/niyamvora/component-picker/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/niyamvora/component-picker/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/niyamvora/component-picker/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/niyamvora/component-picker/compare/v1.3.0...v1.4.0

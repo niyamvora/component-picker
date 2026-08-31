@@ -1,6 +1,6 @@
 {
   "name": "component-picker",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "Hover any component, click, and copy its HTML + resolved CSS + interaction states + responsive diffs as an AI-ready bundle.",
   "license": "MIT",
