@@ -19,6 +19,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 - **The drawer's Copy selected silently dropped the compare section.** The section list defaults to HTML + CSS, so a capture taken against a compare reference copied without the comparison — the one thing you set the reference up to get. A comparison exists only because a reference was deliberately set, so it is now always ticked when the capture has one. The Copy group also says outright that picking already put the whole capture on the clipboard and that this button copies a subset, which is the part that made a two-section copy look like data loss.
 - **Explained how compare works**, in the side panel: what it does, the three steps to set it up, and that it lasts across tabs and sites until cleared or the browser closes.
 
+### Changed
+- **The README, the site and the Chrome Web Store listing match v1.8.** The popup is gone, so every screenshot of it was a picture of something that no longer exists; the shots are re-taken against the shipping UI and the selective-copy drawer, side panel and design visualizations are documented.
+
 ## [1.8.0] — 2026-08-31
 
 ### Changed
