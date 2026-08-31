@@ -36,6 +36,8 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.storage.local.get("bridge").then((s) => { if (s.bridge) startBridge(); });
 // The side panel opens from Chrome's side-panel button; it is never force-opened on a capture.
 chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false }).catch(() => {});
+// Let the in-page drawer read the (session-scoped) compare reference.
+chrome.storage.session.setAccessLevel?.({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }).catch(() => {});
 
 chrome.runtime.onInstalled.addListener(async () => {
   const { options } = await chrome.storage.local.get("options");
@@ -47,9 +49,9 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
   const job =
     msg.type === "measure" && tabId !== undefined ? measure(tabId, msg)
     : msg.type === "probe" && tabId !== undefined ? probe(tabId)
-    : msg.type === "set-reference" ? chrome.storage.local.set({ reference: msg.reference })
-    : msg.type === "clear-reference" ? chrome.storage.local.remove("reference")
-    : msg.type === "get-reference" ? chrome.storage.local.get("reference").then((s) => s.reference ?? null)
+    : msg.type === "set-reference" ? chrome.storage.session.set({ reference: msg.reference })
+    : msg.type === "clear-reference" ? chrome.storage.session.remove("reference")
+    : msg.type === "get-reference" ? chrome.storage.session.get("reference").then((s) => s.reference ?? null)
     : msg.type === "get-inventory" ? chrome.storage.local.get("inventory").then((s) => s.inventory ?? null)
     : msg.type === "bridge" ? (msg.on ? startBridge() : stopBridge(), chrome.storage.local.set({ bridge: msg.on }))
     : msg.type === "bridge-result" ? deliverToBridge(msg.bundle, msg.pushed)

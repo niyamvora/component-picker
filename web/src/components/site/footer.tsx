@@ -7,9 +7,10 @@ export function Footer() {
     <footer className="mx-auto w-full max-w-6xl px-4 pt-24 pb-16 sm:px-6">
       <Separator />
       <div className="flex flex-col gap-4 pt-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <p>
-          Everything runs locally — no network, no analytics, no account. The optional MCP
-          bridge is the one exception: off by default, localhost-only.
+        <p className="max-w-2xl">
+          MIT-licensed and fully open source — no paid tier, no pro version. Everything runs
+          locally: no network, no analytics, no account. The optional MCP bridge is the one
+          exception, off by default and localhost-only.
         </p>
         <div className="flex shrink-0 gap-4">
           <Link href="/issues" className="hover:text-foreground">

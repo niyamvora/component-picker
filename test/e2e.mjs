@@ -127,8 +127,8 @@ try {
   const compared = await evaluate(`(async () => {
     const [tab] = await chrome.tabs.query({});
     const [snap] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__cp.lastBlocks() });
+    await chrome.storage.session.set({ reference: { blocks: snap.result, label: "div#card.card", url: "https://reference.example/x", at: Date.now() } });
     await chrome.storage.local.set({
-      reference: { blocks: snap.result, label: "div#card.card", url: "https://reference.example/x", at: Date.now() },
       // #38 — a two-line inventory the capture should map onto
       inventory: ["Card  .card", "Button  button, [role=button]  variant"].join(String.fromCharCode(10)),
       options: { screenshots: false, fontFace: false, js: true, states: false, themes: false,

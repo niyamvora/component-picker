@@ -11,6 +11,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Fixed
+- **The compare reference is now session-scoped**: it lives in `chrome.storage.session` (cleared when the browser closes) instead of `chrome.storage.local`. A reference set with `R` and then forgotten used to persist forever and silently attach a "Compared with reference" section to every later capture on every site; now it lasts only for the session you set it in, which matches how compare is actually used (reference → ours → done).
+
 ## [1.7.0] — 2026-08-31
 
 ### Added

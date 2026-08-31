@@ -6,6 +6,7 @@ import {
   Contrast,
   Gauge,
   Layers,
+  LayoutDashboard,
   MousePointerClick,
   Palette,
   Smartphone,
@@ -33,6 +34,7 @@ const stats = [
   { k: String(shipped.length), v: "shipped and closed" },
   { k: "24", v: "bundle sections" },
   { k: "0", v: "network calls" },
+  { k: "MIT", v: "free, and staying free" },
 ];
 
 const capture = [
@@ -63,8 +65,14 @@ const capture = [
     title: "Themes and viewports",
     body: "Light and dark in one pick, mobile and tablet as diffs, each annotated with the @media or @container rule behind it.",
     n: [5, 13, 43, 45],
-    className: "md:col-span-2",
     clip: "themes",
+  },
+  {
+    icon: LayoutDashboard,
+    title: "A front door, since v1.6",
+    body: "A frosted dock at the bottom of the page — Pick, Fast, Measure, Copy image, Figma, Save — and a settings drawer. No more guessing that G copies for Figma.",
+    n: [69],
+    clip: "dock",
   },
   {
     icon: Sparkles,
@@ -145,7 +153,7 @@ export default function Home() {
             </Button>
           </div>
 
-          <dl className="mt-8 grid w-full grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-4">
+          <dl className="mt-8 grid w-full grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-5">
             {stats.map((s) => (
               <div key={s.v} className="glass flex flex-col items-center gap-1 p-5">
                 <dt className="font-mono text-3xl font-semibold tabular-nums">{s.k}</dt>
@@ -174,6 +182,7 @@ export default function Home() {
             id="hero-loop"
             label="Hero loop — hover a component → click → toast → paste into Claude Code → the rebuilt component renders"
             duration="0:15"
+            still="/shots/dock.png"
             className="size-full rounded-2xl"
           />
         </ContainerScroll>
@@ -339,9 +348,9 @@ export default function Home() {
         <h2 className="relative z-10 max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           Nothing leaves the browser
         </h2>
-        <p className="relative z-10 max-w-lg text-muted-foreground">
-          No network calls, no analytics, no account. Load the folder, press one shortcut, and
-          paste.
+        <p className="relative z-10 max-w-xl text-muted-foreground">
+          No network calls, no analytics, no account. Load the folder and paste. It is MIT-licensed
+          and open source end to end — no paid tier, no pro version, nothing held back.
         </p>
         <div className="relative z-10 flex flex-wrap justify-center gap-3">
           <Button nativeButton={false}

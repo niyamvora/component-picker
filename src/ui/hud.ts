@@ -82,7 +82,7 @@ function toggleDrawer() {
   // across tabs, not lost on a switch (#73).
   const refLine = el("div", "font-size:12px;color:rgba(245,245,247,.7);padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:8px");
   drawer.append(refLine);
-  void chrome.storage?.local?.get?.("reference").then(({ reference }) => {
+  void chrome.storage?.session?.get?.("reference").then(({ reference }) => {
     if (reference) {
       refLine.textContent = `Comparing against ${reference.label} · ${new URL(reference.url).host}`;
       const clear = document.createElement("button");

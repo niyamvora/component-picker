@@ -11,7 +11,13 @@ and GSAP timelines · repeated cards collapsed to one + a data table · mapping 
 `<Button>`/`<Card>` · accessibility (roles, contrast, focus order) · element screenshots · and a
 ready-to-paste JSX/Vue/Svelte component. Everything runs locally — no network, no account.
 
-Current version: **1.7.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
+<img src="web/public/shots/dock.png" alt="The glass dock on a component gallery, with a card outlined, its box model shaded and labelled div#card.card.primary 281×167" width="100%">
+
+<sup>The dock sits on every page since v1.7. Hover to outline, click to copy the bundle.
+MIT-licensed and fully open source — no paid tier.</sup>
+
+Current version: **1.7.0** ([releases](https://github.com/niyamvora/component-picker/releases)) ·
+[the site](web/README.md) covers every capability and every issue behind it.
 
 ## Layout
 
@@ -152,9 +158,20 @@ localhost-only, and marked with an `MCP` badge while a pick is in flight.
 ## Site & example
 
 The public site lives in [`web/`](web/README.md) — a Next.js app covering what a capture contains,
-every issue that built the extension, and the shot list for the demo video. `cd web && npm install
-&& npm run dev`. Video placeholders fill themselves in: drop `web/public/clips/<id>.mp4` next to a
-slot and rebuild.
+all 63 issues that built the extension, and the shot list for the demo video.
+
+<a href="web/README.md"><img src="web/public/shots/site-home.jpg" alt="The Component Picker site — hero reading Copy any component as a bundle an AI can actually rebuild" width="100%"></a>
+
+```sh
+cd web && npm install && npm run dev
+```
+
+Video placeholders fill themselves in: drop `web/public/clips/<id>.mp4` next to a slot and rebuild.
+Until then each slot shows the real screenshot or its shot list.
+
+The popup and its Studio library:
+
+<img src="web/public/shots/popup.png" alt="The Component Picker popup — output toggles, viewports, your components, MCP bridge and the saved library" width="340">
 
 A real capture is committed at [`examples/sample-capture.md`](examples/sample-capture.md) so you can
 see exactly what a bundle looks like without installing anything.
