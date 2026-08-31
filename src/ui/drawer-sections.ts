@@ -44,9 +44,10 @@ export function group(title: string, mount: (host: HTMLElement) => void, onOpen?
   let open = false, built = false;
   const setOpen = (on: boolean) => {
     open = on;
+    // Shown before it is built, so anything measuring itself on mount measures a laid-out box.
+    body.style.display = on ? "block" : "none";
     if (on && !built) { built = true; mount(body); }
     caret.textContent = on ? "▾" : "▸";
-    body.style.display = on ? "block" : "none";
     header.setAttribute("aria-expanded", String(on));
   };
   header.addEventListener("click", () => { setOpen(!open); if (open) onOpen?.(); });
@@ -66,9 +67,25 @@ export async function mountDesign(host: HTMLElement) {
     const node = s && visualise(s);
     if (!s || !node) continue;
     drawn++;
-    host.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding:8px 0 0`), { textContent: s.title }), node);
+    host.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding:8px 0 0`), { textContent: s.title }), capped(node));
   }
   if (!drawn) host.append(hint("This capture has no colours, type or motion to draw."));
+}
+
+/**
+ * The same 200px cap a section body gets, for a visualization that could be forty token rows.
+ * The fade goes on only when the content really is taller — a fade over content that has already
+ * ended is a lie about there being more.
+ */
+function capped(node: HTMLElement): HTMLElement {
+  const box = el("div", "max-height:200px;overflow:auto;scrollbar-width:thin");
+  box.append(node);
+  requestAnimationFrame(() => {
+    const fade = box.scrollHeight > box.clientHeight ? FADE : "";
+    box.style.setProperty("mask-image", fade);
+    box.style.setProperty("-webkit-mask-image", fade);
+  });
+  return box;
 }
 
 /** Fill the drawer's section area. Async because the last capture may have happened in another frame. */
@@ -126,7 +143,7 @@ export function copyBox(sections: CaptureSection[], getSelected: () => string[])
   const box = el("div", "padding-bottom:8px");
   const prompt = el("input", `width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:${HAIRLINE};background:rgba(0,0,0,.25);color:#f5f5f7;font:13px/1.4 -apple-system,system-ui,sans-serif;outline:none`);
   prompt.placeholder = "Prompt — e.g. rebuild this as a React component";
-  const out = el("pre", `margin:8px 0;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
+  const out = el("pre", `margin:8px 0;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:160px;overflow:auto;scrollbar-width:thin;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
   const button = el("button", "all:unset;display:block;width:100%;box-sizing:border-box;text-align:center;padding:8px 0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600");
   const status = el("div", `font-size:11px;color:${DIM};min-height:15px;padding-top:4px;text-align:center`);
   box.append(prompt, out, button, status);
@@ -142,6 +159,9 @@ export function copyBox(sections: CaptureSection[], getSelected: () => string[])
     button.disabled = !count;
     button.style.opacity = count ? "1" : ".45";
     button.style.cursor = count ? "pointer" : "default";
+    const fade = out.scrollHeight > out.clientHeight ? FADE : "";
+    out.style.setProperty("mask-image", fade);
+    out.style.setProperty("-webkit-mask-image", fade);
   };
 
   prompt.addEventListener("input", () => {
