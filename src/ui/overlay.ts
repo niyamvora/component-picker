@@ -12,7 +12,7 @@ let box!: HTMLDivElement, tip!: HTMLDivElement, banner!: HTMLDivElement, crumbs!
 /** Eight bands: padding top/bottom/left/right, then margin. */
 let bands: HTMLDivElement[] = [];
 let marks: HTMLDivElement[] = [];
-export const BANNER = "Component Picker — click/Enter copies · shift-click adds · ↑↓ parent/child · E edit · M measure · P page · F freeze · Esc exit";
+export const BANNER = "Component Picker — click/Enter copies · shift-click adds · ↑↓ parent/child · E edit · C image · G figma · M measure · P page · F freeze · Esc exit";
 export const PILL = "position:fixed;z-index:2147483647;pointer-events:none;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#fff;background:#111827;padding:4px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.3);white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;";
 
 export function toast(text: string): HTMLDivElement {

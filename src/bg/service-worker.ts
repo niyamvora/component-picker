@@ -52,9 +52,13 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
     : msg.type === "get-reference" ? chrome.storage.local.get("reference").then((s) => s.reference ?? null)
     : msg.type === "get-inventory" ? chrome.storage.local.get("inventory").then((s) => s.inventory ?? null)
     : msg.type === "bridge" ? (msg.on ? startBridge() : stopBridge(), chrome.storage.local.set({ bridge: msg.on }))
-    : msg.type === "bridge-result" ? deliverToBridge(msg.bundle)
+    : msg.type === "bridge-result" ? deliverToBridge(msg.bundle, msg.pushed)
     : msg.type === "assets" ? collectAssetsFromTab()
+    : msg.type === "screenshot" && tabId !== undefined ? screenshotElement(tabId)
     : msg.type === "remember" ? remember(msg.entry)
+    : msg.type === "save-to-library" ? saveToLibrary(msg.entry)
+    : msg.type === "get-library" ? chrome.storage.local.get("library").then((s) => s.library ?? [])
+    : msg.type === "delete-from-library" ? deleteFromLibrary(msg.id)
     : msg.type === "picking" ? chrome.action.setBadgeText({ tabId, text: msg.on ? "ON" : "" })
     : msg.type === "preview" ? showPreview(tabId, msg.preview)
     : null;
@@ -73,12 +77,48 @@ async function showPreview(_tabId: number | undefined, preview: Preview) {
   await chrome.runtime.sendMessage({ type: "preview", preview }).catch(() => {});
 }
 
+/** A one-off PNG of the highlighted element, for copy-as-image (#63). */
+async function screenshotElement(tabId: number) {
+  const [r] = await chrome.scripting.executeScript({ target: { tabId }, func: () => {
+    const el = (window as any).__cp?.current?.() as Element | null;
+    if (!el) return null;
+    const b = el.getBoundingClientRect();
+    return { x: b.x, y: b.y, width: b.width, height: b.height, dpr: window.devicePixelRatio };
+  } });
+  const rect = r.result as { x: number; y: number; width: number; height: number; dpr: number } | null;
+  if (!rect || rect.width < 1) return { error: "nothing highlighted" };
+  const target = { tabId };
+  await chrome.debugger.attach(target, "1.3");
+  try {
+    const pad = 8;
+    const shot = await chrome.debugger.sendCommand(target, "Page.captureScreenshot", {
+      format: "png", captureBeyondViewport: true,
+      clip: { x: Math.max(0, rect.x - pad), y: Math.max(0, rect.y - pad), width: rect.width + pad * 2, height: rect.height + pad * 2, scale: rect.dpr },
+    }) as { data: string };
+    return { png: shot.data };
+  } finally {
+    await chrome.debugger.detach(target).catch(() => {});
+  }
+}
+
 /** Ask the active tab's picker to zip the last pick's assets (#44). */
 async function collectAssetsFromTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return null;
   const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__cp?.assets() ?? null });
   return r.result;
+}
+
+const MAX_LIBRARY = 60;
+async function saveToLibrary(entry: import("../shared/types").LibraryEntry) {
+  const { library = [] } = await chrome.storage.local.get("library");
+  // Evict oldest when near storage.local's budget; a thumbnail data-URI is the heavy part.
+  const next = [entry, ...(library as import("../shared/types").LibraryEntry[])].slice(0, MAX_LIBRARY);
+  await chrome.storage.local.set({ library: next });
+}
+async function deleteFromLibrary(id: string) {
+  const { library = [] } = await chrome.storage.local.get("library");
+  await chrome.storage.local.set({ library: (library as import("../shared/types").LibraryEntry[]).filter((e) => e.id !== id) });
 }
 
 async function remember(entry: HistoryEntry) {

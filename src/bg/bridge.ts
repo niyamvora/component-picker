@@ -8,16 +8,30 @@
  */
 
 const ENDPOINT = "http://127.0.0.1:8787";
+const WS_ENDPOINT = "ws://127.0.0.1:8787";
 const POLL_MS = 2000;
 
 let armed = false; // a pick was requested by the agent and is waiting for a click
+let socket: WebSocket | null = null;
 
 export function startBridge() {
-  chrome.alarms.create("cp-bridge", { periodInMinutes: POLL_MS / 60000 });
+  connectSocket();               // real-time path
+  chrome.alarms.create("cp-bridge", { periodInMinutes: POLL_MS / 60000 }); // fallback poll
 }
 export function stopBridge() {
   chrome.alarms.clear("cp-bridge");
+  socket?.close();
+  socket = null;
   armed = false;
+}
+
+/** One socket to the MCP server; a pushed "pick" arms the picker. Reconnects on drop. */
+function connectSocket() {
+  try {
+    socket = new WebSocket(WS_ENDPOINT);
+    socket.onmessage = (e) => { try { if (JSON.parse(e.data).type === "pick") void armPick(); } catch { /* ignore */ } };
+    socket.onclose = () => { socket = null; };
+  } catch { socket = null; }
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -40,10 +54,14 @@ async function armPick() {
 }
 
 /** Called from the message router when a bridge-armed capture completes. */
-export async function deliverToBridge(bundle: string) {
-  if (!armed) return;
+export async function deliverToBridge(bundle: string, pushed = false) {
+  // A pushed (Alt-click) bundle is delivered even when no pick_component is waiting.
+  if (!armed && !pushed) return;
   armed = false;
   chrome.action.setBadgeText({ text: "" });
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    try { socket.send(JSON.stringify({ bundle })); return; } catch { /* fall through to HTTP */ }
+  }
   try {
     await fetch(`${ENDPOINT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bundle }) });
   } catch { /* the agent will time out; nothing else to do */ }
