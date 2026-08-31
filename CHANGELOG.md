@@ -12,6 +12,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ## [Unreleased]
 
 ### Added
+- **Section rows in the drawer** (#81): the settings drawer now lists the last capture's sections — HTML, CSS, Tokens, States and the rest — each with a checkbox and a caret that expands the section's real content in place, so you can see what "CSS" actually contains before deciding to copy it. Before the first pick it says so instead of showing an empty list.
 - **The capture is kept as named parts** (#80): alongside the one joined Markdown string, every section of a capture is now recorded as `{ id, title, body }` — `html`, `css`, `tokens`, `states`, `responsive` and the rest. Building the list where the bundle is assembled means it can never drift from what the bundle actually contains, and the joined output is byte-for-byte what it was. Read it from `chrome.storage.session` under `sections`, or from `window.__cp.lastSections()`. Groundwork for copying only the sections you want.
 
 ### Fixed
