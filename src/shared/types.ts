@@ -81,6 +81,18 @@ export interface Reference { blocks: Blocks; label: string; url: string; at: num
 export interface MotionInfo { id: number; name: string; props: Record<string, string> }
 export interface GsapTween { id: number; vars: string; duration: number; start: number; paused: boolean }
 
+/**
+ * A Lottie animation on the picked subtree (#89).
+ *
+ * The only animation format on the web that extracts completely: `animationData` is portable JSON
+ * that replays identically anywhere. `json` is it; `summary` stands in when it is too big to inline.
+ */
+export interface LottieInfo {
+  id: number; name: string; frames: number; fps: number; loop: boolean;
+  json?: string;
+  summary?: string;
+}
+
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
   framework: string;
@@ -94,6 +106,8 @@ export interface ProbeResult {
   motion: MotionInfo[];
   /** GSAP tweens targeting the captured subtree (#31). */
   gsap: GsapTween[];
+  /** Lottie animations on the subtree, with their full JSON where it fits (#89). */
+  lottie: LottieInfo[];
   /** Source file locations from the React dev build's fiber, when present (#60). */
   sources: SourceLoc[];
   /** Inferred prop shape of picked components (#62). */

@@ -16,11 +16,20 @@ function pageProbe(): ProbeResult {
     .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const idxOf = (el: HTMLElement) => Number(el.dataset.cpTmp);
   const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], sources: [], props: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], sources: [], props: [] };
   if (!root) return out;
 
   // A guarded stringify: motion/GSAP vars hold MotionValues, functions and cyclic refs.
   const show = (v: unknown) => { try { return JSON.stringify(v)?.slice(0, 300) ?? "…"; } catch { return "(not serialisable)"; } };
+  /** The whole value, or null when it is bigger than the bundle can carry. */
+  const whole = (v: unknown, cap: number) => { try { const s = JSON.stringify(v); return s && s.length <= cap ? s : null; } catch { return null; } };
+  /** The nearest captured ancestor of a node — a library's own wrapper is rarely the tagged element. */
+  const hostOf = (node: unknown): HTMLElement | null => {
+    for (let n = node as HTMLElement | null; n instanceof HTMLElement; n = n.parentElement) {
+      if (n.dataset.cpTmp !== undefined) return n;
+    }
+    return null;
+  };
 
   // The dev-build React transform records where a component was written. ponytail: three known
   // shapes are checked (_debugSource on the fiber, on its owner, and a data-inspector attribute);
@@ -96,6 +105,39 @@ function pageProbe(): ProbeResult {
       }
     } catch { /* GSAP internals vary by version; a miss is fine */ }
   }
+
+  // ---- Lottie: the one animation format that extracts completely (#89) ----
+  // `animationData` is the whole animation as portable JSON, so a capture of it replays identically
+  // anywhere — nothing else here is a full extraction rather than a description.
+  const MAX_LOTTIE_JSON = 100_000;
+  const seenLottie = new Set<unknown>();
+  const addLottie = (host: HTMLElement | null, anim: any) => {
+    if (!host || !anim || seenLottie.has(anim) || out.lottie.length >= 6) return;
+    seenLottie.add(anim);
+    const data = anim.animationData;
+    if (!data) return;
+    const json = whole(data, MAX_LOTTIE_JSON);
+    out.lottie.push({
+      id: idxOf(host),
+      name: String(anim.name || anim.path || "animation").slice(0, 120),
+      frames: Math.round(Number(anim.totalFrames ?? data.op ?? 0)),
+      fps: Number(anim.frameRate ?? data.fr ?? 0),
+      loop: !!anim.loop,
+      json: json ?? undefined,
+      // Too big to paste is still worth naming; the JSON is reachable through the asset zip.
+      summary: json ? undefined : `layers: ${data.layers?.length ?? "?"}, assets: ${data.assets?.length ?? 0} — too large to inline; use the asset zip`,
+    });
+  };
+  try {
+    // Three shapes, because the players do not agree on where the instance lives.
+    for (const el of document.querySelectorAll<any>("lottie-player, dotlottie-player")) {
+      addLottie(hostOf(el), el.getLottie?.() ?? el._lottie ?? null);
+    }
+    for (const anim of (window as any).lottie?.getRegisteredAnimations?.() ?? []) {
+      addLottie(hostOf(anim?.wrapper), anim);
+    }
+    for (const el of els) addLottie(el, (el as any).__lottie);
+  } catch { /* players and versions differ; a miss is fine, a throw is not */ }
 
   // ---- Platform: the builder behind the page ----
   const has = (sel: string) => !!document.querySelector(sel);

@@ -112,6 +112,11 @@ try {
         targets: () => [card], vars: { y: 40, opacity: 1, duration: 0.6, ease: "power2.out" },
         duration: () => 0.6, startTime: () => 0, paused: () => true,
       }] } };
+      // #89 — a lottie-web registry whose one animation is wrapped by the picked card
+      window.lottie = { getRegisteredAnimations: () => [{
+        wrapper: card, name: "hero-loader", animationData: { v: "5.9.6", fr: 30, layers: [] },
+        totalFrames: 60, frameRate: 30, loop: true,
+      }] };
     } });
   })()`);
 
@@ -158,6 +163,8 @@ try {
     "## Framer Motion", '[data-cp="1"] <motion.Card>', 'initial: {"opacity":0,"y":20}', 'transition: {"duration":0.4}',
     // #31 — the GSAP tween that targets the card
     "## GSAP", '[data-cp="1"]', '"power2.out"', "0.6s", "(paused — likely scroll-driven)",
+    // #89 — Lottie: the frame metadata and the animationData JSON itself
+    "## Lottie", '"hero-loader"', "60 frames @ 30fps", "2.0s", '"fr":30',
     // #33 — the builder behind the page, named in the header and detailed in Platform notes
     "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container",
     // #60 source locations from the (fake) dev-build fiber

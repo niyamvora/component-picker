@@ -7,7 +7,7 @@ import { sel } from "./const";
 import { parseInventory } from "./mapping";
 import { detectTheme } from "./snapshot";
 import { options } from "../shared/options";
-import type { GsapTween, InventoryEntry, MeasureResult, Message, MotionInfo, ProbeResult, PropShape, Reference, SourceLoc, StateIndices } from "../shared/types";
+import type { GsapTween, InventoryEntry, LottieInfo, MeasureResult, Message, MotionInfo, ProbeResult, PropShape, Reference, SourceLoc, StateIndices } from "../shared/types";
 
 /** Messaging the service worker — or a reason there is none, since the engine also runs bare. */
 export async function send(msg: Message): Promise<unknown> {
@@ -44,7 +44,7 @@ export async function getReference(): Promise<Reference | null> {
 // Page-JS expandos (__reactFiber$…) are invisible from this isolated world, so background.js runs
 // pageProbe() in the MAIN world; elements are handed over via a temporary data-cp-tmp attribute.
 export async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
-  const info: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], sources: [], props: [] };
+  const info: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], sources: [], props: [] };
   els.forEach((el, i) => { for (const a of el.attributes) if (/^on/i.test(a.name)) info.handlers.push(`${sel(i)} ${a.name}="${a.value.slice(0, 300)}"`); });
   try {
     const r = (await send({ type: "probe" })) as ProbeResult | undefined;
@@ -56,6 +56,7 @@ export async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
       info.platformNotes = r.platformNotes ?? [];
       info.motion = r.motion ?? [];
       info.gsap = r.gsap ?? [];
+      info.lottie = r.lottie ?? [];
       info.sources = r.sources ?? [];
       info.props = r.props ?? [];
     }
@@ -78,8 +79,14 @@ export async function inventory(): Promise<InventoryEntry[]> {
  * Each carries the registry id the bundle files it under (#80), so the drawer's rows never have to
  * guess one back out of the heading.
  */
-export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; platformNotes: string[]; sources: SourceLoc[]; props: PropShape[] }): { id: string; text: string }[] {
+export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; lottie: LottieInfo[]; platformNotes: string[]; sources: SourceLoc[]; props: PropShape[] }): { id: string; text: string }[] {
   const out: { id: string; text: string }[] = [];
+  if (p.lottie.length) out.push({ id: "lottie", text: `## Lottie\n${p.lottie.map((l) => {
+    const secs = l.fps ? ` · ${(l.frames / l.fps).toFixed(1)}s` : "";
+    const head = `${sel(l.id)} — "${l.name}" · ${l.frames} frames @ ${l.fps}fps${secs}${l.loop ? " · loop" : ""}`;
+    // The JSON is the point: it is the whole animation, reusable as-is.
+    return l.json ? `${head}\n\`\`\`json\n${l.json}\n\`\`\`` : `${head}\n${l.summary}`;
+  }).join("\n\n")}` });
   if (p.motion.length) out.push({ id: "motion", text: `## Framer Motion\n${p.motion.map((m) => `${sel(m.id)} <${m.name}>\n${Object.entries(m.props).map(([k, v]) => `  ${k}: ${v}`).join("\n")}`).join("\n\n")}` });
   if (p.gsap.length) out.push({ id: "gsap", text: `## GSAP\n${p.gsap.map((t) => `${sel(t.id)} — ${t.vars} · ${t.duration}s · at ${t.start}s${t.paused ? " (paused — likely scroll-driven)" : ""}`).join("\n")}` });
   if (p.platformNotes.length) out.push({ id: "platform", text: `## Platform notes\n${p.platformNotes.map((n) => `- ${n}`).join("\n")}` });
