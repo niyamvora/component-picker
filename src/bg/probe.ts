@@ -16,13 +16,41 @@ function pageProbe(): ProbeResult {
     .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const idxOf = (el: HTMLElement) => Number(el.dataset.cpTmp);
   const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], sources: [], props: [] };
   if (!root) return out;
 
   // A guarded stringify: motion/GSAP vars hold MotionValues, functions and cyclic refs.
   const show = (v: unknown) => { try { return JSON.stringify(v)?.slice(0, 300) ?? "…"; } catch { return "(not serialisable)"; } };
 
-  // ---- React fiber: framework, component chain, handlers, Framer Motion props ----
+  // The dev-build React transform records where a component was written. ponytail: three known
+  // shapes are checked (_debugSource on the fiber, on its owner, and a data-inspector attribute);
+  // React 19 dropped _debugSource by default, so a prod/newer site simply yields nothing.
+  const shortPath = (f: string) => {
+    const m = f.match(/\/((?:src|app|pages|components|lib|ui)\/.*)$/);
+    return m ? m[1] : f.split("/").slice(-2).join("/");
+  };
+  const debugSource = (el: HTMLElement) => {
+    for (let f = fiberOf(el); f; f = f.return) {
+      const s = f._debugSource || f._debugOwner?._debugSource;
+      if (s?.fileName) return { file: shortPath(s.fileName), line: s.lineNumber ?? 0, col: s.columnNumber ?? 0, owner: typeName(f._debugOwner?.type) || typeName(f.type) || "component" };
+    }
+    const attr = el.closest("[data-inspector-relative-path]");
+    if (attr) return { file: attr.getAttribute("data-inspector-relative-path")!, line: Number(attr.getAttribute("data-inspector-line")) || 0, col: Number(attr.getAttribute("data-inspector-column")) || 0, owner: "component" };
+    return null;
+  };
+
+  // The inferred type of a prop value, for rebuilding a component's API rather than its markup.
+  const propType = (v: unknown): string => {
+    if (v == null) return String(v);
+    if (typeof v === "function") return "ƒ";
+    if (Array.isArray(v)) return v.every((x) => x?.$$typeof) ? "node[]" : "array";
+    if ((v as any).$$typeof) return "node";
+    if (typeof v === "object") return `{ ${Object.keys(v as object).slice(0, 4).join(", ")} }`;
+    return typeof v;
+  };
+  const SKIP_PROP = new Set(["children", "key", "ref", "__source", "__self", "className", "style"]);
+
+  // ---- React fiber: framework, chain, handlers, Framer Motion, source locations, prop shapes ----
   if (fiberOf(root)) {
     const next = (window as any).__NEXT_DATA__ || document.getElementById("__next") || document.querySelector('script[src*="/_next/"]');
     out.framework = next ? "React (Next.js)" : "React";
@@ -30,6 +58,8 @@ function pageProbe(): ProbeResult {
     const MOTION_KEYS = ["initial", "animate", "exit", "transition", "variants", "whileHover", "whileTap",
       "whileFocus", "whileInView", "viewport", "layout", "layoutId", "drag", "custom"];
     for (const el of els) {
+      const src = debugSource(el);
+      if (src && out.sources.length < 40) out.sources.push({ id: idxOf(el), component: src.owner, file: src.file, line: src.line, col: src.col });
       const p = fiberOf(el)?.memoizedProps;
       if (!p || typeof p !== "object") continue;
       for (const [k, v] of Object.entries(p)) {
@@ -37,9 +67,15 @@ function pageProbe(): ProbeResult {
       }
       const motion: Record<string, string> = {};
       for (const k of MOTION_KEYS) if (k in p && p[k] !== undefined) motion[k] = show(p[k]);
+      const compName = typeName(fiberOf(el)?.type);
       if (Object.keys(motion).length) {
-        const name = typeName(fiberOf(el)?.type) || (el as any).tagName?.toLowerCase();
-        out.motion.push({ id: idxOf(el), name: `motion.${name}`, props: motion } as MotionInfo);
+        out.motion.push({ id: idxOf(el), name: `motion.${compName || (el as any).tagName?.toLowerCase()}`, props: motion } as MotionInfo);
+      }
+      // Prop shape: only real named components (not host <div>s), and only a handful.
+      if (compName && out.props.length < 12) {
+        const shape = Object.entries(p).filter(([k]) => !SKIP_PROP.has(k)).slice(0, 12)
+          .map(([k, v]) => ({ key: k, type: propType(v), value: show(v) }));
+        if (shape.length) out.props.push({ id: idxOf(el), name: compName, props: shape });
       }
     }
   } else if ((root as any).__vueParentComponent || (root as any).__vue__) {

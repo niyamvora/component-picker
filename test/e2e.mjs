@@ -100,6 +100,10 @@ try {
       document.getElementById("card").__reactFiber$test.memoizedProps.initial = { opacity: 0, y: 20 };
       document.getElementById("card").__reactFiber$test.memoizedProps.animate = { opacity: 1, y: 0 };
       document.getElementById("card").__reactFiber$test.memoizedProps.transition = { duration: 0.4 };
+      document.getElementById("card").__reactFiber$test.memoizedProps.variant = "primary";
+      document.getElementById("card").__reactFiber$test.memoizedProps.size = "sm";
+      document.getElementById("card").__reactFiber$test.memoizedProps.disabled = false;
+      document.getElementById("card").__reactFiber$test._debugSource = { fileName: "/project/src/components/Card.tsx", lineNumber: 12, columnNumber: 4 };
       document.documentElement.setAttribute("data-wf-page", "x");
       const card = document.getElementById("card");
       window.gsap = { globalTimeline: { getChildren: () => [{
@@ -153,7 +157,11 @@ try {
     // #31 — the GSAP tween that targets the card
     "## GSAP", '[data-cp="1"]', '"power2.out"', "0.6s", "(paused — likely scroll-driven)",
     // #33 — the builder behind the page, named in the header and detailed in Platform notes
-    "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container"];
+    "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container",
+    // #60 source locations from the (fake) dev-build fiber
+    "Source: src/components/Card.tsx:12:4", "## Source locations", "src/components/Card.tsx:12:4",
+    // #62 inferred prop shape
+    "## Props (inferred from the React fiber)", "<Card>", 'variant: "primary" (string)', "disabled: false (boolean)"];
   const fails = must.filter((s) => !md.includes(s));
   // #14 — the second capture must report only what changed against the stored reference.
   if (!/## Compared with reference \(div#card\.card — reference\.example/.test(compared))
