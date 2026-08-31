@@ -57,7 +57,7 @@ const TITLES: Record<string, string> = {
   header: "Header", howto: "How to use", context: "Context", css: "CSS (desktop)",
   states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive",
   theme: "Theme", compare: "Compared with reference", media: "Media", tailwind: "Tailwind",
-  "css-modules": "CSS Modules", js: "JS / handlers", sources: "Source locations", props: "Props",
+  "css-modules": "CSS Modules", js: "JS / handlers", canvas: "Canvas / WebGL", sources: "Source locations", props: "Props",
 };
 
 async function build(root: Element, all: Element[], eligible: Element[], els: Element[], onStatus: (s: string) => void): Promise<string> {
@@ -90,7 +90,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const anims = new Set(els.flatMap((el) => splitList(getComputedStyle(el).animationName)).filter((n) => n !== "none"));
   const kf = [...anims].map((n) => keyframes[n]).filter(Boolean);
   const font = fonts(els, fontFaces);
-  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap, sources, props } = await frameworkInfo(els);
+  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap, lottie, anime, canvases, scrollTriggers, sources, props } = await frameworkInfo(els);
   const variants = variantsOf(root, els, desktop);
   const libs = libraries(els);
   const rootSrc = sources.find((x) => x.id === 0);
@@ -174,7 +174,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (assetUrlList.length) part("assets", `## Assets\n- ${assetUrlList.length} asset(s) referenced. Download them (with the HTML rewritten to local paths) from the extension's side panel.`);
   if (running) part("animations", running);
   if (scroll) part("scroll", scroll);
-  for (const s of frameworkSections({ motion, gsap, platformNotes, sources, props })) part(s.id, s.text);
+  for (const s of frameworkSections({ motion, gsap, lottie, anime, canvases, scrollTriggers, platformNotes, sources, props })) part(s.id, s.text);
   if (kf.length) part("keyframes", `## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   part("fonts", `## Fonts\n${font.lines.join("\n") || "- No text of its own."}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +

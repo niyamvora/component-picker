@@ -16,11 +16,20 @@ function pageProbe(): ProbeResult {
     .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const idxOf = (el: HTMLElement) => Number(el.dataset.cpTmp);
   const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], sources: [], props: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], canvases: [], scrollTriggers: [], sources: [], props: [] };
   if (!root) return out;
 
   // A guarded stringify: motion/GSAP vars hold MotionValues, functions and cyclic refs.
   const show = (v: unknown) => { try { return JSON.stringify(v)?.slice(0, 300) ?? "…"; } catch { return "(not serialisable)"; } };
+  /** The whole value, or null when it is bigger than the bundle can carry. */
+  const whole = (v: unknown, cap: number) => { try { const s = JSON.stringify(v); return s && s.length <= cap ? s : null; } catch { return null; } };
+  /** The nearest captured ancestor of a node — a library's own wrapper is rarely the tagged element. */
+  const hostOf = (node: unknown): HTMLElement | null => {
+    for (let n = node as HTMLElement | null; n instanceof HTMLElement; n = n.parentElement) {
+      if (n.dataset.cpTmp !== undefined) return n;
+    }
+    return null;
+  };
 
   // The dev-build React transform records where a component was written. ponytail: three known
   // shapes are checked (_debugSource on the fiber, on its owner, and a data-inspector attribute);
@@ -95,6 +104,97 @@ function pageProbe(): ProbeResult {
         out.gsap.push({ id: Number(hit.dataset.cpTmp), vars: show(t.vars), duration: t.duration?.() ?? 0, start: t.startTime?.() ?? 0, paused: !!t.paused?.() } as GsapTween);
       }
     } catch { /* GSAP internals vary by version; a miss is fine */ }
+  }
+
+  // ---- Lottie: the one animation format that extracts completely (#89) ----
+  // `animationData` is the whole animation as portable JSON, so a capture of it replays identically
+  // anywhere — nothing else here is a full extraction rather than a description.
+  const MAX_LOTTIE_JSON = 100_000;
+  const seenLottie = new Set<unknown>();
+  const addLottie = (host: HTMLElement | null, anim: any) => {
+    if (!host || !anim || seenLottie.has(anim) || out.lottie.length >= 6) return;
+    seenLottie.add(anim);
+    const data = anim.animationData;
+    if (!data) return;
+    const json = whole(data, MAX_LOTTIE_JSON);
+    out.lottie.push({
+      id: idxOf(host),
+      name: String(anim.name || anim.path || "animation").slice(0, 120),
+      frames: Math.round(Number(anim.totalFrames ?? data.op ?? 0)),
+      fps: Number(anim.frameRate ?? data.fr ?? 0),
+      loop: !!anim.loop,
+      json: json ?? undefined,
+      // Too big to paste is still worth naming; the JSON is reachable through the asset zip.
+      summary: json ? undefined : `layers: ${data.layers?.length ?? "?"}, assets: ${data.assets?.length ?? 0} — too large to inline; use the asset zip`,
+    });
+  };
+  try {
+    // Three shapes, because the players do not agree on where the instance lives.
+    for (const el of document.querySelectorAll<any>("lottie-player, dotlottie-player")) {
+      addLottie(hostOf(el), el.getLottie?.() ?? el._lottie ?? null);
+    }
+    for (const anim of (window as any).lottie?.getRegisteredAnimations?.() ?? []) {
+      addLottie(hostOf(anim?.wrapper), anim);
+    }
+    for (const el of els) addLottie(el, (el as any).__lottie);
+  } catch { /* players and versions differ; a miss is fine, a throw is not */ }
+
+  // ---- anime.js: what is running on the subtree right now (#90) ----
+  // v3 and v4 renamed enough internals that every read is worth its own try — a version this does
+  // not know should cost the section, not the capture.
+  for (const inst of ((window as any).anime?.running ?? []) as any[]) {
+    if (out.anime.length >= 20) break;
+    try {
+      const host = ((inst.animatables ?? []) as any[]).map((a) => hostOf(a?.target)).find(Boolean);
+      if (!host) continue;
+      const props = [...new Set(((inst.animations ?? []) as any[]).map((a) => a?.property).filter(Boolean))];
+      out.anime.push({
+        id: idxOf(host), properties: props.slice(0, 12) as string[],
+        duration: Math.round(Number(inst.duration) || 0), easing: String(inst.easing ?? ""),
+        loop: !!inst.loop, direction: String(inst.direction ?? ""), delay: Math.round(Number(inst.delay) || 0),
+      });
+    } catch { /* skip this instance quietly */ }
+  }
+
+  // ---- ScrollTrigger: on a scroll-driven site the trigger geometry is the design (#92) ----
+  const ST = (window as any).ScrollTrigger ?? (window as any).gsap?.ScrollTrigger;
+  try {
+    for (const t of (ST?.getAll?.() ?? []) as any[]) {
+      if (out.scrollTriggers.length >= 20) break;
+      const pinHost = hostOf(t?.pin);
+      const host = hostOf(t?.trigger) ?? pinHost;
+      if (!host) continue;
+      const v = t.vars ?? {};
+      // start/end may be authored as functions; those only exist as the px they resolved to.
+      const edge = (key: "start" | "end") =>
+        typeof v[key] === "string" ? `"${v[key]}"` : `${Math.round(Number(t[key]) || 0)}px (resolved)`;
+      out.scrollTriggers.push({
+        id: idxOf(host), start: edge("start"), end: edge("end"),
+        scrub: v.scrub === true ? "scrub" : typeof v.scrub === "number" ? `scrub ${v.scrub}s` : "",
+        pin: pinHost ? `[data-cp="${idxOf(pinHost) + 1}"]` : "",
+      });
+    }
+  } catch { /* ScrollTrigger internals vary by version; a miss is fine */ }
+
+  // ---- Canvas / WebGL: detect it, name it, and say plainly that it is not code (#91) ----
+  // A GPU scene cannot be captured as HTML/CSS. Pretending otherwise would be a lie; saying nothing
+  // leaves the user wondering why their capture is an empty <canvas>.
+  const three = (window as any).THREE;
+  const engineName = (c: HTMLCanvasElement) =>
+    // three.js stamps the canvas itself, which beats any global when a page runs more than one engine.
+    c.getAttribute("data-engine") ||
+    (three ? `three.js${three.REVISION ? ` r${three.REVISION}` : ""}` : "") ||
+    ((window as any).rive || (window as any).Rive ? "Rive" : "") ||
+    ((window as any).PIXI ? "PixiJS" : "") ||
+    ((window as any).BABYLON ? "Babylon.js" : "");
+  for (const c of document.querySelectorAll("canvas")) {
+    const host = hostOf(c);
+    if (!host || out.canvases.length >= 4) continue;
+    // ponytail: named globals and data-engine only, never getContext probing. Asking a canvas for a
+    // context it does not have CREATES one, and the page's own later getContext then fails. A raw
+    // WebGL canvas with no global reads as an unnamed canvas — still the honest note, just vaguer.
+    const r = c.getBoundingClientRect();
+    out.canvases.push({ id: idxOf(host), width: Math.round(r.width) || c.width, height: Math.round(r.height) || c.height, library: engineName(c) });
   }
 
   // ---- Platform: the builder behind the page ----

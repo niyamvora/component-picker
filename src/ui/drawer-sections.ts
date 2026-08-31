@@ -7,6 +7,7 @@
 
 import { el } from "./hud";
 import { copy } from "./note";
+import { visualise } from "./viz";
 import { state } from "../core/state";
 import type { CaptureSection } from "../shared/types";
 
@@ -19,13 +20,79 @@ export const DEFAULT_SELECTION = ["html", "css"];
 /** The selection the rows mutate — module scope, so it survives the drawer being closed. */
 const selected = new Set<string>(DEFAULT_SELECTION);
 
+/** Is there a capture to show? Synchronous, so the drawer can pick its default group as it builds. */
+export const haveCapture = () => state.lastSections.length > 0;
+
+/** A one-line dim note. Every group says what it would hold rather than rendering a blank void. */
+export const hint = (text: string) => Object.assign(el("div", `font-size:12px;color:${DIM};padding:6px 0`), { textContent: text });
+
+/**
+ * A collapsible drawer group whose body is built on first expand.
+ *
+ * Lazy on purpose: Design renders swatches, specimens and an SVG curve per animation for a whole
+ * capture, and a drawer that pays for all four groups every time it opens is one nobody leaves open.
+ */
+export function group(title: string, mount: (host: HTMLElement) => void, onOpen?: () => void) {
+  const node = el("div", "");
+  const header = el("button", `all:unset;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:9px 0;cursor:pointer;font:600 13px/1.5 -apple-system,system-ui,sans-serif;border-bottom:${HAIRLINE}`);
+  const caret = Object.assign(el("span", `flex:none;width:12px;color:${DIM}`), { textContent: "▸" });
+  header.append(caret, Object.assign(el("span", "flex:1"), { textContent: title }));
+  // Set up front, not just on the first toggle: a collapsed group has to announce that it collapses.
+  header.setAttribute("aria-expanded", "false");
+  const body = el("div", "display:none;padding:2px 0 10px");
+  node.append(header, body);
+  let open = false, built = false;
+  const setOpen = (on: boolean) => {
+    open = on;
+    // Shown before it is built, so anything measuring itself on mount measures a laid-out box.
+    body.style.display = on ? "block" : "none";
+    if (on && !built) { built = true; mount(body); }
+    caret.textContent = on ? "▾" : "▸";
+    header.setAttribute("aria-expanded", String(on));
+  };
+  header.addEventListener("click", () => { setOpen(!open); if (open) onOpen?.(); });
+  return { title, node, setOpen, isOpen: () => open };
+}
+
+/** The sections that have a visual form, in the order a designer reads them. */
+const DESIGN_ORDER = ["palette", "tokens", "fonts", "animations"];
+
+/** The Design group: the capture drawn — colours, tokens, type, motion (#84, regrouped by #93). */
+export async function mountDesign(host: HTMLElement) {
+  const sections = await lastSections();
+  if (!sections.length) return void host.append(hint("Pick a component first — its colours, type and motion appear here."));
+  let drawn = 0;
+  for (const id of DESIGN_ORDER) {
+    const s = sections.find((x) => x.id === id);
+    const node = s && visualise(s);
+    if (!s || !node) continue;
+    drawn++;
+    host.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding:8px 0 0`), { textContent: s.title }), capped(node));
+  }
+  if (!drawn) host.append(hint("This capture has no colours, type or motion to draw."));
+}
+
+/**
+ * The same 200px cap a section body gets, for a visualization that could be forty token rows.
+ * The fade goes on only when the content really is taller — a fade over content that has already
+ * ended is a lie about there being more.
+ */
+function capped(node: HTMLElement): HTMLElement {
+  const box = el("div", "max-height:200px;overflow:auto;scrollbar-width:thin");
+  box.append(node);
+  requestAnimationFrame(() => {
+    const fade = box.scrollHeight > box.clientHeight ? FADE : "";
+    box.style.setProperty("mask-image", fade);
+    box.style.setProperty("-webkit-mask-image", fade);
+  });
+  return box;
+}
+
 /** Fill the drawer's section area. Async because the last capture may have happened in another frame. */
 export async function mountSections(host: HTMLElement) {
   const sections = await lastSections();
   if (!sections.length) {
-    host.append(Object.assign(el("div", `font-size:12px;color:${DIM};padding:8px 0`), {
-      textContent: "Pick a component first — its sections appear here.",
-    }));
+    host.append(hint("Pick a component first — its sections appear here."));
     return;
   }
   let store = await loadStore();
@@ -57,16 +124,11 @@ export async function mountSections(host: HTMLElement) {
 /** The "Sections" heading, with the two bulk actions that save ticking eight boxes every pick. */
 function heading(all: () => void, none: () => void): HTMLElement {
   const row = el("div", `display:flex;align-items:center;gap:6px;font-weight:600;padding:8px 0;border-bottom:${HAIRLINE}`);
-  const link = (text: string, run: () => void) => {
-    const b = Object.assign(el("button", "all:unset;color:#93c5fd;cursor:pointer;font-weight:400;font-size:12px"), { textContent: text });
-    b.addEventListener("click", run);
-    return b;
-  };
   row.append(
     Object.assign(el("span", "flex:1"), { textContent: "Sections of the last capture" }),
-    link("all", all),
+    linkButton("all", all),
     Object.assign(el("span", `color:${DIM};font-size:12px`), { textContent: "·" }),
-    link("none", none),
+    linkButton("none", none),
   );
   return row;
 }
@@ -81,7 +143,7 @@ export function copyBox(sections: CaptureSection[], getSelected: () => string[])
   const box = el("div", "padding-bottom:8px");
   const prompt = el("input", `width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:${HAIRLINE};background:rgba(0,0,0,.25);color:#f5f5f7;font:13px/1.4 -apple-system,system-ui,sans-serif;outline:none`);
   prompt.placeholder = "Prompt — e.g. rebuild this as a React component";
-  const out = el("pre", `margin:8px 0;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
+  const out = el("pre", `margin:8px 0;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:160px;overflow:auto;scrollbar-width:thin;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
   const button = el("button", "all:unset;display:block;width:100%;box-sizing:border-box;text-align:center;padding:8px 0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600");
   const status = el("div", `font-size:11px;color:${DIM};min-height:15px;padding-top:4px;text-align:center`);
   box.append(prompt, out, button, status);
@@ -97,6 +159,9 @@ export function copyBox(sections: CaptureSection[], getSelected: () => string[])
     button.disabled = !count;
     button.style.opacity = count ? "1" : ".45";
     button.style.cursor = count ? "pointer" : "default";
+    const fade = out.scrollHeight > out.clientHeight ? FADE : "";
+    out.style.setProperty("mask-image", fade);
+    out.style.setProperty("-webkit-mask-image", fade);
   };
 
   prompt.addEventListener("input", () => {
@@ -152,7 +217,7 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
     const name = Object.assign(el("span", "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"), { textContent: s.title, title: s.title });
     const size = Object.assign(el("span", `flex:none;font-size:11px;color:${DIM}`), { textContent: weigh(s.body) });
     const caret = Object.assign(el("button", `all:unset;flex:none;width:16px;text-align:center;color:${DIM};cursor:pointer`), { textContent: "▸", title: `Show ${s.title}` });
-    const body = el("pre", `display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:200px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
+    const body = el("pre", `display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:200px;overflow:auto;scrollbar-width:thin;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
     body.textContent = s.body;
     row.append(box, name, size, caret);
     wrap.append(row, body);
@@ -161,14 +226,29 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
       paint();
       onChange();
     });
+    let open = false;
     caret.addEventListener("click", (e) => {
       e.stopPropagation(); // the caret shows the section; it does not tick it
-      const open = body.style.display === "none";
-      body.style.display = open ? "block" : "none";
+      open = !open;
       caret.textContent = open ? "▾" : "▸";
+      body.style.display = open ? "block" : "none";
+      // Fade the cut edge only when the body really is taller than its cap — a fade over content
+      // that has already ended is a lie about there being more.
+      const fade = open && body.scrollHeight > body.clientHeight ? FADE : "";
+      body.style.setProperty("mask-image", fade);
+      body.style.setProperty("-webkit-mask-image", fade);
     });
     return wrap;
   });
+}
+
+const FADE = "linear-gradient(to bottom,#000 calc(100% - 18px),transparent)";
+
+/** The drawer's text button — `all`, `none`, `text`. The one link style the popup already uses. */
+function linkButton(text: string, run: () => void): HTMLButtonElement {
+  const b = Object.assign(el("button", "all:unset;flex:none;color:#93c5fd;cursor:pointer;font-weight:400;font-size:11px"), { textContent: text });
+  b.addEventListener("click", (e) => { e.stopPropagation(); run(); });
+  return b;
 }
 
 /**

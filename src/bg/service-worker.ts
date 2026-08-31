@@ -26,11 +26,18 @@ export async function inject(tabId: number) {
   await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: [PICKER] });
 }
 
-// With a popup declared, chrome.action.onClicked no longer fires — the popup's Pick button calls
-// inject() instead. This listener stays for the case where the popup is disabled.
-chrome.action.onClicked.addListener(async (tab) => {
+/**
+ * The toolbar click shows the in-page dock and opens the side panel beside it.
+ *
+ * There used to be a popup here, which put the settings that shape a capture in a window that
+ * closes the moment you click the page — the one thing you always do next. `sidePanel.open()` needs
+ * a user gesture, and this listener is one; it must be called before the first `await`, because a
+ * gesture does not survive one.
+ */
+chrome.action.onClicked.addListener((tab) => {
   if (!tab.id || !/^(https?|file):/.test(tab.url || "")) return;
-  await inject(tab.id);
+  const opened = chrome.sidePanel?.open?.({ tabId: tab.id })?.catch(() => {});
+  void Promise.all([opened, inject(tab.id).catch(() => {})]);
 });
 
 chrome.storage.local.get("bridge").then((s) => { if (s.bridge) startBridge(); });

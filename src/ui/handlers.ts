@@ -9,6 +9,7 @@ import { label } from "../core/blocks";
 import { UI } from "../core/const";
 import { blocksOfLastPick } from "../core/state";
 import { askForNote, copy } from "./note";
+import { closeDrawerIfOpen, refreshDock } from "./hud";
 import {
   clearMarks, clearMeasure, currentEl, drawMeasure, highlight, mark, mount, setCrumbHandler, setFrozenChrome, toast, unmark, unmount,
 } from "./overlay";
@@ -47,7 +48,8 @@ const onSwallow = (e: Event) => {
 };
 
 const onKey = (e: KeyboardEvent) => {
-  if (e.key === "Escape") stop();
+  // One Esc dismisses one thing: the drawer if it is open, the picker otherwise.
+  if (e.key === "Escape") { if (!closeDrawerIfOpen()) stop(); }
   else if (e.key === "Enter" && currentEl()) finish(currentEl()!);
   else if (e.key === "ArrowUp" && currentEl()?.parentElement && currentEl()!.parentElement !== document.documentElement) { lockXY = lastXY; highlight(currentEl()!.parentElement); }
   else if (e.key === "ArrowDown" && currentEl()?.firstElementChild) { lockXY = lastXY; highlight(currentEl()!.firstElementChild); }
@@ -109,6 +111,41 @@ export function stop() {
 
 export const isActive = () => active;
 
+// ---------- compare reference, as a mode rather than a key ----------
+// `R` only worked while the copy toast was up, which is six seconds to notice a hint you were not
+// looking for. The dock button is a mode you can see: arm it, pick the reference, and it stays lit
+// while every later pick — any tab, any site — is diffed against it.
+let armed = false, hasReference = false;
+
+/** Lit when a reference is set, or while the next pick is going to become one. */
+export const referenceOn = () => armed || hasReference;
+
+const flash = (text: string) => { const t = toast(text); setTimeout(() => t.remove(), 3500); };
+
+/** The dock button: no reference → arm; armed → disarm; reference set → clear it. */
+export function toggleReference() {
+  if (hasReference) {
+    chrome.runtime?.sendMessage?.({ type: "clear-reference" } satisfies Message).catch(() => {});
+    hasReference = armed = false;
+    flash("Compare reference cleared");
+    return;
+  }
+  armed = !armed;
+  if (!armed) { flash("Compare mode off"); return; }
+  flash("Pick the component to compare against — it becomes the reference");
+  start(); // arming without arming the crosshair would just be a lit button
+}
+
+const readReference = () => void chrome.storage?.session?.get?.("reference")
+  ?.then(({ reference }) => { hasReference = !!reference; refreshDock(); })
+  .catch(() => {});
+readReference();
+// The drawer can clear the reference too, and the panel can set one — one listener keeps the
+// button honest whoever changed it.
+chrome.storage?.onChanged?.addListener?.((changes, area) => {
+  if (area === "session" && changes.reference) { hasReference = !!changes.reference.newValue; refreshDock(); }
+});
+
 async function finish(el: Element) {
   const selected = [...selection];
   stop();
@@ -119,7 +156,7 @@ async function finish(el: Element) {
     const made = commitEdits();
     const picks = [...selection.filter((s) => s !== el), el];
     selection = [];
-    const [bundle, note] = await Promise.all([extractMany(picks, (s) => { t.textContent = s; }), askForNote()]);
+    const [bundle, note] = await Promise.all([extractMany(picks, (s) => { t.textContent = s; }), askForNote(el)]);
     const editNote = made.length ? `> Edited before capture: ${made.join(", ")}` : "";
     const notes = [editNote, note ? `> Note: ${note}` : ""].filter(Boolean).join("\n");
     const full = notes ? bundle.replace(/\n/, `\n\n${notes}\n`) : bundle;
@@ -130,7 +167,16 @@ async function finish(el: Element) {
       entry: { label: picks.length > 1 ? `${picks.length} components` : label(el), host: location.host, at: Date.now(), bundle: full.slice(0, 200_000) },
     } satisfies Message).catch(() => {});
     const what = picks.length > 1 ? `${picks.length} components` : label(el);
-    t.textContent = `Copied ${what} — ${(full.length / 1024).toFixed(0)} KB · R to set as compare reference`;
+    if (armed) {
+      // This pick was taken to become the reference; it still copies like any other.
+      armed = false;
+      hasReference = true;
+      refreshDock();
+      chrome.runtime?.sendMessage?.({ type: "set-reference", reference: { blocks: blocksOfLastPick(), label: label(el), url: location.href, at: Date.now() } } satisfies Message).catch(() => {});
+      t.textContent = `Reference set: ${label(el)} — now pick a component anywhere to diff against it`;
+    } else {
+      t.textContent = `Copied ${what} — ${(full.length / 1024).toFixed(0)} KB · R to set as compare reference`;
+    }
     // The reference offer is live only while the toast is: a key that silently does something
     // minutes later is worse than one that does nothing.
     const onRef = (e: KeyboardEvent) => {
@@ -140,6 +186,8 @@ async function finish(el: Element) {
       chrome.runtime?.sendMessage?.(clear
         ? { type: "clear-reference" }
         : { type: "set-reference", reference: { blocks: blocksOfLastPick(), label: label(el), url: location.href, at: Date.now() } } satisfies Message);
+      hasReference = !clear;
+      refreshDock();
       t.textContent = clear ? "Compare reference cleared" : "Reference set — the next pick will be compared against it";
     };
     window.addEventListener("keydown", onRef, true);

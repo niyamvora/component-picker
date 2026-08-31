@@ -81,6 +81,40 @@ export interface Reference { blocks: Blocks; label: string; url: string; at: num
 export interface MotionInfo { id: number; name: string; props: Record<string, string> }
 export interface GsapTween { id: number; vars: string; duration: number; start: number; paused: boolean }
 
+/**
+ * A Lottie animation on the picked subtree (#89).
+ *
+ * The only animation format on the web that extracts completely: `animationData` is portable JSON
+ * that replays identically anywhere. `json` is it; `summary` stands in when it is too big to inline.
+ */
+export interface LottieInfo {
+  id: number; name: string; frames: number; fps: number; loop: boolean;
+  json?: string;
+  summary?: string;
+}
+
+/** A running anime.js instance touching the subtree (#90) — partial, but enough to describe the motion. */
+export interface AnimeInfo {
+  id: number; properties: string[]; duration: number; easing: string;
+  loop: boolean; direction: string; delay: number;
+}
+
+/**
+ * A `<canvas>` in the picked subtree (#91).
+ *
+ * Not an extraction — a scene drawn at runtime has no HTML/CSS to capture. Recording it is what
+ * stops a capture from being a silently empty box. `library` is the engine when one was named.
+ */
+export interface CanvasScene { id: number; width: number; height: number; library: string }
+
+/**
+ * A GSAP ScrollTrigger whose trigger or pin is in the picked subtree (#92).
+ *
+ * On a scroll-driven site the trigger geometry *is* the design — where the animation starts, where
+ * it ends, whether it scrubs with the scrollbar or pins the section.
+ */
+export interface ScrollTriggerInfo { id: number; start: string; end: string; scrub: string; pin: string }
+
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
   framework: string;
@@ -94,6 +128,14 @@ export interface ProbeResult {
   motion: MotionInfo[];
   /** GSAP tweens targeting the captured subtree (#31). */
   gsap: GsapTween[];
+  /** Lottie animations on the subtree, with their full JSON where it fits (#89). */
+  lottie: LottieInfo[];
+  /** Running anime.js instances animating the subtree (#90). */
+  anime: AnimeInfo[];
+  /** Canvases in the subtree, with the rendering library when one is detectable (#91). */
+  canvases: CanvasScene[];
+  /** ScrollTrigger geometry for triggers or pins in the subtree (#92). */
+  scrollTriggers: ScrollTriggerInfo[];
   /** Source file locations from the React dev build's fiber, when present (#60). */
   sources: SourceLoc[];
   /** Inferred prop shape of picked components (#62). */

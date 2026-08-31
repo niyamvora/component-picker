@@ -1,6 +1,10 @@
 <!doctype html>
 <html class="light">
 <title>Component Picker self-check</title>
+<!-- Without this, a file:// page decodes dist/picker.js as windows-1252 and every em dash in it
+     becomes mojibake — including the ones the section parsers match on. Chrome always serves
+     extension resources as UTF-8, so only this harness needs telling. -->
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   .card { flex-direction: column; background: var(--panel); --tw-pad: var(--pad); padding: var(--tw-pad); }
@@ -110,6 +114,50 @@
     const asmOk = window.__cp.ui.assemble("rebuild this", fakeSections, ["css"]) === "rebuild this\n\n.a { color: red }"
       && window.__cp.ui.assemble("", fakeSections, ["css", "html"]) === "<b>x</b>\n\n.a { color: red }"
       && window.__cp.ui.assemble("  ", fakeSections, []) === "";
+    // #85 — the palette and token lines parse into values the drawer can draw as chips
+    const paletteBody = parts.find((p) => p.id === "palette").body;
+    const swatches = window.__cp.ui.parsePalette(paletteBody.split("\n").find((l) => l.startsWith("Colours:")));
+    const spacings = window.__cp.ui.parsePalette(paletteBody.split("\n").find((l) => l.startsWith("Spacing:")));
+    const tokenList = window.__cp.ui.parseTokens(parts.find((p) => p.id === "tokens").body);
+    const vizOk = swatches.some((c) => c.value === "rgb(250, 250, 250)") && swatches.every((c) => c.count >= 1)
+      && swatches.every((c) => c.value.startsWith("rgb"))                    // a value never keeps its ×N suffix
+      && spacings.some((s) => s.value === "6px" && s.count === 2)            // …and the count is read off it
+      && !spacings.some((s) => s.value.includes("multiples of"))             // the grid note is not a value
+      && spacings.every((s) => /^[\d.]+px$/.test(s.value))
+      && tokenList.some((t) => t.name === "--panel" && t.value === "rgb(250, 250, 250)")
+      && tokenList.every((t) => !t.value.endsWith(";"));
+    // #86 — a font line becomes a specimen's family/weight/size; the non-style lines do not
+    const georgia = window.__cp.ui.parseFont("- Georgia 700 — 24px/normal (h2.title)");
+    const typeOk = georgia.family === "Georgia" && georgia.weight === 700 && georgia.size === 24 && georgia.lineHeight === "normal"
+      && window.__cp.ui.parseFont("- Helvetica Neue 400 — 13.5px/20px (p)").family === "Helvetica Neue"
+      && window.__cp.ui.parseFont("- Font stylesheets: https://x/y.css") === null
+      && window.__cp.ui.parseFont("- 1 @font-face rule(s) omitted — set `x` to include them.") === null;
+    // #87 — the easing is drawn: linear a diagonal, cubic-bezier its mapped control points
+    const curve = window.__cp.ui.easing;
+    const animOk = curve("linear").includes('d="M0,36 L64,0"')
+      && curve("cubic-bezier(0.4, 0, 0.2, 1)").includes('d="M0,36 C25.6,36 12.8,0 64,0"')
+      && curve("ease-in-out").includes('d="M0,36 C26.88,36 37.12,0 64,0"')
+      && curve("steps(4)").includes("H16 V27")                               // a staircase, not a curve
+      && curve("linear(0, 0.5, 1)").includes('d="M0,36 L64,0"')              // undrawable → straight, never a wrong curve
+      && window.__cp.ui.parseAnimations(parts.find((p) => p.id === "animations").body)[0].easing === "linear";
+    // #84 — every section that has a visual form produces one from a REAL capture, not just from a
+    // literal typed here. (A parser whose separator was mis-decoded matched the equally mis-decoded
+    // literals in this file and nothing else; only real captured text catches that.)
+    const drawn = ["palette", "tokens", "fonts", "animations"].filter((id) => {
+      const s = parts.find((p) => p.id === id);
+      const node = s && window.__cp.ui.visualise(s);
+      return !node || !node.childElementCount;
+    });
+    const drawnOk = drawn.length === 0 && !window.__cp.ui.visualise(parts.find((p) => p.id === "html"));
+    // #94 — a group builds its body on first expand and never again: the Design group renders a
+    // whole capture's swatches, specimens and curves, which no closed drawer should be paying for.
+    let builds = 0;
+    const g = window.__cp.ui.group("Design", () => builds++);
+    const lazy = builds === 0 && !g.isOpen();
+    g.setOpen(true);
+    const mounted = builds === 1 && g.isOpen();
+    g.setOpen(false); g.setOpen(true);
+    const groupOk = lazy && mounted && builds === 1 && g.node.textContent.includes("Design");
     // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
     const { remember, recall } = window.__cp.ui;
     const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
@@ -208,6 +256,11 @@
     if (!rowsOk) fails.push("#81 section rows did not render or toggle");
     if (!asmOk) fails.push("#82 assembleSelection did not return prompt + only the checked sections");
     if (!memOk) fails.push("#83 the per-site selection did not round-trip, or the 50-host cap failed");
+    if (!vizOk) fails.push("#85 the palette/token lines did not parse into swatch values and counts");
+    if (!typeOk) fails.push("#86 a font line did not parse into a specimen, or a non-style line did");
+    if (!animOk) fails.push("#87 an easing did not draw the expected curve");
+    if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
+    if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

@@ -112,6 +112,27 @@ try {
         targets: () => [card], vars: { y: 40, opacity: 1, duration: 0.6, ease: "power2.out" },
         duration: () => 0.6, startTime: () => 0, paused: () => true,
       }] } };
+      // #89 — a lottie-web registry whose one animation is wrapped by the picked card
+      window.lottie = { getRegisteredAnimations: () => [{
+        wrapper: card, name: "hero-loader", animationData: { v: "5.9.6", fr: 30, layers: [] },
+        totalFrames: 60, frameRate: 30, loop: true,
+      }] };
+      // #92 — a ScrollTrigger on the card: a string start, a resolved-only end, scrub, and a pin
+      window.ScrollTrigger = { getAll: () => [{
+        trigger: card, pin: card, vars: { start: "top 80%", scrub: true }, end: 1240,
+      }] };
+      // #91 — a WebGL hero: only the THREE global is planted, so detection is what is under test
+      window.THREE = { REVISION: "160" };
+      const gl = document.createElement("canvas");
+      gl.width = 1280; gl.height = 640;
+      gl.style.cssText = "width:200px;height:100px;display:block";
+      card.appendChild(gl);
+      // #90 — an anime.js instance animating a child of the card (matched via its captured ancestor)
+      window.anime = { running: [{
+        animatables: [{ target: card.querySelector(".btn") }],
+        animations: [{ property: "translateX" }, { property: "opacity" }],
+        duration: 800, easing: "easeOutExpo", loop: true, direction: "alternate", delay: 100,
+      }] };
     } });
   })()`);
 
@@ -158,6 +179,15 @@ try {
     "## Framer Motion", '[data-cp="1"] <motion.Card>', 'initial: {"opacity":0,"y":20}', 'transition: {"duration":0.4}',
     // #31 — the GSAP tween that targets the card
     "## GSAP", '[data-cp="1"]', '"power2.out"', "0.6s", "(paused — likely scroll-driven)",
+    // #92 — the trigger geometry, with an authored start kept verbatim and a function end resolved
+    '[data-cp="1"] ScrollTrigger — start "top 80%"', "end 1240px (resolved)", "· scrub", '· pins [data-cp="1"]',
+    // #89 — Lottie: the frame metadata and the animationData JSON itself
+    "## Lottie", '"hero-loader"', "60 frames @ 30fps", "2.0s", '"fr":30',
+    // #90 — anime.js: the animated properties, timing and easing of the running instance
+    "## anime.js", "translateX, opacity", "800ms", "easeOutExpo", "delay 100ms", "alternate", "loop",
+    // #91 — the canvas is named, sized, and honestly declared not extractable
+    "## Canvas / WebGL scene (not extractable as code)", "<canvas> 200×100 — three.js r160 detected.",
+    "no HTML or CSS to capture", "treat it as an image/video asset",
     // #33 — the builder behind the page, named in the header and detailed in Platform notes
     "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container",
     // #60 source locations from the (fake) dev-build fiber
