@@ -4,3 +4,4 @@ dist/
 dist-firefox/
 mcp/node_modules/
 .gstack/
+store/assets/*.zip
