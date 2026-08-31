@@ -110,6 +110,15 @@
     const asmOk = window.__cp.ui.assemble("rebuild this", fakeSections, ["css"]) === "rebuild this\n\n.a { color: red }"
       && window.__cp.ui.assemble("", fakeSections, ["css", "html"]) === "<b>x</b>\n\n.a { color: red }"
       && window.__cp.ui.assemble("  ", fakeSections, []) === "";
+    // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
+    const { remember, recall } = window.__cp.ui;
+    const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
+    let capped = [];
+    for (let i = 0; i < 60; i++) capped = remember("h" + i + ".com", ["html"], capped);
+    const memOk = recall("a.com", twoHosts).join() === "html" && recall("c.com", twoHosts) === null
+      && remember("a.com", ["css", "tokens"], twoHosts).length === 2
+      && recall("a.com", remember("a.com", ["css", "tokens"], twoHosts)).join() === "css,tokens"
+      && capped.length === 50 && recall("h0.com", capped) === null && recall("h59.com", capped).join() === "html";
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -198,6 +207,7 @@
     if (!editReverted) fails.push("#52 edit did not revert the inline style");
     if (!rowsOk) fails.push("#81 section rows did not render or toggle");
     if (!asmOk) fails.push("#82 assembleSelection did not return prompt + only the checked sections");
+    if (!memOk) fails.push("#83 the per-site selection did not round-trip, or the 50-host cap failed");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

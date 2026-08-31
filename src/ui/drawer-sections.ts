@@ -28,13 +28,47 @@ export async function mountSections(host: HTMLElement) {
     }));
     return;
   }
+  let store = await loadStore();
+  // Ids are stable but captures differ: what this site wanted last time, minus anything this
+  // capture does not have. A section that is simply absent is not worth saying anything about.
+  const wanted = recallSelection(location.host, store) ?? DEFAULT_SELECTION;
+  selected.clear();
+  for (const s of sections) if (wanted.includes(s.id)) selected.add(s.id);
+
   // The output box comes first: what you are about to copy, then the switches that decide it.
   const { box, refresh } = copyBox(sections, () => [...selected]);
-  host.append(box);
-  host.append(Object.assign(el("div", `font-weight:600;padding:8px 0;border-bottom:${HAIRLINE}`), {
-    textContent: "Sections of the last capture",
-  }));
-  host.append(...sectionRows(sections, selected, refresh));
+  const rows = el("div", "");
+  const changed = () => {
+    refresh();
+    store = rememberSelection(location.host, [...selected], store);
+    void chrome.storage?.local?.set?.({ sectionSelection: store });
+  };
+  const draw = () => rows.replaceChildren(...sectionRows(sections, selected, changed));
+  const setAll = (ids: string[]) => {
+    selected.clear();
+    for (const id of ids) selected.add(id);
+    draw(); // the rows paint their own checkbox, so a bulk change redraws them
+    changed();
+  };
+  draw();
+  host.append(box, heading(() => setAll(sections.map((s) => s.id)), () => setAll([])), rows);
+}
+
+/** The "Sections" heading, with the two bulk actions that save ticking eight boxes every pick. */
+function heading(all: () => void, none: () => void): HTMLElement {
+  const row = el("div", `display:flex;align-items:center;gap:6px;font-weight:600;padding:8px 0;border-bottom:${HAIRLINE}`);
+  const link = (text: string, run: () => void) => {
+    const b = Object.assign(el("button", "all:unset;color:#93c5fd;cursor:pointer;font-weight:400;font-size:12px"), { textContent: text });
+    b.addEventListener("click", run);
+    return b;
+  };
+  row.append(
+    Object.assign(el("span", "flex:1"), { textContent: "Sections of the last capture" }),
+    link("all", all),
+    Object.assign(el("span", `color:${DIM};font-size:12px`), { textContent: "·" }),
+    link("none", none),
+  );
+  return row;
 }
 
 /**
@@ -135,6 +169,34 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
     });
     return wrap;
   });
+}
+
+/**
+ * Which sections a site was last copied with, newest last (#83).
+ *
+ * The selection you want on a docs site is not the one you want on a marketing page, and re-ticking
+ * it every pick is the friction the whole drawer exists to remove.
+ */
+export type SelectionStore = [host: string, ids: string[]][];
+const MAX_HOSTS = 50;
+
+/** The host's selection, moved to the end — so the cap drops the host you have not used in longest. */
+export function rememberSelection(host: string, ids: string[], store: SelectionStore): SelectionStore {
+  return [...store.filter(([h]) => h !== host), [host, [...ids]] as SelectionStore[number]].slice(-MAX_HOSTS);
+}
+
+/** What this host was last copied with, or null when it has never been picked on. */
+export function recallSelection(host: string, store: SelectionStore): string[] | null {
+  return store.find(([h]) => h === host)?.[1] ?? null;
+}
+
+async function loadStore(): Promise<SelectionStore> {
+  try {
+    const { sectionSelection } = await chrome.storage.local.get("sectionSelection");
+    return Array.isArray(sectionSelection) ? (sectionSelection as SelectionStore) : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
