@@ -5,7 +5,7 @@
  * through ten call sites for values that are constant within one capture.
  */
 
-import type { Blocks, VarSource } from "../shared/types";
+import type { Blocks, CaptureSection, VarSource } from "../shared/types";
 
 export const state = {
   /** The page's root font-size at pick time — what every rem hint is measured against. */
@@ -16,6 +16,9 @@ export const state = {
   pending: [] as Element[],
   /** The most recent capture's desktop blocks — what "set as reference" stores. */
   lastBlocks: {} as Blocks,
+  /** The most recent capture as named parts — what the drawer ticks and copies (#80). */
+  lastSections: [] as CaptureSection[],
 };
 
 export const blocksOfLastPick = (): Blocks => state.lastBlocks;
+export const sectionsOfLastPick = (): CaptureSection[] => state.lastSections;

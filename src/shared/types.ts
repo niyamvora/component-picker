@@ -159,6 +159,14 @@ export interface LibraryEntry { id: string; name: string; host: string; url: str
 /** One entry in the popup's list of recent picks. */
 export interface HistoryEntry { label: string; host: string; at: number; bundle: string }
 
+/**
+ * One named part of a capture (#80).
+ *
+ * The bundle is also kept as its parts so the drawer can copy a selection of them rather than the
+ * whole thing; `body` is the section exactly as it appears in the joined bundle.
+ */
+export interface CaptureSection { id: string; title: string; body: string }
+
 /** What the side panel needs to re-render a capture on its own (#20). */
 export interface Preview {
   html: string;
@@ -168,6 +176,8 @@ export interface Preview {
   shot?: string;
   height: number;
   bundle: string;
+  /** The same capture as named parts, for the drawer's selective copy (#80). */
+  sections: CaptureSection[];
 }
 
 /** What an element's author stylesheet said, for properties whose value came from a token. */

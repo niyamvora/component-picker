@@ -77,6 +77,8 @@
 <script>
   (async () => {
     const md = await window.__cp.extract(document.getElementById("card"));
+    // #80 — the same capture, kept as named parts the drawer can tick
+    const parts = window.__cp.lastSections();
     const tab = await window.__cp.extract(document.querySelector(".tab"));
     window.__cp.opts.fontFace = true;
     const withFaces = await window.__cp.extract(document.getElementById("card"));
@@ -96,6 +98,27 @@
     Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true, vue: true, svelte: true, htmlCss: true, styled: true, cssModules: true });
     const full = await window.__cp.extract(document.getElementById("card"));
     Object.assign(window.__cp.opts, { tokensJson: false, tailwind: false, jsx: false, fast: false, vue: false, svelte: false, htmlCss: false, styled: false, cssModules: false });
+    // #81 — one drawer row per section: the caret's <pre> carries the real body, and clicking a
+    // row ticks it. (The rest of the drawer is manual; this is the part with logic in it.)
+    const fakeSections = [{ id: "html", title: "HTML", body: "<b>x</b>" }, { id: "css", title: "CSS", body: ".a { color: red }" }];
+    const picked = new Set(["html"]);
+    let picks = 0;
+    const rows = window.__cp.ui.sectionRows(fakeSections, picked, () => picks++);
+    rows[1].firstElementChild.click();
+    const rowsOk = rows.length === 2 && rows[1].textContent.includes(".a { color: red }") && picked.has("css") && picks === 1;
+    // #82 — the copy is the prompt plus only what is ticked, in capture order, never click order
+    const asmOk = window.__cp.ui.assemble("rebuild this", fakeSections, ["css"]) === "rebuild this\n\n.a { color: red }"
+      && window.__cp.ui.assemble("", fakeSections, ["css", "html"]) === "<b>x</b>\n\n.a { color: red }"
+      && window.__cp.ui.assemble("  ", fakeSections, []) === "";
+    // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
+    const { remember, recall } = window.__cp.ui;
+    const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
+    let capped = [];
+    for (let i = 0; i < 60; i++) capped = remember("h" + i + ".com", ["html"], capped);
+    const memOk = recall("a.com", twoHosts).join() === "html" && recall("c.com", twoHosts) === null
+      && remember("a.com", ["css", "tokens"], twoHosts).length === 2
+      && recall("a.com", remember("a.com", ["css", "tokens"], twoHosts)).join() === "css,tokens"
+      && capped.length === 50 && recall("h0.com", capped) === null && recall("h59.com", capped).join() === "html";
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -176,8 +199,15 @@
                    ...facesMust.filter((s) => !withFaces.includes(s)).map((s) => "MISSING (opts.fontFace) " + JSON.stringify(s)),
                    ...manyMust.filter((s) => !many.includes(s)).map((s) => "MISSING (multi) " + JSON.stringify(s)),
                    ...fullMust.filter((s) => !full.includes(s)).map((s) => "MISSING (full) " + JSON.stringify(s)),
-                   ...listMust.filter((s) => !list.includes(s)).map((s) => "MISSING (list) " + JSON.stringify(s))];
+                   ...listMust.filter((s) => !list.includes(s)).map((s) => "MISSING (list) " + JSON.stringify(s)),
+                   // #80 — the registry names every part, and the parts still rejoin into the bundle
+                   ...["html", "css", "tokens"].filter((id) => !parts.some((p) => p.id === id)).map((id) => "MISSING (sections) " + id),
+                   ...(parts.map((p) => p.body).join("\n\n") === md ? [] : ["#80 sections do not rejoin into the bundle"]),
+                   ...(parts.every((p) => p.title && p.body) ? [] : ["#80 a section has no title or no body"])];
     if (!editReverted) fails.push("#52 edit did not revert the inline style");
+    if (!rowsOk) fails.push("#81 section rows did not render or toggle");
+    if (!asmOk) fails.push("#82 assembleSelection did not return prompt + only the checked sections");
+    if (!memOk) fails.push("#83 the per-site selection did not round-trip, or the 50-host cap failed");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

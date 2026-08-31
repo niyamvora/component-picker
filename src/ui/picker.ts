@@ -8,9 +8,10 @@
 import { extract, extractMany } from "../core/bundle";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
-import { blocksOfLastPick } from "../core/state";
+import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
 import { currentEl, isActive, start, stop } from "./handlers";
 import { showDock } from "./hud";
+import { assembleSelection, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
 import { ICONS } from "./icons-ui";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
 import { options } from "../shared/options";
@@ -25,12 +26,16 @@ declare global {
       last: string; opts: typeof options;
       /** The last capture's desktop blocks — what "set as reference" stores. */
       lastBlocks: typeof blocksOfLastPick;
+      /** The last capture as named parts — what the drawer ticks and copies (#80). */
+      lastSections: typeof sectionsOfLastPick;
       /** Zip of the last pick's assets, as a data: URL (#44). */
       assets: () => Promise<{ dataUrl: string; count: number } | null>;
       /** The element under the cursor while picking, for copy-as-image (#63). */
       current: () => Element | null;
       /** Edit helpers, exposed for tests (#52). */
       edit: { toggle: typeof toggleEdit; apply: typeof applyEdit; revert: typeof revert; commit: typeof commitEdits; made: () => string[] };
+      /** The drawer's pure helpers, exposed for tests (#79). */
+      ui: { sectionRows: typeof sectionRows; assemble: typeof assembleSelection; remember: typeof rememberSelection; recall: typeof recallSelection };
     };
     /** Set by the test fixture so the picker can be driven without the overlay. */
     __cpNoAutostart?: boolean;
@@ -58,8 +63,9 @@ if (window.__cp) {
   window.__cp = {
     extract, extractMany, start, stop,
     toggle: () => (isActive() ? stop() : start()),
-    last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip, current: currentEl,
+    last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
+    ui: { sectionRows, assemble: assembleSelection, remember: rememberSelection, recall: recallSelection },
   };
   // Shown on every page (a content script on <all_urls>, #72) unless the user turns it off, and
   // never in the test fixture (which sets __cpNoAutostart in the page world). The dock's Pick

@@ -73,13 +73,17 @@ export async function inventory(): Promise<InventoryEntry[]> {
   }
 }
 
-/** The Markdown sections built from the MAIN-world probe: motion, GSAP, platform, sources, props. */
-export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; platformNotes: string[]; sources: SourceLoc[]; props: PropShape[] }): string[] {
-  const out: string[] = [];
-  if (p.motion.length) out.push(`## Framer Motion\n${p.motion.map((m) => `${sel(m.id)} <${m.name}>\n${Object.entries(m.props).map(([k, v]) => `  ${k}: ${v}`).join("\n")}`).join("\n\n")}`);
-  if (p.gsap.length) out.push(`## GSAP\n${p.gsap.map((t) => `${sel(t.id)} — ${t.vars} · ${t.duration}s · at ${t.start}s${t.paused ? " (paused — likely scroll-driven)" : ""}`).join("\n")}`);
-  if (p.platformNotes.length) out.push(`## Platform notes\n${p.platformNotes.map((n) => `- ${n}`).join("\n")}`);
-  if (p.sources.length) out.push(`## Source locations (React dev build)\n${p.sources.map((s) => `${sel(s.id)} <${s.component}>  ${s.file}:${s.line}:${s.col}`).join("\n")}\n_Only on a dev build; production/minified sites have no debug source._`);
-  if (p.props.length) out.push(`## Props (inferred from the React fiber)\n${p.props.map((pr) => `<${pr.name}>\n${pr.props.map((x) => `  ${x.key}: ${x.value} (${x.type})`).join("\n")}`).join("\n\n")}`);
+/**
+ * The Markdown sections built from the MAIN-world probe: motion, GSAP, platform, sources, props.
+ * Each carries the registry id the bundle files it under (#80), so the drawer's rows never have to
+ * guess one back out of the heading.
+ */
+export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; platformNotes: string[]; sources: SourceLoc[]; props: PropShape[] }): { id: string; text: string }[] {
+  const out: { id: string; text: string }[] = [];
+  if (p.motion.length) out.push({ id: "motion", text: `## Framer Motion\n${p.motion.map((m) => `${sel(m.id)} <${m.name}>\n${Object.entries(m.props).map(([k, v]) => `  ${k}: ${v}`).join("\n")}`).join("\n\n")}` });
+  if (p.gsap.length) out.push({ id: "gsap", text: `## GSAP\n${p.gsap.map((t) => `${sel(t.id)} — ${t.vars} · ${t.duration}s · at ${t.start}s${t.paused ? " (paused — likely scroll-driven)" : ""}`).join("\n")}` });
+  if (p.platformNotes.length) out.push({ id: "platform", text: `## Platform notes\n${p.platformNotes.map((n) => `- ${n}`).join("\n")}` });
+  if (p.sources.length) out.push({ id: "sources", text: `## Source locations (React dev build)\n${p.sources.map((s) => `${sel(s.id)} <${s.component}>  ${s.file}:${s.line}:${s.col}`).join("\n")}\n_Only on a dev build; production/minified sites have no debug source._` });
+  if (p.props.length) out.push({ id: "props", text: `## Props (inferred from the React fiber)\n${p.props.map((pr) => `<${pr.name}>\n${pr.props.map((x) => `  ${x.key}: ${x.value} (${x.type})`).join("\n")}`).join("\n\n")}` });
   return out;
 }

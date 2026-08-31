@@ -7,6 +7,7 @@
  */
 
 import { ICONS } from "./icons-ui";
+import { mountSections } from "./drawer-sections";
 import { options, saveOptions } from "../shared/options";
 import type { Options } from "../shared/types";
 
@@ -48,8 +49,9 @@ export function hideDock() {
   drawer?.remove(); drawer = null;
 }
 
-const el = (tag: string, css: string) => {
-  const d = document.createElement(tag) as HTMLDivElement;
+/** Every piece of the HUD is built through this, so nothing it mounts can end up in a capture. */
+export const el = <K extends keyof HTMLElementTagNameMap>(tag: K, css: string): HTMLElementTagNameMap[K] => {
+  const d = document.createElement(tag);
   d.setAttribute(UI, "");
   d.style.cssText = css;
   return d;
@@ -98,6 +100,11 @@ function toggleDrawer() {
       refLine.append(clear);
     } else refLine.textContent = "No compare reference set — press R after a pick.";
   });
+  // What the last capture contains, ticked and copied a piece at a time (#79) — above the output
+  // toggles, because it acts on the capture you already have rather than on the next one.
+  const sections = el("div", "margin-bottom:10px");
+  drawer.append(sections);
+  void mountSections(sections);
   drawer.append(switchRow("Show dock on every page", options.dockEverywhere, (on) => { options.dockEverywhere = on; saveOptions(); }));
   for (const t of OUTPUT_TOGGLES) drawer.append(switchRow(t.label, Boolean(options[t.key]), (on) => { (options[t.key] as boolean) = on; saveOptions(); }));
   document.documentElement.append(drawer);
