@@ -128,6 +128,14 @@
       && window.__cp.ui.parseFont("- Helvetica Neue 400 — 13.5px/20px (p)").family === "Helvetica Neue"
       && window.__cp.ui.parseFont("- Font stylesheets: https://x/y.css") === null
       && window.__cp.ui.parseFont("- 1 @font-face rule(s) omitted — set `x` to include them.") === null;
+    // #87 — the easing is drawn: linear a diagonal, cubic-bezier its mapped control points
+    const curve = window.__cp.ui.easing;
+    const animOk = curve("linear").includes('d="M0,36 L64,0"')
+      && curve("cubic-bezier(0.4, 0, 0.2, 1)").includes('d="M0,36 C25.6,36 12.8,0 64,0"')
+      && curve("ease-in-out").includes('d="M0,36 C26.88,36 37.12,0 64,0"')
+      && curve("steps(4)").includes("H16 V27")                               // a staircase, not a curve
+      && curve("linear(0, 0.5, 1)").includes('d="M0,36 L64,0"')              // undrawable → straight, never a wrong curve
+      && window.__cp.ui.parseAnimations(parts.find((p) => p.id === "animations").body)[0].easing === "linear";
     // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
     const { remember, recall } = window.__cp.ui;
     const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
@@ -228,6 +236,7 @@
     if (!memOk) fails.push("#83 the per-site selection did not round-trip, or the 50-host cap failed");
     if (!vizOk) fails.push("#85 the palette/token lines did not parse into swatch values and counts");
     if (!typeOk) fails.push("#86 a font line did not parse into a specimen, or a non-style line did");
+    if (!animOk) fails.push("#87 an easing did not draw the expected curve");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

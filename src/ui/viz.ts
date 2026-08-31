@@ -22,6 +22,7 @@ export function visualise(section: CaptureSection): HTMLElement | null {
   if (section.id === "palette") return paletteViz(section.body);
   if (section.id === "tokens") return tokenChips(parseTokens(section.body));
   if (section.id === "fonts") return typeSpecimens(section.body.split("\n"));
+  if (section.id === "animations") return animationCards(section.body);
   return null;
 }
 
@@ -35,8 +36,8 @@ export function visualise(section: CaptureSection): HTMLElement | null {
  */
 export function parsePaletteLine(line: string): { value: string; count: number }[] {
   const body = line.replace(/^[A-Za-z]+:\s*/, "").replace(/\s{2,}\(multiples of.*$/, "");
-  return body.split(" · ").map((s) => s.trim()).filter(Boolean).map((s) => {
-    const m = /^(.*?)\s+×(\d+)$/.exec(s);
+  return body.split(" \u00b7 ").map((s) => s.trim()).filter(Boolean).map((s) => {
+    const m = /^(.*?)\s+\u00d7(\d+)$/.exec(s);
     return m ? { value: m[1], count: Number(m[2]) } : { value: s, count: 1 };
   });
 }
@@ -109,7 +110,7 @@ export function tokenChips(tokens: { name: string; value: string }[]): HTMLEleme
  * simply do not match.
  */
 export function parseFontLine(line: string): { family: string; weight: number; size: number; lineHeight: string } | null {
-  const m = /^-\s+(.+?)\s+(\d{2,4})\s+—\s+([\d.]+)px\/(\S+)/.exec(line.trim());
+  const m = /^-\s+(.+?)\s+(\d{2,4})\s+\u2014\s+([\d.]+)px\/(\S+)/.exec(line.trim());
   return m ? { family: m[1], weight: Number(m[2]), size: parseFloat(m[3]), lineHeight: m[4] } : null;
 }
 
@@ -141,6 +142,78 @@ export function spacingBars(values: { value: string; count: number }[], note = "
     list.append(row);
   }
   if (note) list.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding-top:4px`), { textContent: note }));
+  return list;
+}
+
+// ---------- animation (#87) ----------
+
+const W = 64, H = 36;
+/** The canonical control points behind the named easings, so every easing draws the same way. */
+const NAMED: Record<string, [number, number, number, number]> = {
+  ease: [0.25, 0.1, 0.25, 1],
+  "ease-in": [0.42, 0, 1, 1], "ease-out": [0, 0, 0.58, 1], "ease-in-out": [0.42, 0, 0.58, 1],
+};
+
+/**
+ * The easing, drawn. `cubic-bezier(0.4, 0, 0.2, 1)` means nothing on sight; the curve does.
+ *
+ * Progress runs left to right and 0→1 bottom to top, so the SVG's y is flipped against the bezier's.
+ */
+export function easingCurve(easing: string): string {
+  const svg = (d: string) => `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" aria-hidden="true"><path d="${d}" stroke="${ACCENT}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+  const trimmed = easing.trim();
+  if (trimmed === "linear") return svg(`M0,${H} L${W},0`);
+  const steps = /^steps\(\s*(\d+)/.exec(trimmed);
+  if (steps) {
+    const n = Math.min(Math.max(Number(steps[1]), 1), 12);
+    let d = `M0,${H}`;
+    for (let i = 1; i <= n; i++) d += ` H${round((i * W) / n)} V${round(H - (i / n) * H)}`;
+    return svg(d);
+  }
+  const cb = /^cubic-bezier\(([^)]+)\)/.exec(trimmed);
+  const p = cb ? cb[1].split(",").map(Number) : NAMED[trimmed];
+  // An easing nobody can draw (`linear(...)` points, a custom name) gets the straight line rather
+  // than a curve that would claim something untrue about the motion.
+  if (!p || p.length !== 4 || p.some((n) => !Number.isFinite(n))) return svg(`M0,${H} L${W},0`);
+  return svg(`M0,${H} C${round(p[0] * W)},${round(H - p[1] * H)} ${round(p[2] * W)},${round(H - p[3] * H)} ${W},0`);
+}
+
+const round = (n: number) => Math.round(n * 100) / 100;
+
+/** The header line of each running animation: `[data-cp="9"] — (WAAPI) · 400ms · linear · 1× · …`. */
+export function parseAnimations(body: string): { name: string; duration: string; easing: string; iterations: string }[] {
+  const out: { name: string; duration: string; easing: string; iterations: string }[] = [];
+  for (const line of body.split("\n")) {
+    const m = /^\[data-cp="[^"]+"\]\s+\u2014\s+(.+)$/.exec(line.trim());
+    if (!m) continue;
+    const [name, duration = "", easing = "", iterations = ""] = m[1].split(" \u00b7 ");
+    out.push({ name, duration, easing, iterations });
+  }
+  return out;
+}
+
+const MAX_CARDS = 8;
+
+/** One card per running animation: the easing drawn, the timing as the caption. */
+export function animationCards(body: string): HTMLElement | null {
+  const anims = parseAnimations(body);
+  if (!anims.length) return null;
+  const list = el("div", "padding:4px 0");
+  for (const a of anims.slice(0, MAX_CARDS)) {
+    const card = el("div", "display:flex;align-items:center;gap:10px;padding:5px 0");
+    const curve = el("div", `flex:none;width:${W}px;height:${H}px;border-radius:6px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);display:grid;place-items:center`);
+    curve.innerHTML = easingCurve(a.easing); // built here from a matched easing, never from page text
+    const text = el("div", "min-width:0;flex:1");
+    text.append(
+      Object.assign(el("div", "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"), { textContent: `${a.name} · ${a.duration} · ${a.iterations}` }),
+      Object.assign(el("div", `font:11px/1.4 ${MONO};color:${DIM};overflow:hidden;text-overflow:ellipsis;white-space:nowrap`), { textContent: a.easing }),
+    );
+    card.append(curve, text);
+    list.append(card);
+  }
+  if (anims.length > MAX_CARDS) {
+    list.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding-top:4px`), { textContent: `+${anims.length - MAX_CARDS} more` }));
+  }
   return list;
 }
 

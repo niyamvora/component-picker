@@ -12,7 +12,7 @@ import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
 import { currentEl, isActive, start, stop } from "./handlers";
 import { showDock } from "./hud";
 import { assembleSelection, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
-import { parseFontLine, parsePaletteLine, parseTokens } from "./viz";
+import { easingCurve, parseAnimations, parseFontLine, parsePaletteLine, parseTokens, visualise } from "./viz";
 import { ICONS } from "./icons-ui";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
 import { options } from "../shared/options";
@@ -40,7 +40,8 @@ declare global {
         sectionRows: typeof sectionRows; assemble: typeof assembleSelection;
         remember: typeof rememberSelection; recall: typeof recallSelection;
         parsePalette: typeof parsePaletteLine; parseTokens: typeof parseTokens;
-        parseFont: typeof parseFontLine;
+        parseFont: typeof parseFontLine; easing: typeof easingCurve; parseAnimations: typeof parseAnimations;
+        visualise: typeof visualise;
       };
     };
     /** Set by the test fixture so the picker can be driven without the overlay. */
@@ -74,6 +75,7 @@ if (window.__cp) {
     ui: {
       sectionRows, assemble: assembleSelection, remember: rememberSelection, recall: recallSelection,
       parsePalette: parsePaletteLine, parseTokens, parseFont: parseFontLine,
+      easing: easingCurve, parseAnimations, visualise,
     },
   };
   // Shown on every page (a content script on <all_urls>, #72) unless the user turns it off, and
