@@ -85,7 +85,7 @@ export const scenes: Scene[] = [
     ],
     onScreen:
       "The dock on a cold page with a tooltip open, then the drawer, then the armed page with banner and breadcrumb.",
-    still: "/shots/dock.png",
+    still: "/shots/drawer.png",
     issues: [69, 72, 73, 16],
   },
   {

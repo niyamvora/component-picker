@@ -5,6 +5,7 @@
 
 import { label } from "../core/blocks";
 import { UI } from "../core/const";
+import { dockClearance } from "./hud";
 
 let current: Element | null = null;
 export const currentEl = () => current;
@@ -18,7 +19,7 @@ export const PILL = "position:fixed;z-index:2147483647;pointer-events:none;font:
 export function toast(text: string): HTMLDivElement {
   const t = document.createElement("div");
   t.setAttribute(UI, "");
-  t.style.cssText = PILL + "left:50%;bottom:24px;transform:translateX(-50%);font-size:13px;padding:8px 14px;background:#2563eb";
+  t.style.cssText = PILL + `left:50%;bottom:${24 + dockClearance()}px;transform:translateX(-50%);font-size:13px;padding:8px 14px;background:#2563eb`;
   t.textContent = text;
   document.body.append(t);
   return t;
@@ -104,7 +105,7 @@ export function mount() {
   banner = el(PILL + "left:50%;top:12px;transform:translateX(-50%);pointer-events:none");
   bands = Array.from({ length: 8 }, () => el("display:none"));
   // The one piece of picker chrome that takes clicks: a breadcrumb you cannot click is a label.
-  crumbs = el(PILL + "left:50%;bottom:12px;transform:translateX(-50%);pointer-events:auto;padding:5px 9px;max-width:96vw");
+  crumbs = el(PILL + `left:50%;bottom:${12 + dockClearance()}px;transform:translateX(-50%);pointer-events:auto;padding:5px 9px;max-width:96vw`);
   banner.textContent = BANNER;
   cursorStyle = document.createElement("style");
   cursorStyle.setAttribute(UI, "");
