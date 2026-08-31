@@ -130,8 +130,8 @@ export interface Options {
   jsx: boolean;
   /** Accessibility snapshot — roles, names, contrast, focus order (#40). */
   a11y: boolean;
-  /** No debugger attach: skip viewport, state, theme and screenshot capture (#46). */
-  fast: boolean;
+  fast: boolean;          // no debugger attach (#46)
+  dockEverywhere: boolean; // glass dock on every page (#72)
   /** print / reduced-motion / forced-colors captures (#45). */
   extraMedia: boolean;
   /** Vue SFC output (#48). */
@@ -195,5 +195,6 @@ export type Message =
   | { type: "delete-from-library"; id: string }
   | { type: "clear-reference" }
   | { type: "picking"; on: boolean }
+  | { type: "start-pick" }
   | { type: "remember"; entry: HistoryEntry }
   | { type: "preview"; preview: Preview };

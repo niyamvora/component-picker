@@ -41,5 +41,20 @@
   },
   "optional_host_permissions": [
     "http://127.0.0.1/*"
-  ]
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "picker.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "incognito": "spanning"
 }

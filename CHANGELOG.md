@@ -11,6 +11,11 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Dock on every page** (#72): the glass dock now appears automatically on every page and session — a content script on `<all_urls>` — so you never have to click the toolbar icon first. Behind a **Show dock on every page** toggle in the drawer (default on); turn it off to go back to per-tab activation. This is why the extension now asks for access to all sites; nothing is sent anywhere.
+- **Visible compare reference** (#73): the drawer shows `Comparing against <label> · <host>` with a clear button, read from global storage — so the reference you set with `R` is obviously retained across tabs and sessions (it always was; now you can see it). Fixes the impression that switching tabs lost the compare context.
+- **Incognito support** (#74): `"incognito": "spanning"`, so the extension works correctly the moment you enable it in incognito. (Chrome cannot let an extension enable its own incognito access, or install across separate profiles — those are one-time user toggles; see the README.)
+
 ## [1.6.0] — 2026-08-31
 
 ### Added

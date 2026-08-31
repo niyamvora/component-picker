@@ -77,7 +77,22 @@ const OUTPUT_TOGGLES: { key: keyof Options; label: string }[] = [
 function toggleDrawer() {
   if (drawer) { drawer.remove(); drawer = null; return; }
   drawer = el("div", `position:fixed;z-index:2147483646;right:16px;top:16px;bottom:16px;width:300px;border-radius:18px;padding:16px;overflow:auto;font:13px/1.5 -apple-system,system-ui,sans-serif;${GLASS}`);
-  drawer.append(Object.assign(el("div", "font-weight:600;font-size:14px;margin-bottom:12px"), { textContent: "What each capture includes" }));
+  drawer.append(Object.assign(el("div", "font-weight:600;font-size:14px;margin-bottom:6px"), { textContent: "Component Picker" }));
+  // The compare reference is global (storage.local) — shown here so it is obviously retained
+  // across tabs, not lost on a switch (#73).
+  const refLine = el("div", "font-size:12px;color:rgba(245,245,247,.7);padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:8px");
+  drawer.append(refLine);
+  void chrome.storage?.local?.get?.("reference").then(({ reference }) => {
+    if (reference) {
+      refLine.textContent = `Comparing against ${reference.label} · ${new URL(reference.url).host}`;
+      const clear = document.createElement("button");
+      clear.textContent = "clear";
+      clear.style.cssText = "all:unset;color:#93c5fd;cursor:pointer;margin-left:6px";
+      clear.addEventListener("click", () => { void chrome.runtime.sendMessage({ type: "clear-reference" }); refLine.textContent = "No compare reference set — press R after a pick."; clear.remove(); });
+      refLine.append(clear);
+    } else refLine.textContent = "No compare reference set — press R after a pick.";
+  });
+  drawer.append(switchRow("Show dock on every page", options.dockEverywhere, (on) => { options.dockEverywhere = on; saveOptions(); }));
   for (const t of OUTPUT_TOGGLES) drawer.append(switchRow(t.label, Boolean(options[t.key]), (on) => { (options[t.key] as boolean) = on; saveOptions(); }));
   document.documentElement.append(drawer);
 }
