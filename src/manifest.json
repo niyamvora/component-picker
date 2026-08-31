@@ -39,9 +39,6 @@
     "48": "icons/48.png",
     "128": "icons/128.png"
   },
-  "optional_host_permissions": [
-    "http://127.0.0.1/*"
-  ],
   "host_permissions": [
     "<all_urls>"
   ],

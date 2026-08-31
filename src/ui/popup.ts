@@ -169,9 +169,8 @@ async function init() {
   const bridge = $<HTMLInputElement>("#bridge");
   const { bridge: bridgeOn = false } = await chrome.storage.local.get("bridge");
   bridge.checked = Boolean(bridgeOn);
-  bridge.addEventListener("change", async () => {
-    // The localhost host permission is requested only when the bridge is switched on.
-    if (bridge.checked) { const ok = await chrome.permissions.request({ origins: ["http://127.0.0.1/*"] }); if (!ok) { bridge.checked = false; return; } }
+  // `<all_urls>` already covers 127.0.0.1, so there is no optional permission left to ask for.
+  bridge.addEventListener("change", () => {
     chrome.runtime.sendMessage({ type: "bridge", on: bridge.checked });
   });
   renderViewports();
