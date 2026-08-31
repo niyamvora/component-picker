@@ -6,6 +6,8 @@ export type Scene = {
   steps: string[];
   /** What must be visible in frame for the shot to count. */
   onScreen: string;
+  /** A real screenshot to stand in until the clip is cut. */
+  still?: string;
   issues: number[];
 };
 
@@ -62,24 +64,29 @@ export const scenes: Scene[] = [
       "Download the release zip, unzip it in Finder.",
       "chrome://extensions → toggle **Developer mode** top right.",
       "**Load unpacked** → choose `dist/`.",
-      "Pin it from the puzzle-piece menu. The icon lands in the toolbar.",
+      "Pin it from the puzzle-piece menu. The icon lands in the toolbar — though since v1.7 you rarely need it.",
+      "Optional: chrome://extensions → Details → **Allow in Incognito**, if you want the incognito beat.",
     ],
     onScreen: "The extensions page, the folder picker, and the icon appearing in the toolbar.",
-    issues: [23, 50],
+    issues: [23, 50, 74],
   },
   {
     id: "arm",
-    t: "0:10 – 0:20",
-    title: "Open the plugin — the panel",
-    goal: "Show the popup once, properly. Everything later in the video is a switch in this panel.",
+    t: "0:10 – 0:25",
+    title: "The dock — it is already there",
+    goal: "Since v1.6 the front door is a floating glass dock instead of a keyboard shortcut, and since v1.7 it is on every page without being summoned. Show it once, properly; every switch used later in the video lives behind its Settings button.",
     steps: [
-      "Click the toolbar icon (or press **Alt+Shift+C**). The popup opens.",
-      "Pan down it slowly, without clicking: **output toggles** (screenshots, states, themes, Tailwind, JSX, tokens JSON, a11y, fast mode) → **viewports** → **Your components** → **MCP bridge** → **compare reference** → the **last ten picks**.",
-      "Press **Pick on this page**.",
-      "Hold on the transition: the cursor becomes a crosshair, a banner appears at the top, a breadcrumb bar at the bottom.",
+      "Load any page you have never used the extension on. **The dock is already up, bottom-centre.** No toolbar click, no shortcut — hold on that.",
+      "**Still no crosshair.** That is the point of the change: the tool is mouse-discoverable now.",
+      "Hover each icon left to right so the tooltips read: Pick, Fast, Measure, Copy image, Figma, Save to library, Settings, dismiss.",
+      "Click **Settings** — the glass drawer slides in from the right with every output toggle, the viewports, the library, and the current compare reference. Flip one, Esc, reopen: it stuck.",
+      "Same shot on a light page and a dark page back to back — the dock is theme-neutral dark glass and has to read on both.",
+      "Press **Pick**. Now the cursor becomes a crosshair, a banner appears at the top and a breadcrumb bar at the bottom.",
     ],
-    onScreen: "The whole popup, then the armed page with banner and breadcrumb both visible.",
-    issues: [16],
+    onScreen:
+      "The dock on a cold page with a tooltip open, then the drawer, then the armed page with banner and breadcrumb.",
+    still: "/shots/dock.png",
+    issues: [69, 72, 73, 16],
   },
   {
     id: "hover",
@@ -118,7 +125,7 @@ export const scenes: Scene[] = [
     goal: "The two seconds of debugger bar are not a bug to hide. Show them, then kill them in the fast-mode scene.",
     steps: [
       "Click (or **Enter**). The one-line note box appears.",
-      "Type intent for the AI: “rebuild this as our pricing card”. Enter.",
+      "Type intent for the AI: “rebuild this as our settings card”. Enter.",
       "Chrome's **“Component Picker started debugging this browser”** bar drops in while it measures viewports, forced states and the other theme. ≈2 s.",
       "The toast confirms the copy. Hold one beat on it.",
     ],

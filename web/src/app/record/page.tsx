@@ -70,7 +70,12 @@ export default function RecordPage() {
           {loop.title}
         </h2>
         <p className="text-muted-foreground text-pretty">{loop.detail}</p>
-        <VideoSlot id="hero-loop" label="The 15-second hero loop" duration="0:15" />
+        <VideoSlot
+          id="hero-loop"
+          label="The 15-second hero loop"
+          duration="0:15"
+          still="/shots/dock.png"
+        />
         <ol className="flex flex-col gap-2">
           {loop.steps.map((s, i) => (
             <li key={i} className="flex items-baseline gap-3 text-sm">
@@ -97,7 +102,11 @@ export default function RecordPage() {
         <TracingBeam className="px-6">
           <div className="flex max-w-2xl flex-col gap-14 pt-4 pb-10">
             {scenes.map((scene, i) => (
-              <section key={scene.id} id={scene.id} className="flex flex-col gap-4">
+              <section
+                key={scene.id}
+                id={scene.id}
+                className="flex scroll-mt-28 flex-col gap-4"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary" className="font-mono text-[11px]">
                     Scene {i + 1}
@@ -115,7 +124,13 @@ export default function RecordPage() {
                 </h3>
                 <p className="text-muted-foreground text-pretty">{scene.goal}</p>
 
-                <VideoSlot id={scene.id} label={scene.title} duration={scene.t} compact />
+                <VideoSlot
+                  id={scene.id}
+                  label={scene.title}
+                  duration={scene.t}
+                  still={scene.still}
+                  compact
+                />
 
                 <ol className="flex flex-col gap-2.5">
                   {scene.steps.map((s, j) => (
