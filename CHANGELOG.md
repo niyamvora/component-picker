@@ -11,6 +11,8 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.8.1] — 2026-08-31
+
 ### Added
 - **Hover tooltips on the dock.** A row of nine unlabelled glyphs was a guessing game. Each button now shows its name and a line explaining what it does, on hover and on keyboard focus — including the bookmark, which saves the most recent capture to the library in the side panel. Toggles say which way they are currently set, and the tooltip under the cursor updates the moment you click.
 - **Save-to-library now says what happened.** The bookmark button reported nothing at all, so with no pick yet it was indistinguishable from broken. It confirms the name it saved, or says there is nothing to save yet.
@@ -194,7 +196,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.8.0...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.8.1...main
+[1.8.1]: https://github.com/niyamvora/component-picker/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/niyamvora/component-picker/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/niyamvora/component-picker/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/niyamvora/component-picker/compare/v1.5.0...v1.6.0
