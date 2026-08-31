@@ -50,8 +50,8 @@ export function hideDock() {
 }
 
 /** Every piece of the HUD is built through this, so nothing it mounts can end up in a capture. */
-export const el = (tag: string, css: string) => {
-  const d = document.createElement(tag) as HTMLDivElement;
+export const el = <K extends keyof HTMLElementTagNameMap>(tag: K, css: string): HTMLElementTagNameMap[K] => {
+  const d = document.createElement(tag);
   d.setAttribute(UI, "");
   d.style.cssText = css;
   return d;

@@ -6,11 +6,13 @@
  */
 
 import { el } from "./hud";
+import { copy } from "./note";
 import { state } from "../core/state";
 import type { CaptureSection } from "../shared/types";
 
 const DIM = "rgba(245,245,247,.7)";
 const HAIRLINE = "1px solid rgba(255,255,255,.1)";
+const MONO = "ui-monospace,SFMono-Regular,Menlo,monospace";
 /** What a capture is usually wanted for; everything else is opt-in. */
 export const DEFAULT_SELECTION = ["html", "css"];
 
@@ -20,16 +22,80 @@ const selected = new Set<string>(DEFAULT_SELECTION);
 /** Fill the drawer's section area. Async because the last capture may have happened in another frame. */
 export async function mountSections(host: HTMLElement) {
   const sections = await lastSections();
-  host.append(Object.assign(el("div", `font-weight:600;padding:8px 0;border-bottom:${HAIRLINE}`), {
-    textContent: "Sections of the last capture",
-  }));
   if (!sections.length) {
     host.append(Object.assign(el("div", `font-size:12px;color:${DIM};padding:8px 0`), {
       textContent: "Pick a component first — its sections appear here.",
     }));
     return;
   }
-  host.append(...sectionRows(sections, selected, () => {}));
+  // The output box comes first: what you are about to copy, then the switches that decide it.
+  const { box, refresh } = copyBox(sections, () => [...selected]);
+  host.append(box);
+  host.append(Object.assign(el("div", `font-weight:600;padding:8px 0;border-bottom:${HAIRLINE}`), {
+    textContent: "Sections of the last capture",
+  }));
+  host.append(...sectionRows(sections, selected, refresh));
+}
+
+/**
+ * The prompt, a live view of what a copy would produce, and the button that produces it.
+ *
+ * The preview is the whole point: "copy only the HTML" is a promise you should be able to check
+ * before you paste, so the box shows the assembled text as the checkboxes and the prompt change.
+ */
+export function copyBox(sections: CaptureSection[], getSelected: () => string[]): { box: HTMLElement; refresh: () => void } {
+  const box = el("div", "padding-bottom:8px");
+  const prompt = el("input", `width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:${HAIRLINE};background:rgba(0,0,0,.25);color:#f5f5f7;font:13px/1.4 -apple-system,system-ui,sans-serif;outline:none`);
+  prompt.placeholder = "Prompt — e.g. rebuild this as a React component";
+  const out = el("pre", `margin:8px 0;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
+  const button = el("button", "all:unset;display:block;width:100%;box-sizing:border-box;text-align:center;padding:8px 0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600");
+  const status = el("div", `font-size:11px;color:${DIM};min-height:15px;padding-top:4px;text-align:center`);
+  box.append(prompt, out, button, status);
+
+  const refresh = () => {
+    const ids = new Set(getSelected());
+    const count = sections.filter((s) => ids.has(s.id)).length;
+    const text = assembleSelection(prompt.value, sections, [...ids]);
+    // A preview, not the full render: 2000 chars is enough to see which sections came along.
+    const head = text.slice(0, 2000);
+    out.textContent = head + (text.length > head.length ? `\n… (+${Math.max(1, Math.round((text.length - head.length) / 1024))} KB)` : "");
+    button.textContent = count ? `Copy selected · ${(text.length / 1024).toFixed(1)} KB` : "Select at least one section";
+    button.disabled = !count;
+    button.style.opacity = count ? "1" : ".45";
+    button.style.cursor = count ? "pointer" : "default";
+  };
+
+  prompt.addEventListener("input", () => {
+    refresh();
+    void chrome.storage?.local?.set?.({ copyPrompt: prompt.value });
+  });
+  // Keystrokes must not reach the page — the drawer opens over sites with their own hotkeys.
+  prompt.addEventListener("keydown", (e) => e.stopPropagation());
+  button.addEventListener("click", () => {
+    const ids = new Set(getSelected());
+    const count = sections.filter((s) => ids.has(s.id)).length;
+    if (!count) return;
+    const text = assembleSelection(prompt.value, sections, [...ids]);
+    void copy(text).then(() => {
+      status.textContent = `Copied ${count} section${count === 1 ? "" : "s"} · ${(text.length / 1024).toFixed(1)} KB`;
+      setTimeout(() => { status.textContent = ""; }, 3000);
+    });
+  });
+  refresh();
+  // The last prompt outlives the drawer: it is usually the same request on the next component too.
+  void chrome.storage?.local?.get?.("copyPrompt")?.then(({ copyPrompt }) => {
+    if (typeof copyPrompt === "string" && copyPrompt) { prompt.value = copyPrompt; refresh(); }
+  }).catch(() => {});
+  return { box, refresh };
+}
+
+/**
+ * The prompt and the ticked sections, in capture order — never in the order the boxes were clicked,
+ * because a bundle whose HTML follows its CSS reads as a different document.
+ */
+export function assembleSelection(prompt: string, sections: CaptureSection[], selectedIds: string[]): string {
+  const ids = new Set(selectedIds);
+  return [prompt.trim(), ...sections.filter((s) => ids.has(s.id)).map((s) => s.body)].filter(Boolean).join("\n\n");
 }
 
 /**
@@ -52,7 +118,7 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
     const name = Object.assign(el("span", "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"), { textContent: s.title, title: s.title });
     const size = Object.assign(el("span", `flex:none;font-size:11px;color:${DIM}`), { textContent: weigh(s.body) });
     const caret = Object.assign(el("button", `all:unset;flex:none;width:16px;text-align:center;color:${DIM};cursor:pointer`), { textContent: "▸", title: `Show ${s.title}` });
-    const body = el("pre", "display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;max-height:200px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)");
+    const body = el("pre", `display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:200px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
     body.textContent = s.body;
     row.append(box, name, size, caret);
     wrap.append(row, body);
