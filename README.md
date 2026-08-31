@@ -11,7 +11,7 @@ and GSAP timelines · repeated cards collapsed to one + a data table · mapping 
 `<Button>`/`<Card>` · accessibility (roles, contrast, focus order) · element screenshots · and a
 ready-to-paste JSX/Vue/Svelte component. Everything runs locally — no network, no account.
 
-Current version: **1.5.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
+Current version: **1.6.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
 
 ## Layout
 
@@ -61,8 +61,11 @@ theme and screenshot sections (see [Firefox](#firefox) below). Everything else i
 
 ## Use
 
-1. Click the toolbar icon (or Alt+Shift+C) and press **Pick on this page**. The cursor becomes a
-   crosshair, a banner appears at the top and a breadcrumb bar at the bottom.
+1. Click the toolbar icon (or Alt+Shift+C). A **glass control dock** appears at the bottom of the
+   page — click **Pick** (the crosshair) to arm it, or use the other icons (Fast mode, measure,
+   copy-image, Figma, save) and the **⚙ Settings** button, which slides in a drawer with every
+   output toggle. The cursor becomes a crosshair, a banner appears at the top and a breadcrumb bar
+   at the bottom.
 2. Hover — the outline follows the pointer, padding is shaded green and margin orange (as in
    DevTools), and the label shows `tag#id.class` and the rendered size.
 3. **↑ / ↓** move to the parent or first child; the breadcrumb crumbs are clickable for the same.

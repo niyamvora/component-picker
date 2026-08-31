@@ -10,6 +10,8 @@ import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick } from "../core/state";
 import { currentEl, isActive, start, stop } from "./handlers";
+import { showDock } from "./hud";
+import { ICONS } from "./icons-ui";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
 import { options } from "../shared/options";
 import type { Message } from "../shared/types";
@@ -58,5 +60,14 @@ if (window.__cp) {
     last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
   };
-  if (!window.__cpNoAutostart) start();
+  // Toolbar-click injects this; show the glass dock rather than immediately arming the crosshair.
+  // The dock's Pick button arms it. (activeTab: the dock appears on the tab you activate, #69.)
+  if (!window.__cpNoAutostart) showDock([
+    { icon: ICONS.crosshair, label: "Pick a component", run: () => start() },
+    { icon: ICONS.zap, label: "Fast mode (no debugger)", run: () => { options.fast = !options.fast; }, toggle: () => options.fast },
+    { icon: ICONS.ruler, label: "Measure — then hover", run: () => start() },
+    { icon: ICONS.camera, label: "Copy image (pick first, then C)", run: () => start() },
+    { icon: ICONS.frame, label: "Copy for Figma (pick first, then G)", run: () => start() },
+    { icon: ICONS.bookmark, label: "Save last to library", run: () => void chrome.runtime?.sendMessage?.({ type: "save-last-to-library" }) },
+  ]);
 }

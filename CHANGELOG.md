@@ -11,6 +11,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **In-page glass HUD** (#69): activating the extension on a tab now shows a frosted floating dock (bottom-centre, Apple-style glass — a backdrop blur over a dark translucent pill with a hairline border) instead of jumping straight to the crosshair. Lucide icons with tooltips: Pick, Fast-mode toggle, Measure, Copy image, Figma, Save to library, plus a **Settings** button that slides in a right glass drawer with every output toggle. Makes the tool mouse-discoverable rather than keyboard-only; recedes at rest, brightens on hover. (activeTab: the dock appears on the tab you activate, not automatically on every page.)
+
 ## [1.5.0] — 2026-08-31
 
 ### Added
