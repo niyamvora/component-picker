@@ -1,6 +1,10 @@
 <!doctype html>
 <html class="light">
 <title>Component Picker self-check</title>
+<!-- Without this, a file:// page decodes dist/picker.js as windows-1252 and every em dash in it
+     becomes mojibake — including the ones the section parsers match on. Chrome always serves
+     extension resources as UTF-8, so only this harness needs telling. -->
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   .card { flex-direction: column; background: var(--panel); --tw-pad: var(--pad); padding: var(--tw-pad); }
@@ -136,6 +140,15 @@
       && curve("steps(4)").includes("H16 V27")                               // a staircase, not a curve
       && curve("linear(0, 0.5, 1)").includes('d="M0,36 L64,0"')              // undrawable → straight, never a wrong curve
       && window.__cp.ui.parseAnimations(parts.find((p) => p.id === "animations").body)[0].easing === "linear";
+    // #84 — every section that has a visual form produces one from a REAL capture, not just from a
+    // literal typed here. (A parser whose separator was mis-decoded matched the equally mis-decoded
+    // literals in this file and nothing else; only real captured text catches that.)
+    const drawn = ["palette", "tokens", "fonts", "animations"].filter((id) => {
+      const s = parts.find((p) => p.id === id);
+      const node = s && window.__cp.ui.visualise(s);
+      return !node || !node.childElementCount;
+    });
+    const drawnOk = drawn.length === 0 && !window.__cp.ui.visualise(parts.find((p) => p.id === "html"));
     // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
     const { remember, recall } = window.__cp.ui;
     const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
@@ -237,6 +250,7 @@
     if (!vizOk) fails.push("#85 the palette/token lines did not parse into swatch values and counts");
     if (!typeOk) fails.push("#86 a font line did not parse into a specimen, or a non-style line did");
     if (!animOk) fails.push("#87 an easing did not draw the expected curve");
+    if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
