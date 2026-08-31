@@ -11,6 +11,15 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Source file locations** (#60): on a React **dev build**, the bundle names where each component was written — `Source: src/components/Card.tsx:12:4` in the header, plus a `## Source locations` section. Read from the fiber's `_debugSource`; absent (no error) on production/minified sites. Covers what React Grab and MCP Pointer offer.
+- **Inferred prop shape** (#62): `## Props (inferred from the React fiber)` lists a component's props with inferred types (`variant: "primary" (string)`, `onClick: ƒ`) — the API to rebuild, not just the markup.
+- **Alt/Option-click instant capture** (#61): with the MCP bridge on, holding Alt and clicking any element sends its bundle straight to the connected agent — no picker arming. (MCP Pointer's UX; works on a tab once the picker has run there.)
+- **Copy-as-image** (#63) and **copy-for-Figma** (#66): while picking, `C` copies a PNG of the highlighted element to the clipboard, `G` copies it as a Figma-ready SVG (boxes, text, images) to paste into Figma as layers.
+- **styled-components and CSS Modules output** (#64): two more opt-in code targets beside Tailwind and Vue/Svelte.
+- **Saved component library** (#65): a "Studio" in the popup — save a pick with a name and thumbnail, re-copy or delete it later; survives restarts.
+- **WebSocket transport for the MCP bridge** (#67): real-time delivery instead of a 2s poll, with the HTTP path as fallback.
+
 ## [1.4.1] — 2026-08-31
 
 ### Fixed

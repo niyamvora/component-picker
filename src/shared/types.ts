@@ -44,7 +44,7 @@ export interface Viewport {
   mobile: boolean;
 }
 
-/** A PNG of the picked element as it renders at one viewport. */
+/** A PNG of the picked element at one viewport (#15). */
 export interface Shot {
   name: string;
   /** Base64 PNG, straight from `Page.captureScreenshot`. */
@@ -75,12 +75,7 @@ export interface MeasureResult {
 }
 
 /** A stored pick to diff later captures against (#14). */
-export interface Reference {
-  blocks: Blocks;
-  label: string;
-  url: string;
-  at: number;
-}
+export interface Reference { blocks: Blocks; label: string; url: string; at: number }
 
 /** A Framer Motion component's declarative props, by element index (#30). */
 export interface MotionInfo { id: number; name: string; props: Record<string, string> }
@@ -101,8 +96,16 @@ export interface ProbeResult {
   motion: MotionInfo[];
   /** GSAP tweens targeting the captured subtree (#31). */
   gsap: GsapTween[];
+  /** Source file locations from the React dev build's fiber, when present (#60). */
+  sources: SourceLoc[];
+  /** Inferred prop shape of picked components (#62). */
+  props: PropShape[];
   error?: string;
 }
+
+/** A React component's source coordinates, from the dev-build fiber (#60), and its inferred props (#62). */
+export interface SourceLoc { id: number; component: string; file: string; line: number; col: number }
+export interface PropShape { id: number; name: string; props: { key: string; type: string; value: string }[] }
 
 /** A rule that only applies inside a media query, and which elements of the subtree it hits. */
 export interface MediaRule {
@@ -139,6 +142,10 @@ export interface Options {
   svelte: boolean;
   /** Plain HTML + CSS files output (#48). */
   htmlCss: boolean;
+  /** styled-components output (#64). */
+  styled: boolean;
+  /** CSS Modules output (#64). */
+  cssModules: boolean;
   viewports: Viewport[];
 }
 
@@ -149,13 +156,10 @@ export interface InventoryEntry {
   props: string[];
 }
 
+/** A saved component in the library ("Studio", #65). */
+export interface LibraryEntry { id: string; name: string; host: string; url: string; at: number; bundle: string; thumb?: string }
 /** One entry in the popup's list of recent picks. */
-export interface HistoryEntry {
-  label: string;
-  host: string;
-  at: number;
-  bundle: string;
-}
+export interface HistoryEntry { label: string; host: string; at: number; bundle: string }
 
 /** What the side panel needs to re-render a capture on its own (#20). */
 export interface Preview {
@@ -184,8 +188,12 @@ export type Message =
   | { type: "get-reference" }
   | { type: "get-inventory" }
   | { type: "bridge"; on: boolean }
-  | { type: "bridge-result"; bundle: string }
+  | { type: "bridge-result"; bundle: string; pushed?: boolean }
   | { type: "assets" }
+  | { type: "screenshot" }
+  | { type: "save-to-library"; entry: LibraryEntry }
+  | { type: "get-library" }
+  | { type: "delete-from-library"; id: string }
   | { type: "clear-reference" }
   | { type: "picking"; on: boolean }
   | { type: "remember"; entry: HistoryEntry }

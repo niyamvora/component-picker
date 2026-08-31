@@ -10,6 +10,7 @@
  * Run: npx component-picker-mcp   (add it to your agent's MCP config)
  */
 import { createServer } from "node:http";
+import { WebSocketServer } from "ws";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
@@ -42,11 +43,24 @@ const bridge = createServer((req, res) => {
 });
 bridge.listen(PORT, "127.0.0.1");
 
+// Real-time transport alongside the HTTP poll: the extension connects one socket; a pick request
+// is pushed to it, and the bundle comes back on the same socket. Falls back to HTTP if unused.
+let socket = null;
+const wss = new WebSocketServer({ server: bridge });
+wss.on("connection", (ws) => {
+  socket = ws;
+  ws.on("message", (data) => {
+    try { const { bundle } = JSON.parse(data.toString()); if (bundle) { lastCapture = bundle; pending?.resolve(bundle); pending = null; } } catch { /* ignore */ }
+  });
+  ws.on("close", () => { if (socket === ws) socket = null; });
+});
+
 function requestPick() {
   return new Promise((resolve, reject) => {
     if (pending) return reject(new Error("a pick is already in progress"));
     const timer = setTimeout(() => { pending = null; reject(new Error("timed out waiting for a click")); }, PICK_TIMEOUT);
     pending = { resolve: (v) => { clearTimeout(timer); resolve(v); }, reject: (e) => { clearTimeout(timer); reject(e); }, timer };
+    if (socket) try { socket.send(JSON.stringify({ type: "pick" })); } catch { /* extension will poll instead */ }
   });
 }
 

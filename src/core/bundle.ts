@@ -2,7 +2,7 @@
  * Assembling the bundle: every section, in the order a reader needs them.
  */
 
-import { MAX_ELEMENTS, MAX_OUT, sel, SKIP_TAGS, splitList, TMP, UI } from "./const";
+import { MAX_ELEMENTS, MAX_OUT, SKIP_TAGS, splitList, TMP, UI } from "./const";
 import { computeBlocks, diffBlocks, label, renderBlock } from "./blocks";
 import { ago, compareWithReference } from "./compare";
 import { htmlOf, icons } from "./html";
@@ -13,10 +13,10 @@ import { findRepeats } from "./repeats";
 import { toTailwind } from "./tailwind";
 import { toJsx } from "./jsx";
 import { mapToInventory } from "./mapping";
-import { toHtmlCss, toSvelte, toVue } from "./emit";
+import { toCssModules, toHtmlCss, toStyledComponents, toSvelte, toVue } from "./emit";
 import { paletteSummary } from "./summary";
 import { assetUrls } from "./assets";
-import { frameworkInfo, getReference, inventory, measureAll, send } from "./messaging";
+import { frameworkInfo, frameworkSections, getReference, inventory, measureAll, send } from "./messaging";
 import { contextOf, libraries, variantsOf } from "./context";
 import { fonts } from "./fonts";
 import { matchRules, sheetRules } from "./rules";
@@ -24,7 +24,6 @@ import { state } from "./state";
 import { tokensSection, varSources } from "./tokens";
 import { walk } from "./walk";
 import { options, refreshOptions } from "../shared/options";
-
 
 export async function extract(root: Element, onStatus: (s: string) => void = () => {}): Promise<string> {
   const all = walk(root);
@@ -75,9 +74,10 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const anims = new Set(els.flatMap((el) => splitList(getComputedStyle(el).animationName)).filter((n) => n !== "none"));
   const kf = [...anims].map((n) => keyframes[n]).filter(Boolean);
   const font = fonts(els, fontFaces);
-  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap } = await frameworkInfo(els);
+  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap, sources, props } = await frameworkInfo(els);
   const variants = variantsOf(root, els, desktop);
   const libs = libraries(els);
+  const rootSrc = sources.find((x) => x.id === 0);
   const running = runningAnimations(els, anims);
   const scroll = scrollBehaviour(els, allRules);
   const rect = root.getBoundingClientRect();
@@ -89,6 +89,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     `Framework: ${framework}.${chain.length ? ` Component chain: ${chain.join(" › ")}.` : ""}` +
     `${libs.length ? ` UI: ${libs.join(" + ")}.` : ""}` +
     `${platform ? ` Platform: ${platform}.` : ""}` +
+    `${rootSrc ? ` Source: ${rootSrc.file}:${rootSrc.line}:${rootSrc.col}.` : ""}` +
     `${icons.size ? ` Icons: ${[...icons].join(", ")}.` : ""}` +
     `${eligible.length > els.length ? ` NOTE: subtree has ${eligible.length} elements; CSS captured for the first ${els.length}.` : ""}`);
   md.push(`> How to use: paste this to your AI. \`data-cp\` ids on HTML nodes match the CSS selectors below. CSS values are browser-resolved (px/rgb) diffs against browser defaults and the parent element; \`/* … W×H */\` comments are the real rendered box. State, Variant and Responsive sections list ONLY what changes vs the resting desktop capture. \`/* …rem */\` comments restate px against the page's root size (${state.rootPx}px), and \`/* @media … */\` names the breakpoint behind a responsive change. Rebuild as a React/Next.js component in the project's styling system (Tailwind/CSS modules), keep hover/focus/animation rules, swap absolute asset URLs for local assets.`);
@@ -133,6 +134,8 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (options.vue) md.push(toVue(html, cssText));
   if (options.svelte) md.push(toSvelte(html, cssText));
   if (options.htmlCss) md.push(toHtmlCss(html, cssText));
+  if (options.styled) { const sc = toStyledComponents(desktop); if (sc) md.push(sc); }
+  if (options.cssModules) { const cm = toCssModules(desktop); if (cm) md.push(cm); }
   const palette = paletteSummary(desktop);
   if (palette) md.push(palette);
   for (const m of resp.media ?? []) {
@@ -143,15 +146,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (assetUrlList.length) md.push(`## Assets\n- ${assetUrlList.length} asset(s) referenced. Download them (with the HTML rewritten to local paths) from the extension's side panel.`);
   if (running) md.push(running);
   if (scroll) md.push(scroll);
-  if (motion.length) {
-    md.push(`## Framer Motion\n${motion.map((m) =>
-      `${sel(m.id)} <${m.name}>\n${Object.entries(m.props).map(([k, v]) => `  ${k}: ${v}`).join("\n")}`).join("\n\n")}`);
-  }
-  if (gsap.length) {
-    md.push(`## GSAP\n${gsap.map((t) =>
-      `${sel(t.id)} — ${t.vars} · ${t.duration}s · at ${t.start}s${t.paused ? " (paused — likely scroll-driven)" : ""}`).join("\n")}`);
-  }
-  if (platformNotes.length) md.push(`## Platform notes\n${platformNotes.map((n) => `- ${n}`).join("\n")}`);
+  md.push(...frameworkSections({ motion, gsap, platformNotes, sources, props }));
   if (kf.length) md.push(`## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   md.push(`## Fonts\n${font.lines.join("\n") || "- No text of its own."}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +

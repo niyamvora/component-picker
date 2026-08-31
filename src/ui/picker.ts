@@ -9,7 +9,7 @@ import { extract, extractMany } from "../core/bundle";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick } from "../core/state";
-import { isActive, start, stop } from "./handlers";
+import { currentEl, isActive, start, stop } from "./handlers";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
 import { options } from "../shared/options";
 import type { Message } from "../shared/types";
@@ -25,6 +25,8 @@ declare global {
       lastBlocks: typeof blocksOfLastPick;
       /** Zip of the last pick's assets, as a data: URL (#44). */
       assets: () => Promise<{ dataUrl: string; count: number } | null>;
+      /** The element under the cursor while picking, for copy-as-image (#63). */
+      current: () => Element | null;
       /** Edit helpers, exposed for tests (#52). */
       edit: { toggle: typeof toggleEdit; apply: typeof applyEdit; revert: typeof revert; commit: typeof commitEdits; made: () => string[] };
     };
@@ -53,7 +55,7 @@ if (window.__cp) {
   window.__cp = {
     extract, extractMany, start, stop,
     toggle: () => (isActive() ? stop() : start()),
-    last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip,
+    last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
   };
   if (!window.__cpNoAutostart) start();

@@ -47,8 +47,21 @@ try {
 
   const res = await rpc("tools/call", { name: "pick_component", arguments: {} });
   const text = res.result?.content?.[0]?.text ?? "";
-  console.log(text.includes("HELLO") ? `PASS — round trip delivered the bundle` : `FAIL — got: ${JSON.stringify(res)}`);
-  process.exitCode = text.includes("HELLO") ? 0 : 1;
+  const httpOk = text.includes("HELLO");
+
+  // #67 — the same round trip over the WebSocket transport.
+  const { WebSocket } = await import("ws");
+  const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+  await new Promise((r, j) => { ws.on("open", r); ws.on("error", j); });
+  // Register the responder BEFORE requesting the pick, or the pushed "pick" message is missed.
+  ws.on("message", () => ws.send(JSON.stringify({ bundle: "# via WS\nWSHELLO" })));
+  await new Promise((r) => setTimeout(r, 100));
+  const wsRes = await rpc("tools/call", { name: "pick_component", arguments: {} });
+  ws.close();
+  const wsOk = (wsRes.result?.content?.[0]?.text ?? "").includes("WSHELLO");
+
+  console.log(httpOk && wsOk ? `PASS — HTTP and WebSocket round trips both delivered` : `FAIL — http=${httpOk} ws=${wsOk}`);
+  process.exitCode = httpOk && wsOk ? 0 : 1;
 } catch (e) {
   console.log("FAIL", e);
   process.exitCode = 1;

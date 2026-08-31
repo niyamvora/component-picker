@@ -4,6 +4,7 @@
 
 import { extractMany } from "../core/bundle";
 import { commitEdits, revert, toggleEdit } from "./edit";
+import { copyFigma, copyImage } from "./capture-extras";
 import { label } from "../core/blocks";
 import { UI } from "../core/const";
 import { blocksOfLastPick } from "../core/state";
@@ -52,6 +53,8 @@ const onKey = (e: KeyboardEvent) => {
   else if (e.key === "ArrowDown" && currentEl()?.firstElementChild) { lockXY = lastXY; highlight(currentEl()!.firstElementChild); }
   else if (e.key === "m" || e.key === "M") { measuring = !measuring; if (!measuring) clearMeasure(); else if (currentEl()) drawMeasure(currentEl()); }
     else if (e.key === "e" || e.key === "E") toggleEdit(currentEl());
+    else if (e.key === "c" || e.key === "C") { const el = currentEl(); if (el) void copyImage(el); }
+    else if (e.key === "g" || e.key === "G") { const el = currentEl(); if (el) void copyFigma(el); }
     else if (e.key === "f" || e.key === "F") setFrozen(!frozen);
   else if (e.key === "Backspace" && selection.length) { selection.pop(); unmark(); highlight(currentEl()); }
   else if (e.key === "p" || e.key === "P") {
@@ -147,3 +150,31 @@ async function finish(el: Element) {
     setTimeout(() => t.remove(), 6000);
   }
 }
+
+/**
+ * Alt/Option-click instant capture (#61): with the MCP bridge on, holding Alt and clicking any
+ * element sends its bundle straight to the connected agent — no picker arming, no toolbar click.
+ * MCP Pointer's UX. Enabled only while the bridge is on.
+ */
+let altOn = false;
+const onAltClick = (e: MouseEvent) => {
+  if (!altOn || !e.altKey) return;
+  const t = e.composedPath()[0];
+  if (!(t instanceof Element) || t.closest(`[${UI}]`)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const note = toast("Sent to agent");
+  extractMany([t]).then((bundle) => {
+    chrome.runtime?.sendMessage?.({ type: "bridge-result", bundle, pushed: true } satisfies Message).catch(() => {});
+    note.textContent = `Sent ${label(t)} to agent`;
+  });
+};
+chrome.storage?.local?.get?.("bridge").then((r) => setAlt(!!r.bridge));
+chrome.storage?.onChanged?.addListener?.((c) => { if (c.bridge) setAlt(!!c.bridge.newValue); });
+function setAlt(on: boolean) {
+  altOn = on;
+  if (on) window.addEventListener("click", onAltClick, true);
+  else window.removeEventListener("click", onAltClick, true);
+}
+
+export { currentEl };
