@@ -12,6 +12,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 ## [Unreleased]
 
 ### Fixed
+- **The breadcrumb and the copy toast rendered underneath the dock.** Both are bottom-centred (`bottom:12px` and `bottom:24px`) and so is the dock (`bottom:20px`), so since the HUD landed in 1.6 the breadcrumb sat behind the glass pill and the "copied" toast was hidden by it. `dockClearance()` in `hud.ts` reports the space the dock occupies and `overlay.ts` offsets both by it, so they stack above the dock when it is mounted and sit where they always did when it is not.
 - **The compare reference is now session-scoped**: it lives in `chrome.storage.session` (cleared when the browser closes) instead of `chrome.storage.local`. A reference set with `R` and then forgotten used to persist forever and silently attach a "Compared with reference" section to every later capture on every site; now it lasts only for the session you set it in, which matches how compare is actually used (reference → ours → done).
 
 ## [1.7.0] — 2026-08-31

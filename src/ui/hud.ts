@@ -37,6 +37,12 @@ export function showDock(actions: Action[]) {
   document.documentElement.append(dock);
 }
 
+/**
+ * Bottom space the dock occupies, so the picker's own chrome sits clear of it.
+ * The dock and the breadcrumb are both bottom-centred; without this they stack.
+ */
+export const dockClearance = () => (dock ? Math.round(dock.getBoundingClientRect().height) + 28 : 0);
+
 export function hideDock() {
   dock?.remove(); dock = null;
   drawer?.remove(); drawer = null;
