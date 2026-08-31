@@ -140,11 +140,13 @@ export const scenes: Scene[] = [
     goal: "The headline of v1.8, and the scene most likely to make someone install this. A capture used to be a 400 KB wall you pasted whole.",
     steps: [
       "With the capture done, the drawer opens on **Copy**. Every section of that pick is listed with a checkbox — HTML, CSS, Tokens, States, Responsive, the rest.",
+      "Say the thing the panel says: the pick already put the **whole** capture on your clipboard. This button copies a *subset* — otherwise a two-section copy looks like the tool lost your data.",
       "Expand **CSS** with its caret so the real rules unfold in place. That is the point: you can see what a section holds before deciding to take it.",
       "Type in the prompt line: `rebuild this in our Next.js project`. The output box below updates **as you type** — hold on that.",
       "Click **none**, then tick just **HTML** and **CSS**. Watch the box shrink to match.",
       "**Copy selected.** It reports the section count and the KB.",
       "Paste into Claude Code. Let the camera sit on how short it is.",
+      "If you shot this with a compare reference set, point out that **Compared with reference** stayed ticked on its own — it is the one thing you set the reference up to get, so it is never dropped.",
     ],
     onScreen:
       "The prompt line, the live output box and the checkboxes in one frame. The live update is the whole scene — do not cut away from it.",

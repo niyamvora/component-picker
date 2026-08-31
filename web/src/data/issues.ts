@@ -1172,6 +1172,7 @@ export const issues: Issue[] = [
       "After a capture, type in the drawer's prompt line: `rebuild this in our Next.js project`. Watch the output box below update **as you type** — that live link is the shot.",
       "Untick everything, then tick just **HTML** and **CSS**. The box shrinks to match.",
       "**Copy selected**. It reports how many sections and how many KB went.",
+      "Worth saying on camera, because it reads as data loss otherwise: the pick itself already copied the whole capture. This button is for taking less. A comparison, when the capture has one, stays ticked on its own.",
       "Paste into Claude Code and let the camera see how short it is. Contrast with a full-bundle paste if you have one on screen.",
     ],
     span: "wide",
