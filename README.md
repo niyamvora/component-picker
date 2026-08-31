@@ -33,7 +33,7 @@ dist/         built extension — load THIS folder unpacked (created by `npm run
 dist-firefox/ the same build with a Firefox manifest
 test/         check.sh (engine, headless) · e2e.mjs (real extension + CDP) · zip.test.mjs · fixture.html
 scripts/      release.sh · gen-icons.mjs (rebuild the icon table) · gen-icon.mjs (render the PNGs)
-web/          a static landing page       examples/  a real committed capture       store/  Web Store listing draft
+web/          the site (Next.js)          examples/  a real committed capture       store/  Web Store listing draft
 ```
 
 Every file is under 200 lines and owns one concern. The three execution worlds — content script,
@@ -139,11 +139,15 @@ for a click, returns the bundle) and `last_capture`. Turn on **MCP bridge** in t
 the extension to it. This is the only feature that opens a network connection; it is off by default,
 localhost-only, and marked with an `MCP` badge while a pick is in flight.
 
-## Landing page & example
+## Site & example
 
-A static one-pager lives in [`web/`](web/index.html), and a real capture is committed at
-[`examples/sample-capture.md`](examples/sample-capture.md) so you can see exactly what a bundle
-looks like without installing anything.
+The public site lives in [`web/`](web/README.md) — a Next.js app covering what a capture contains,
+every issue that built the extension, and the shot list for the demo video. `cd web && npm install
+&& npm run dev`. Video placeholders fill themselves in: drop `web/public/clips/<id>.mp4` next to a
+slot and rebuild.
+
+A real capture is committed at [`examples/sample-capture.md`](examples/sample-capture.md) so you can
+see exactly what a bundle looks like without installing anything.
 
 ## Checks
 

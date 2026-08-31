@@ -7,12 +7,13 @@ import { Moon, Sun } from "lucide-react";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { REPO } from "@/data/types";
+import { issues } from "@/data/issues";
+import { REPO, VERSION } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Overview" },
-  { href: "/issues", label: "The 59 issues" },
+  { href: "/issues", label: `The ${issues.length} issues` },
   { href: "/record", label: "Shot list" },
 ];
 
@@ -28,7 +29,7 @@ export function Nav() {
           Component Picker
         </Link>
         <Badge variant="outline" className="hidden font-mono text-[10px] sm:inline-flex">
-          v1.4.1
+          v{VERSION}
         </Badge>
 
         <nav className="ml-auto flex items-center gap-0.5">

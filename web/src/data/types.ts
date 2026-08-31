@@ -26,5 +26,6 @@ export type Tier = {
   shipped: boolean;
 };
 
+export const VERSION = "1.5.0";
 export const REPO = "https://github.com/niyamvora/component-picker";
 export const issueUrl = (n: number) => `${REPO}/issues/${n}`;
