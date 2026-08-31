@@ -34,7 +34,8 @@ Tip: a "started debugging this browser" bar shows for ~2 seconds while it measur
 states. Turn on Fast mode to skip it (and those sections) entirely.
 
 ## Permission justifications
-• activeTab + scripting: inject the picker into the tab you're on, only when you click the icon.
+• host permissions (all sites) + scripting: show the dock and inject the picker. The dock appears on
+  every page since v1.7; turn off "Show dock on every page" in the drawer for per-tab activation.
 • debugger: emulate mobile/tablet viewports, force :hover/:focus/:active, capture the other theme,
   and take element screenshots. Used only during a capture; nothing leaves the browser.
 • clipboardWrite: put the bundle on your clipboard.
@@ -46,11 +47,14 @@ Collects no user data. Makes no network requests except the optional, off-by-def
 MCP bridge. No analytics, no remote server, no account.
 
 ## Screenshots to capture (1280×800)
-1. Hovering a component with the box-model overlay + breadcrumb on a well-known site
-2. The pasted bundle open in Claude Code / Cursor
-3. The mobile/tablet responsive diff section
-4. The side-panel preview beside the real page
-5. The options popup
+1. `store/assets/screenshot-1-dock.png` — the glass dock with a component outlined and its box model shaded
+2. `store/assets/screenshot-2-selective-copy.png` — the drawer's Copy group: prompt, live output box, per-section checkboxes
+3. `store/assets/screenshot-3-drawer.png` — the Design group: swatches, spacing bars, type specimens
+4. The pasted bundle open in Claude Code / Cursor
+5. The side panel beside the real page
+
+Regenerate 1–3 from the running build rather than mocking them up; GPU compositing has to be on or
+`backdrop-filter` does not render and the glass comes out a flat slab.
 
 ## Assets
 • promo tile 440×280 — store/promo-tile.svg (render to PNG)

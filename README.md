@@ -16,9 +16,9 @@ ready-to-paste JSX/Vue/Svelte component. Everything runs locally — no network,
 <sup>The glass dock sits on every page since v1.7. Hover to outline, click to copy the bundle.
 MIT-licensed and fully open source — no paid tier.</sup>
 
-<img src="web/public/shots/drawer.png" alt="The settings drawer open on the right, listing every output toggle over a blurred page" width="100%">
+<img src="web/public/shots/drawer.png" alt="The drawer open on the right: a prompt line, a live preview of the selected sections, Copy selected 1.3 KB, and the last capture's sections each with a checkbox and a size" width="100%">
 
-<sup>Settings, in the page: the drawer behind the dock's gear.</sup>
+<sup>Since v1.8: tick the sections you want, type a prompt, and copy exactly that — not the whole bundle.</sup>
 
 Current version: **1.7.0** ([releases](https://github.com/niyamvora/component-picker/releases)) ·
 [the site](web/README.md) covers every capability and every issue behind it.
@@ -33,7 +33,8 @@ src/core/     the extraction engine, one concern per file —
               tailwind · jsx · emit · mapping · a11y         (Tailwind, JSX, Vue/Svelte, mapping, a11y)
               assets · assets-zip · zip                      (asset collection + a dependency-free ZIP)
 src/ui/       picker (entry) · handlers (keys/pointer) · overlay (what is drawn) · note · edit
-              popup.ts/.html (options + inventory + history) · panel.ts/.html (side-panel preview)
+              hud (glass dock + drawer) · icons-ui · drawer-groups · drawer-sections · viz
+              panel.ts/.html (the side panel — preview, library, options; the popup folded into it)
 src/bg/       service-worker (router + storage) · measure (the debugger session) · probe (MAIN world)
               bridge (the opt-in MCP connection)
 src/shared/   types.ts (the cross-world contracts) · options.ts
@@ -98,18 +99,21 @@ theme and screenshot sections (see [Firefox](#firefox) below). Everything else i
    **Esc** at any other time cancels.
 7. Chrome shows "Component Picker started debugging this browser" while it measures the viewports,
    interaction states and the other theme (≈2 s). If DevTools is open on that tab, close it first,
-   otherwise those sections are skipped and the bundle says so. Prefer no bar? Turn on **Fast mode**
-   in the popup — HTML, CSS, tokens, animations, a11y and the rest, with no debugger attach.
-8. Paste. While the toast is up, **R** stores the pick as the compare reference (**Shift+R** clears it)
-   — the next capture will report only what differs from it. The side panel shows the capture rendered
-   from the bundle alone (with a **Download assets** button), and the popup keeps the last ten picks.
+   otherwise those sections are skipped and the bundle says so. Prefer no bar? Flip **Fast** in the
+   dock — HTML, CSS, tokens, animations, a11y and the rest, with no debugger attach.
+8. Open the drawer (**⚙** in the dock) and it lands on **Copy**: every section of that capture with a
+   checkbox and its size, a prompt line, and a live preview of exactly what a copy would produce.
+   Tick what you need and press **Copy selected** — or take everything with **Copy bundle** in the panel.
+   The compare button in the dock arms a reference (**R** still works); the side panel shows the capture
+   rendered from the bundle alone, with **Download assets**, the recent picks and the library.
 
 Keys at a glance: **click/Enter** copy · **shift-click** add · **↑↓** parent/child · **E** edit ·
 **C** copy image · **G** copy as Figma SVG · **M** measure · **P** whole page · **F** freeze · **R** set reference · **Esc** exit.
 
 ## What the bundle contains
 
-Most sections are always on; the ones marked **opt-in** are toggled in the popup.
+Most sections are always on; the ones marked **opt-in** are toggled in the drawer's **Capture
+options** group (or the side panel's **Output**).
 
 | Section | Source | Notes |
 |---|---|---|
@@ -133,7 +137,10 @@ Most sections are always on; the ones marked **opt-in** are toggled in the popup
 | Tailwind · JSX · Vue · Svelte · HTML+CSS | **opt-in** | Tailwind v4 classes, and ready-to-paste components in four flavours |
 | Mapping to your components | your inventory | `<Card>`, `<Button variant={…}>` instead of div soup |
 | Accessibility | DOM | roles, names, WCAG contrast, focus order — works in fast mode and Firefox |
-| Animations · Framer Motion · GSAP · Scroll · Platform | WAAPI + MAIN-world probe | running animations, motion props, GSAP timelines, reveal-on-scroll, the site builder |
+| Animations · Framer Motion · GSAP · Scroll · Platform | WAAPI + MAIN-world probe | running animations, motion props, GSAP timelines with their ScrollTrigger start/end/scrub/pin, reveal-on-scroll, the site builder |
+| Lottie | `lottie-web` / `<lottie-player>` | the full `animationData` JSON — replays identically wherever you paste it; over 100 KB it is summarised |
+| anime.js | `window.anime` | the running instances touching the pick: properties, duration, easing, delay, direction, loop (partial — the library does not expose keyframes) |
+| Canvas / WebGL scene | canvas probe | three.js / Rive / PixiJS / Babylon named with their version and size, plus a plain note that a GPU scene has no code to capture |
 | Assets | side panel | a **Download assets** button zips images/fonts/backgrounds with HTML rewritten to local paths |
 
 Caps: 300 elements, ~180 KB (screenshots are appended after the cap, never traded for CSS). Pick a
@@ -141,21 +148,30 @@ smaller component if it truncates.
 
 ## Options
 
-The toolbar popup controls everything, stored locally in the extension:
+Two surfaces, both stored locally in the extension. There is no popup — v1.8 folded it into the panel.
 
-- **Output toggles** — screenshots, states, themes, JS/handlers, `@font-face`, accessibility (on by
+The **drawer** (⚙ in the dock), four groups, one open at a time:
+
+- **Copy** — a prompt line, a live preview of exactly what a copy would produce, and the last
+  capture's sections each with a checkbox and its size. `all · none`, and the selection you used on
+  a site comes back next time you capture there.
+- **Design** — the capture drawn rather than quoted: colour swatches (click to copy), token chips,
+  type specimens at their real size, spacing as proportional bars, and each animation's easing as a
+  curve.
+- **Capture options** — screenshots, states, themes, JS/handlers, `@font-face`, accessibility (on by
   default), Tailwind classes, JSX, tokens JSON, extra media (print/reduced-motion/forced-colors),
-  Vue SFC, Svelte, HTML+CSS, and **fast mode** (no debugger, no bar).
-- **Viewports** — the responsive list; name, width, height and DPR are all editable.
-- **Your components** — a two-line inventory (`Card  .card`) that makes the bundle map onto
-  `<Card>`/`<Button>` instead of div soup.
-- **MCP bridge** — off by default; turning it on lets a local MCP server request captures (below).
-- **Compare reference** and the **last ten picks** (re-copy with one click).
+  Vue SFC, Svelte, styled-components, CSS Modules, HTML+CSS, and **fast mode** (no debugger, no bar).
+- **Extension** — show the dock on every page, the MCP bridge, and the library.
+
+The **side panel** (opens with the toolbar icon): the last capture rendered from the bundle alone,
+**Copy bundle**, **Download assets**, the last ten picks, the saved library, the compare reference,
+the viewports (name, width, height and DPR all editable) and your component inventory
+(`Card  .card`) for mapping the output onto `<Card>`/`<Button>` instead of div soup.
 
 ## MCP — let an agent request a capture
 
 `npx component-picker-mcp` starts a small server exposing `pick_component` (arms the picker, waits
-for a click, returns the bundle) and `last_capture`. Turn on **MCP bridge** in the popup to connect
+for a click, returns the bundle) and `last_capture`. Turn on **MCP bridge** in the side panel to connect
 the extension to it. This is the only feature that opens a network connection; it is off by default,
 localhost-only, and marked with an `MCP` badge while a pick is in flight.
 
@@ -173,9 +189,13 @@ cd web && npm install && npm run dev
 Video placeholders fill themselves in: drop `web/public/clips/<id>.mp4` next to a slot and rebuild.
 Until then each slot shows the real screenshot or its shot list.
 
-The toolbar popup — viewports, your component inventory, the MCP bridge, recent picks and the Studio library:
+The drawer's **Design** group draws the capture instead of quoting it — colour swatches you click to copy, spacing as proportional bars, type specimens at their real size, easing as a curve:
 
-<img src="web/public/shots/popup.png" alt="The Component Picker popup — output toggles, your components, viewports, MCP bridge, compare reference, recent picks and the library" width="340">
+<img src="web/public/shots/design.png" alt="The drawer's Design group: colour swatches, spacing bars and type specimens, with the four accordion groups Copy, Design, Capture options and Extension" width="100%">
+
+The side panel, which the popup was folded into in v1.8 — the last capture rendered from the bundle alone, Copy bundle, Download assets, recent picks, the library, the compare reference and the settings:
+
+<img src="web/public/shots/panel.png" alt="The Component Picker side panel — Pick on this page, the last capture rendered, Copy bundle, Download assets, recent picks, library, compare reference and the collapsed settings sections" width="340">
 
 A real capture is committed at [`examples/sample-capture.md`](examples/sample-capture.md) so you can
 see exactly what a bundle looks like without installing anything.
@@ -198,8 +218,8 @@ branded Google Chrome ≥ 137 ignores `--load-extension`.
 ## Roadmap — what shipped
 
 Tracked on the [roadmap board](https://github.com/users/niyamvora/projects/11). Everything through
-**v1.4 has shipped**; the only open item is publishing to the Chrome Web Store (#50), which needs a
-paid developer account. See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
+**v1.8 has shipped** — 78 of 80 issues. The only open item is publishing to the Chrome Web Store
+(#50), which needs a paid developer account. See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 
 | Version | Theme | Highlights |
 |---|---|---|
@@ -211,6 +231,10 @@ paid developer account. See [CHANGELOG.md](CHANGELOG.md) for the per-version det
 | v1.2 | Differentiators | W3C token JSON, Tailwind, repeat detection, component mapping, MCP server, a11y, JSX, fast mode |
 | v1.3 | Coverage | container queries + `:has()`, print/reduced-motion/forced-colors, palette + measure mode, Vue/Svelte, asset zip |
 | v1.4 | Distribution | live edit before capture, landing page + example, Web Store listing prepared |
+| v1.5 | Competitor gaps | source file locations, inferred props, Alt-click to the agent, copy-as-image, copy-for-Figma, styled-components + CSS Modules, saved library, WebSocket bridge |
+| v1.6 | Discoverability | the in-page glass dock and its settings drawer |
+| v1.7 | Ubiquity | the dock on every page, a visible compare reference, incognito |
+| v1.8 | Selective copy | tick sections + a prompt + Copy selected, the drawer's Design visualizations, Lottie / anime.js / WebGL / ScrollTrigger, four accordion groups, the popup folded into the panel |
 
 ## Contributing
 
