@@ -32,14 +32,19 @@ let hudStyle: HTMLStyleElement | null = null;
 
 interface Action { icon: string; label: string; run: () => void; toggle?: () => boolean }
 
+/** Toggle buttons repaint from state that other modules own, so the dock needs a way to re-read it. */
+const toggles: { button: HTMLButtonElement; read: () => boolean }[] = [];
+export const refreshDock = () => { for (const t of toggles) t.button.dataset.on = String(t.read()); };
+
 /** Mount the dock with the given actions. Idempotent. */
 export function showDock(actions: Action[]) {
   if (dock) return;
+  toggles.length = 0;
   dock = el("div", `position:fixed;z-index:2147483646;left:50%;bottom:20px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;border-radius:16px;font:13px/1 -apple-system,system-ui,sans-serif;${GLASS}`);
   for (const a of actions) {
     const b = iconButton(a.icon, a.label);
-    if (a.toggle) b.dataset.on = String(a.toggle());
-    b.addEventListener("click", () => { a.run(); if (a.toggle) b.dataset.on = String(a.toggle()); });
+    if (a.toggle) { b.dataset.on = String(a.toggle()); toggles.push({ button: b, read: a.toggle }); }
+    b.addEventListener("click", () => { a.run(); refreshDock(); });
     dock.append(b);
   }
   dock.append(divider());
