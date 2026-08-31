@@ -8,7 +8,7 @@ list for the demo video.
 ```sh
 npm install
 npm run dev     # http://localhost:3000
-npm run build   # 69 static pages
+npm run build   # 86 static pages
 ```
 
 ## Routes
@@ -16,9 +16,9 @@ npm run build   # 69 static pages
 | Route | What it is |
 |---|---|
 | `/` | Hero, the bento of what one capture contains, the milestone timeline |
-| `/issues` | All 63 issues, filterable by milestone and status |
+| `/issues` | All 80 issues, filterable by milestone and status |
 | `/issues/[n]` | One issue: what was wrong, the acceptance criterion, its video slot, its shot list |
-| `/record` | The full shot list — 12 scenes, the setup checklist, and every clip filename |
+| `/record` | The full shot list — 14 scenes, the Recordly workflow, and every clip filename |
 
 <img src="public/shots/site-issues.jpg" alt="The issues page — a filterable bento grid of every issue" width="49%"> <img src="public/shots/site-record.jpg" alt="The shot list page — scenes on a tracing beam" width="49%">
 
@@ -38,9 +38,12 @@ public/clips/<scene-id>.mp4    # one per scene on /record (install, arm, hover, 
 public/clips/issue-<n>.mp4     # optional, per issue page
 ```
 
-`/record` lists every filename the site is waiting for, in order.
+`/record` lists every filename the site is waiting for, in order, and the workflow for producing
+them in [Recordly](https://github.com/webadderallorg/Recordly) — an open-source screen recorder with
+a timeline editor (auto-zooms, cursor polish, speed regions, MP4/GIF export). It has no CLI: a
+person drives every step.
 
-`public/shots/` holds the stills. `dock.png`, `drawer.png` and `popup.png` are real captures of the
+`public/shots/` holds the stills. `dock.png`, `drawer.png`, `design.png` and `panel.png` are real captures of the
 running extension, not mockups — the shot script boots the built `dist/` in Chrome for Testing,
 arms the picker over a demo page and screenshots through CDP. They need GPU compositing:
 `--disable-gpu` flattens `backdrop-filter` and the glass renders as a dull slab.
@@ -50,9 +53,9 @@ arms the picker over a demo page and screenshots through CDP. They need GPU comp
 Everything on the site comes from two files, so the content lives in one place and the counts are
 never typed twice:
 
-- `src/data/issues.ts` — the milestones and all 63 issues, each with the reason it was filed, its
+- `src/data/issues.ts` — the milestones and all 80 issues, each with the reason it was filed, its
   acceptance criterion, and what to film for it.
-- `src/data/scenes.ts` — the recording setup, the hero loop, and the 12 scenes.
+- `src/data/scenes.ts` — the recording setup, the Recordly workflow, the hero loop, and the 14 scenes.
 - `src/data/types.ts` — `VERSION`, in exactly one place.
 
 The hero badge, the stat row, the nav label and the "still open" list all read the arrays. When a

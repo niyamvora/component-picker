@@ -7,6 +7,7 @@ import {
   ListChecks,
   Repeat,
   Scissors,
+  Video,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -14,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TracingBeam } from "@/components/ui/tracing-beam";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoSlot } from "@/components/site/video-slot";
-import { loop, scenes, setup } from "@/data/scenes";
+import { loop, recordly, scenes, setup } from "@/data/scenes";
 import { issues } from "@/data/issues";
 
 export const metadata: Metadata = {
@@ -38,11 +39,73 @@ export default function RecordPage() {
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground text-pretty">
           Fourteen scenes, about four and a half minutes, plus a fifteen-second silent loop for
-          the top of the site. Every scene below names its clip file — drop the file in{" "}
+          the top of the site. Recorded with Recordly. Every scene below names its clip file — drop the file in{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">public/clips/</code>{" "}
           and the placeholder becomes the video.
         </p>
       </header>
+
+      {/* ── The tool ─────────────────────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+          <Video className="size-5 text-primary" />
+          Record it with Recordly
+        </h2>
+        <p className="text-muted-foreground text-pretty">
+          <a
+            href={recordly.repo}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline"
+          >
+            Recordly
+          </a>{" "}
+          is an open-source screen recorder with a timeline editor built for exactly this kind of
+          video — it records, then hands you auto-zooms, cursor polish, trims, speed regions and a
+          styled frame, and exports MP4 or GIF. {recordly.licence} · {recordly.platforms}.
+        </p>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {(
+            [
+              ["Install it once", recordly.install],
+              ["Set the project up once", recordly.once],
+              ["Then, per scene", recordly.perScene],
+              ["Exporting", recordly.exports],
+            ] as const
+          ).map(([title, items]) => (
+            <div key={title} className="glass relative isolate rounded-2xl p-5">
+              <GlowingEffect spread={30} glow proximity={60} inactiveZone={0.02} borderWidth={1} />
+              <p className="mb-3 text-sm font-medium">{title}</p>
+              <ol className="flex flex-col gap-2.5">
+                {items.map((t, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary/60" />
+                    <p
+                      className="text-sm leading-relaxed text-pretty [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs"
+                      dangerouslySetInnerHTML={{ __html: md(t) }}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+
+        <Alert>
+          <ListChecks className="text-amber" />
+          <AlertTitle>Worth knowing before you start</AlertTitle>
+          <AlertDescription>
+            <ul className="flex flex-col gap-1.5">
+              {recordly.gotchas.map((g, i) => (
+                <li key={i} className="text-pretty">
+                  {g}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      </section>
 
       {/* ── Before you hit record ────────────────────────────── */}
       <section className="flex flex-col gap-4">
@@ -231,5 +294,9 @@ function md(s: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(
+      /\[([^\]]+)\]\((https:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer">$1</a>'
+    );
 }

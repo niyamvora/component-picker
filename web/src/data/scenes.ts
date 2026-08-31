@@ -15,37 +15,42 @@ export const setup = [
   {
     label: "Window",
     detail:
-      "1512×861 at 2× — the size every capture in the bundles was taken at, so the numbers on screen match the numbers in the README.",
+      "1512×861 at 2× — the size every capture in the bundles was taken at, so the numbers on screen match the numbers in the README. In Recordly, record the **browser window**, not the whole display: it crops for you and keeps the desktop out of frame.",
   },
   {
     label: "Browser",
     detail:
-      "A clean Chrome profile. No bookmarks bar, no other extensions pinned, no personal tabs. Component Picker is the only icon in the toolbar.",
+      "A clean Chrome profile. No bookmarks bar, no other extensions pinned, no personal tabs. Component Picker is the only icon in the toolbar. The dock appears on every page by itself since v1.7, so there is nothing to click first.",
   },
   {
     label: "Keystrokes",
     detail:
-      "Run KeyCastr (or Chrome's own overlay). Half of this tool is keyboard — ↑ ↓ E M P F R — and an unlabelled keypress reads as magic, not as a feature.",
+      "Recordly polishes the cursor, not the keyboard. Half of this tool is keys — ↑ ↓ E M P F R C G — and an unlabelled keypress reads as magic rather than a feature, so run KeyCastr underneath, or add the key as a text annotation on the timeline afterwards.",
   },
   {
     label: "Cursor",
     detail:
-      "Turn on cursor highlighting and slow the pointer down. The picker follows the mouse; if the mouse is a blur the overlay looks like it is flickering.",
+      "Turn on **cursor smoothing** and **click bounce** in Recordly and stop fighting your own hand — the picker follows the pointer, and a jittery mouse makes the overlay look like it is flickering. Leave motion blur low; it smears the box-model bands.",
+  },
+  {
+    label: "Zoom",
+    detail:
+      "Let Recordly suggest zooms from cursor activity, then check every one. The bundle scroll and the drawer's section list are small text: they need a zoom held steady, not a zoom that drifts. Delete suggestions that move while you are trying to read.",
   },
   {
     label: "Capture",
     detail:
-      "60 fps, no audio. Add captions in the edit — a silent loop plays on a landing page, a narrated one does not.",
+      "No audio. Add captions in the edit — a silent loop plays on a landing page, a narrated one does not. Recordly records system and mic audio if you ask it to; do not.",
   },
   {
     label: "The paste target",
     detail:
-      "A Markdown editor with headings styled and syntax highlighting on, at a large font. Most of the runtime is scrolling a bundle; make it legible at 720p.",
+      "A Markdown editor with headings styled and syntax highlighting on, at a large font. A good part of the runtime is scrolling a bundle; make it legible at 720p before you record, not with a zoom afterwards.",
   },
   {
     label: "Sites",
     detail:
-      "resend.com/onboarding (tokens, gradients, context), github.com (hover states), ui.shadcn.com (icons, tabs), a Webflow and a GSAP site, and one of your own apps on localhost for the compare loop.",
+      "resend.com/onboarding (tokens, gradients, context), github.com (hover states), ui.shadcn.com (icons, tabs), a Webflow and a GSAP site, a Lottie and a three.js page for the animation scenes, and one of your own apps on localhost for the compare loop and the source-locations scene.",
   },
   {
     label: "DevTools",
@@ -53,6 +58,51 @@ export const setup = [
       "Closed. If DevTools is open on the tab, chrome.debugger cannot attach and the CDP sections are skipped — the bundle will say so on camera.",
   },
 ];
+
+/**
+ * The recording tool this shot list assumes. Recordly is a desktop app: it records,
+ * then hands you a timeline editor for zooms, trims and speed regions, and exports
+ * MP4 or GIF. There is no CLI — a person drives every step.
+ */
+export const recordly = {
+  name: "Recordly",
+  repo: "https://github.com/webadderallorg/Recordly",
+  site: "https://www.recordly.dev",
+  marketplace: "https://marketplace.recordly.dev/extensions",
+  licence: "AGPL-3.0",
+  platforms: "macOS 14+ · Windows 10 build 19041+ · Linux",
+  install: [
+    "Download a build from the [releases page](https://github.com/webadderallorg/Recordly/releases). Arch: `yay -S recordly-bin`. From source: `git clone`, `npm install`, `npm run dev` — needs Xcode CLT on macOS, build-essential + X11 headers on Linux, VS 2022 with the C++ workload on Windows.",
+    "macOS will ask for **Screen Recording** permission the first time. Grant it in System Settings → Privacy & Security, then restart Recordly, or the first take records a black rectangle.",
+    "On **Linux**, cursor hiding is not supported. Everything else works; plan the cursor scenes on macOS or Windows if you can.",
+  ],
+  once: [
+    "**Record the browser window**, not the display. One source, no desktop, no second monitor creeping into frame.",
+    "**Frame styling**: a small padding, rounded corners and a soft shadow over a quiet gradient. Keep the background dark and low-contrast — every scene in this video is a dark UI, and a loud wallpaper competes with it.",
+    "**Aspect ratio**: 16:9. Pick it before recording so the auto-zooms compose against the final frame rather than a crop you apply later.",
+    "**Cursor**: smoothing on, click bounce on, size default, motion blur low.",
+    "Save the project as `.recordly` per scene — `install.recordly`, `arm.recordly`, and so on. Reopening a scene to redo one shot is the difference between a re-record and a re-edit.",
+  ],
+  perScene: [
+    "Record the scene end to end, including the mistakes. Trims are cheap; a retake is not.",
+    "In the editor, trim the head and tail to the first and last frame that carry information.",
+    "Check the auto-zoom suggestions. Keep the ones that land on the thing being discussed; delete the ones that drift over text you want read.",
+    "Add a **speed region** over any dead time — the ~2s debugger attach, a page load, a `npm install`. Speed it up rather than cutting it, so the viewer still sees that the wait is real and short.",
+    "Add text annotations for the keys pressed if you are not running KeyCastr.",
+    "Export, then watch it once at 100% before moving on.",
+  ],
+  exports: [
+    "**The long video** — MP4, highest quality, 16:9, one file per scene named for its clip (`install.mp4`, `arm.mp4`, `hover.mp4`, …). The site slots them in individually, so you never have to cut a single four-minute master.",
+    "**The hero loop** — MP4 as `hero-loop.mp4`, 15 seconds, silent. Turn on Recordly's **cursor loop mode** so the pointer returns to where it started; the last frame has to match the first or the loop visibly jumps.",
+    "A GIF export of the hero loop is worth having for the README — GIF frame-rate and size presets are in the same export panel. The site itself wants the MP4.",
+    "Drop everything in `web/public/clips/` and rebuild. A file that is not there yet is not an error — the slot keeps showing its shot list.",
+  ],
+  gotchas: [
+    "Recordly has no CLI and no headless mode. Every step above is a person at a keyboard; nothing here can be scripted.",
+    "The **Marketplace** has extensions for cursor click sounds, device frames and browser mockups. A browser mockup frame is tempting for the hero loop — skip it. The point of that clip is that this runs in your real browser.",
+    "AGPL-3.0 covers Recordly's own source. It puts no licence of any kind on the videos you make with it.",
+  ],
+};
 
 export const scenes: Scene[] = [
   {
