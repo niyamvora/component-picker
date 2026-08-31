@@ -110,6 +110,18 @@
     const asmOk = window.__cp.ui.assemble("rebuild this", fakeSections, ["css"]) === "rebuild this\n\n.a { color: red }"
       && window.__cp.ui.assemble("", fakeSections, ["css", "html"]) === "<b>x</b>\n\n.a { color: red }"
       && window.__cp.ui.assemble("  ", fakeSections, []) === "";
+    // #85 — the palette and token lines parse into values the drawer can draw as chips
+    const paletteBody = parts.find((p) => p.id === "palette").body;
+    const swatches = window.__cp.ui.parsePalette(paletteBody.split("\n").find((l) => l.startsWith("Colours:")));
+    const spacings = window.__cp.ui.parsePalette(paletteBody.split("\n").find((l) => l.startsWith("Spacing:")));
+    const tokenList = window.__cp.ui.parseTokens(parts.find((p) => p.id === "tokens").body);
+    const vizOk = swatches.some((c) => c.value === "rgb(250, 250, 250)") && swatches.every((c) => c.count >= 1)
+      && swatches.every((c) => c.value.startsWith("rgb"))                    // a value never keeps its ×N suffix
+      && spacings.some((s) => s.value === "6px" && s.count === 2)            // …and the count is read off it
+      && !spacings.some((s) => s.value.includes("multiples of"))             // the grid note is not a value
+      && spacings.every((s) => /^[\d.]+px$/.test(s.value))
+      && tokenList.some((t) => t.name === "--panel" && t.value === "rgb(250, 250, 250)")
+      && tokenList.every((t) => !t.value.endsWith(";"));
     // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
     const { remember, recall } = window.__cp.ui;
     const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
@@ -208,6 +220,7 @@
     if (!rowsOk) fails.push("#81 section rows did not render or toggle");
     if (!asmOk) fails.push("#82 assembleSelection did not return prompt + only the checked sections");
     if (!memOk) fails.push("#83 the per-site selection did not round-trip, or the 50-host cap failed");
+    if (!vizOk) fails.push("#85 the palette/token lines did not parse into swatch values and counts");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

@@ -7,6 +7,7 @@
 
 import { el } from "./hud";
 import { copy } from "./note";
+import { visualise } from "./viz";
 import { state } from "../core/state";
 import type { CaptureSection } from "../shared/types";
 
@@ -57,16 +58,11 @@ export async function mountSections(host: HTMLElement) {
 /** The "Sections" heading, with the two bulk actions that save ticking eight boxes every pick. */
 function heading(all: () => void, none: () => void): HTMLElement {
   const row = el("div", `display:flex;align-items:center;gap:6px;font-weight:600;padding:8px 0;border-bottom:${HAIRLINE}`);
-  const link = (text: string, run: () => void) => {
-    const b = Object.assign(el("button", "all:unset;color:#93c5fd;cursor:pointer;font-weight:400;font-size:12px"), { textContent: text });
-    b.addEventListener("click", run);
-    return b;
-  };
   row.append(
     Object.assign(el("span", "flex:1"), { textContent: "Sections of the last capture" }),
-    link("all", all),
+    linkButton("all", all),
     Object.assign(el("span", `color:${DIM};font-size:12px`), { textContent: "·" }),
-    link("none", none),
+    linkButton("none", none),
   );
   return row;
 }
@@ -154,8 +150,20 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
     const caret = Object.assign(el("button", `all:unset;flex:none;width:16px;text-align:center;color:${DIM};cursor:pointer`), { textContent: "▸", title: `Show ${s.title}` });
     const body = el("pre", `display:none;margin:0 0 8px;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:200px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
     body.textContent = s.body;
-    row.append(box, name, size, caret);
-    wrap.append(row, body);
+    // Colours, tokens, type and easing read better drawn than quoted (#84) — but the text is what
+    // actually gets pasted, so it stays one click away rather than being replaced.
+    const viz = visualise(s);
+    let open = false, drawn = Boolean(viz);
+    const flip = viz ? linkButton("text", () => { drawn = !drawn; show(); }) : null;
+    const show = () => {
+      caret.textContent = open ? "▾" : "▸";
+      body.style.display = open && !drawn ? "block" : "none";
+      if (viz) viz.style.display = open && drawn ? "block" : "none";
+      if (flip) { flip.style.display = open ? "inline" : "none"; flip.textContent = drawn ? "text" : "visual"; }
+    };
+    row.append(box, name, size, ...(flip ? [flip] : []), caret);
+    wrap.append(row, ...(viz ? [viz] : []), body);
+    show();
     row.addEventListener("click", () => {
       if (picked.has(s.id)) picked.delete(s.id); else picked.add(s.id);
       paint();
@@ -163,12 +171,18 @@ export function sectionRows(sections: CaptureSection[], picked: Set<string>, onC
     });
     caret.addEventListener("click", (e) => {
       e.stopPropagation(); // the caret shows the section; it does not tick it
-      const open = body.style.display === "none";
-      body.style.display = open ? "block" : "none";
-      caret.textContent = open ? "▾" : "▸";
+      open = !open;
+      show();
     });
     return wrap;
   });
+}
+
+/** The drawer's text button — `all`, `none`, `text`. The one link style the popup already uses. */
+function linkButton(text: string, run: () => void): HTMLButtonElement {
+  const b = Object.assign(el("button", "all:unset;flex:none;color:#93c5fd;cursor:pointer;font-weight:400;font-size:11px"), { textContent: text });
+  b.addEventListener("click", (e) => { e.stopPropagation(); run(); });
+  return b;
 }
 
 /**

@@ -12,6 +12,7 @@ import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
 import { currentEl, isActive, start, stop } from "./handlers";
 import { showDock } from "./hud";
 import { assembleSelection, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
+import { parsePaletteLine, parseTokens } from "./viz";
 import { ICONS } from "./icons-ui";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
 import { options } from "../shared/options";
@@ -35,7 +36,11 @@ declare global {
       /** Edit helpers, exposed for tests (#52). */
       edit: { toggle: typeof toggleEdit; apply: typeof applyEdit; revert: typeof revert; commit: typeof commitEdits; made: () => string[] };
       /** The drawer's pure helpers, exposed for tests (#79). */
-      ui: { sectionRows: typeof sectionRows; assemble: typeof assembleSelection; remember: typeof rememberSelection; recall: typeof recallSelection };
+      ui: {
+        sectionRows: typeof sectionRows; assemble: typeof assembleSelection;
+        remember: typeof rememberSelection; recall: typeof recallSelection;
+        parsePalette: typeof parsePaletteLine; parseTokens: typeof parseTokens;
+      };
     };
     /** Set by the test fixture so the picker can be driven without the overlay. */
     __cpNoAutostart?: boolean;
@@ -65,7 +70,10 @@ if (window.__cp) {
     toggle: () => (isActive() ? stop() : start()),
     last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
-    ui: { sectionRows, assemble: assembleSelection, remember: rememberSelection, recall: recallSelection },
+    ui: {
+      sectionRows, assemble: assembleSelection, remember: rememberSelection, recall: recallSelection,
+      parsePalette: parsePaletteLine, parseTokens,
+    },
   };
   // Shown on every page (a content script on <all_urls>, #72) unless the user turns it off, and
   // never in the test fixture (which sets __cpNoAutostart in the page world). The dock's Pick
