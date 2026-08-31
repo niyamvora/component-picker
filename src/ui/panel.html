@@ -1,30 +1,120 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Component Picker preview</title>
+<title>Component Picker</title>
 <style>
   :root { color-scheme: light dark; --fg: #111827; --dim: #6b7280; --line: #e5e7eb; --bg: #fff; --accent: #2563eb; }
   @media (prefers-color-scheme: dark) { :root { --fg: #f3f4f6; --dim: #9ca3af; --line: #374151; --bg: #111827; } }
   body { margin: 0; padding: 10px; font: 13px/1.45 -apple-system, system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+  h1 { font-size: 13px; margin: 0 0 8px; letter-spacing: .01em; }
+  button, select { font: inherit; color: inherit; }
+  #pick { width: 100%; padding: 9px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  #pick:hover { filter: brightness(1.08); }
+  .hint { color: var(--dim); font-size: 11px; text-align: center; margin: 6px 0 10px; }
   .bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-  select, button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; cursor: pointer; }
+  .bar select, .bar button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; cursor: pointer; }
   #stage { border: 1px solid var(--line); border-radius: 8px; overflow: auto; background: #fff; }
   @media (prefers-color-scheme: dark) { #stage { background: #0b0b0d; } }
   iframe { border: 0; display: block; }
-  img { max-width: 100%; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; }
-  .empty { color: var(--dim); padding: 24px 8px; text-align: center; }
+  #shot { max-width: 100%; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; }
+  /* An id selector outranks the UA's [hidden] rule, so say it again or the alt text shows through. */
+  #shot[hidden] { display: none; }
+  .empty { color: var(--dim); font-size: 11px; padding: 12px 4px; }
+  #stage .empty { padding: 24px 8px; text-align: center; }
+  section { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; }
+  summary { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; padding: 2px 0; }
+  summary::marker { color: var(--dim); }
+  h2 { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 4px; font-weight: 400; }
+  label { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .vp { display: flex; align-items: center; gap: 5px; padding: 2px 0; color: var(--dim); }
+  .vp input { width: 46px; padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--fg); font: inherit; }
+  .vp b { color: var(--fg); font-weight: 500; min-width: 46px; }
+  #inventory { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); font: 11px/1.4 ui-monospace, monospace; resize: vertical; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 3px 0; }
+  /* min-width:0 or a flex item refuses to shrink below its text and the panel scrolls sideways. */
+  .row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row time { color: var(--dim); font-size: 11px; flex: none; }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 11px; flex: none; }
 </style>
 
-<div class="bar">
-  <select id="width" title="Preview width">
-    <option value="0">Fit panel</option>
-    <option value="390">390 — mobile</option>
-    <option value="768">768 — tablet</option>
-    <option value="1280">1280 — desktop</option>
-  </select>
-  <button id="copy">Copy bundle</button>
-  <button id="assets">Download assets</button>
-</div>
-<div id="stage"><div class="empty">Pick a component and its rendering appears here.</div></div>
-<img id="shot" hidden alt="Screenshot of the picked element">
+<h1>Component Picker</h1>
+<button id="pick">Pick on this page</button>
+<p class="hint">or press Alt+Shift+C · Esc cancels · F freezes a menu open</p>
+
+<section>
+  <h2>Last capture</h2>
+  <div class="bar">
+    <select id="width" title="Preview width">
+      <option value="0">Fit panel</option>
+      <option value="390">390 — mobile</option>
+      <option value="768">768 — tablet</option>
+      <option value="1280">1280 — desktop</option>
+    </select>
+    <button id="copy">Copy bundle</button>
+    <button id="assets">Download assets</button>
+  </div>
+  <div id="stage"><div class="empty">Pick a component and its rendering appears here.</div></div>
+  <img id="shot" hidden alt="Screenshot of the picked element">
+</section>
+
+<section>
+  <h2>Recent picks</h2>
+  <div id="history"></div>
+</section>
+
+<section>
+  <h2>Library <button id="save-latest" class="link" title="Save the most recent pick">+ save latest</button></h2>
+  <div id="library"></div>
+</section>
+
+<section>
+  <h2>Compare reference</h2>
+  <div id="reference"></div>
+</section>
+
+<section>
+  <details>
+    <summary>Output</summary>
+    <div class="grid">
+      <label><input type="checkbox" data-opt="screenshots"> screenshots</label>
+      <label><input type="checkbox" data-opt="states"> states</label>
+      <label><input type="checkbox" data-opt="themes"> themes</label>
+      <label><input type="checkbox" data-opt="js"> JS/handlers</label>
+      <label><input type="checkbox" data-opt="fontFace"> @font-face</label>
+      <label><input type="checkbox" data-opt="a11y"> accessibility</label>
+      <label><input type="checkbox" data-opt="tailwind"> Tailwind classes</label>
+      <label><input type="checkbox" data-opt="jsx"> JSX component</label>
+      <label><input type="checkbox" data-opt="tokensJson"> tokens JSON</label>
+      <label title="No debugger bar: skip viewports, states, themes, screenshots"><input type="checkbox" data-opt="fast"> fast (no debugger)</label>
+      <label title="print / reduced-motion / forced-colors"><input type="checkbox" data-opt="extraMedia"> extra media</label>
+      <label><input type="checkbox" data-opt="vue"> Vue SFC</label>
+      <label><input type="checkbox" data-opt="svelte"> Svelte</label>
+      <label><input type="checkbox" data-opt="htmlCss"> HTML+CSS</label>
+      <label><input type="checkbox" data-opt="styled"> styled-comp</label>
+      <label><input type="checkbox" data-opt="cssModules"> CSS Modules</label>
+    </div>
+  </details>
+</section>
+
+<section>
+  <details>
+    <summary>Viewports</summary>
+    <div id="viewports"></div>
+  </details>
+</section>
+
+<section>
+  <details>
+    <summary>Your components (for mapping)</summary>
+    <textarea id="inventory" rows="3" placeholder="Button  button, [role=button]  variant, size&#10;Card  .card  &#10;Icon  svg  name"></textarea>
+  </details>
+</section>
+
+<section>
+  <details>
+    <summary>MCP bridge (advanced)</summary>
+    <label title="Lets a local MCP server request captures. Opens a localhost connection only while on."><input type="checkbox" id="bridge"> let a local agent request picks (npx component-picker-mcp)</label>
+  </details>
+</section>
 
 <script src="panel.js"></script>

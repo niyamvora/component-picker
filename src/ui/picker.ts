@@ -9,12 +9,13 @@ import { extract, extractMany } from "../core/bundle";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
-import { currentEl, isActive, start, stop } from "./handlers";
+import { currentEl, isActive, referenceOn, start, stop, toggleReference } from "./handlers";
 import { showDock } from "./hud";
 import { assembleSelection, group, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
 import { easingCurve, parseAnimations, parseFontLine, parsePaletteLine, parseTokens, visualise } from "./viz";
 import { ICONS } from "./icons-ui";
 import { applyEdit, commitEdits, edits, revert, toggleEdit } from "./edit";
+import { askForNote } from "./note";
 import { options } from "../shared/options";
 import type { Message } from "../shared/types";
 
@@ -35,6 +36,8 @@ declare global {
       current: () => Element | null;
       /** Edit helpers, exposed for tests (#52). */
       edit: { toggle: typeof toggleEdit; apply: typeof applyEdit; revert: typeof revert; commit: typeof commitEdits; made: () => string[] };
+      /** The note box, exposed so its placement can be driven without a full pick. */
+      note: typeof askForNote;
       /** The drawer's pure helpers, exposed for tests (#79). */
       ui: {
         sectionRows: typeof sectionRows; assemble: typeof assembleSelection;
@@ -72,6 +75,7 @@ if (window.__cp) {
     toggle: () => (isActive() ? stop() : start()),
     last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
+    note: askForNote,
     ui: {
       sectionRows, assemble: assembleSelection, remember: rememberSelection, recall: recallSelection,
       parsePalette: parsePaletteLine, parseTokens, parseFont: parseFontLine,
@@ -87,6 +91,7 @@ if (window.__cp) {
     { icon: ICONS.ruler, label: "Measure — then hover", run: () => start() },
     { icon: ICONS.camera, label: "Copy image (pick first, then C)", run: () => start() },
     { icon: ICONS.frame, label: "Copy for Figma (pick first, then G)", run: () => start() },
+    { icon: ICONS.compare, label: "Compare — pick a reference, then diff later picks against it", run: toggleReference, toggle: referenceOn },
     { icon: ICONS.bookmark, label: "Save last to library", run: () => void chrome.runtime?.sendMessage?.({ type: "save-last-to-library" }) },
   ];
   if (!window.__cpNoAutostart) {

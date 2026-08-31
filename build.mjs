@@ -13,7 +13,6 @@ const options = {
   entryPoints: [
     { in: "src/ui/picker.ts", out: "picker" },
     { in: "src/bg/service-worker.ts", out: "background" },
-    { in: "src/ui/popup.ts", out: "popup" },
     { in: "src/ui/panel.ts", out: "panel" },
   ],
   outdir: "dist",
@@ -29,7 +28,7 @@ mkdirSync("dist", { recursive: true });
 const manifest = JSON.parse(readFileSync("src/manifest.json", "utf8"));
 manifest.version = version; // VERSION is the single source of truth; release.sh bumps it
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2) + "\n");
-for (const page of ["popup.html", "panel.html"]) cpSync(`src/ui/${page}`, `dist/${page}`);
+cpSync("src/ui/panel.html", "dist/panel.html");
 cpSync("src/assets/icons", "dist/icons", { recursive: true });
 
 // Firefox build: same code, a manifest without the Chrome-only pieces. The debugger API does not
