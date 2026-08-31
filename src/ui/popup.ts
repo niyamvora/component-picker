@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_OPTIONS, loadOptions } from "../shared/options";
-import type { HistoryEntry, Options, Reference, Viewport } from "../shared/types";
+import type { HistoryEntry, LibraryEntry, Options, Reference, Viewport } from "../shared/types";
 
 const $ = <T extends Element>(sel: string) => document.querySelector<T>(sel)!;
 
@@ -113,6 +113,38 @@ async function renderHistory() {
   }
 }
 
+async function renderLibrary() {
+  const host = $("#library");
+  host.textContent = "";
+  const { library = [] } = await chrome.storage.local.get("library");
+  const entries = library as LibraryEntry[];
+  if (!entries.length) { const p = document.createElement("div"); p.className = "empty"; p.textContent = "Empty. Save a pick with + save latest."; host.append(p); return; }
+  for (const e of entries) {
+    const row = document.createElement("div");
+    row.className = "row";
+    if (e.thumb) { const img = document.createElement("img"); img.src = e.thumb; img.style.cssText = "width:28px;height:20px;object-fit:cover;border-radius:3px;flex:none"; row.append(img); }
+    const what = document.createElement("span"); what.textContent = `${e.name} — ${e.host}`;
+    const copy = document.createElement("button"); copy.className = "link"; copy.textContent = "copy";
+    copy.addEventListener("click", async () => { await navigator.clipboard.writeText(e.bundle); copy.textContent = "copied"; setTimeout(() => (copy.textContent = "copy"), 1500); });
+    const del = document.createElement("button"); del.className = "link"; del.textContent = "×"; del.title = "delete";
+    del.addEventListener("click", async () => { await chrome.runtime.sendMessage({ type: "delete-from-library", id: e.id }); renderLibrary(); });
+    row.append(what, copy, del);
+    host.append(row);
+  }
+}
+
+function wireLibrary() {
+  $<HTMLButtonElement>("#save-latest").addEventListener("click", async () => {
+    const { history = [], preview } = await chrome.storage.local.get(["history", "preview"]);
+    const h = (history as HistoryEntry[])[0];
+    if (!h) return;
+    const name = prompt("Name this component:", h.label) ?? h.label;
+    const entry: LibraryEntry = { id: `${Date.now()}`, name, host: h.host, url: "", at: h.at, bundle: h.bundle, thumb: (preview as { shot?: string } | undefined)?.shot ? `data:image/png;base64,${(preview as { shot?: string }).shot}` : undefined };
+    await chrome.runtime.sendMessage({ type: "save-to-library", entry });
+    renderLibrary();
+  });
+}
+
 async function init() {
   options = (await loadOptions()) ?? DEFAULT_OPTIONS;
   for (const box of document.querySelectorAll<HTMLInputElement>("input[data-opt]")) {
@@ -136,7 +168,8 @@ async function init() {
     chrome.runtime.sendMessage({ type: "bridge", on: bridge.checked });
   });
   renderViewports();
-  await Promise.all([renderReference(), renderHistory()]);
+  wireLibrary();
+  await Promise.all([renderReference(), renderHistory(), renderLibrary()]);
 }
 
 void init();

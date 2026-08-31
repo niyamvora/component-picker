@@ -48,6 +48,8 @@
     <label><input type="checkbox" data-opt="vue"> Vue SFC</label>
     <label><input type="checkbox" data-opt="svelte"> Svelte</label>
     <label><input type="checkbox" data-opt="htmlCss"> HTML+CSS</label>
+    <label><input type="checkbox" data-opt="styled"> styled-comp</label>
+    <label><input type="checkbox" data-opt="cssModules"> CSS Modules</label>
   </div>
 </fieldset>
 
@@ -74,6 +76,11 @@
 <fieldset>
   <legend>Recent picks</legend>
   <div id="history"></div>
+</fieldset>
+
+<fieldset>
+  <legend>Library <button id="save-latest" class="link" title="Save the most recent pick">+ save latest</button></legend>
+  <div id="library"></div>
 </fieldset>
 
 <script src="popup.js"></script>
