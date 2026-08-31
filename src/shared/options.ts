@@ -20,6 +20,8 @@ export const DEFAULT_OPTIONS: Options = {
   vue: false,
   svelte: false,
   htmlCss: false,
+  styled: false,
+  cssModules: false,
   viewports: [
     { name: "mobile", width: 390, height: 844, dpr: 3, mobile: true },
     { name: "tablet", width: 768, height: 1024, dpr: 2, mobile: true },
