@@ -11,10 +11,14 @@ and GSAP timelines · repeated cards collapsed to one + a data table · mapping 
 `<Button>`/`<Card>` · accessibility (roles, contrast, focus order) · element screenshots · and a
 ready-to-paste JSX/Vue/Svelte component. Everything runs locally — no network, no account.
 
-<img src="web/public/shots/dock.png" alt="The glass dock on a component gallery, with a card outlined, its box model shaded and labelled div#card.card.primary 281×167" width="100%">
+<img src="web/public/shots/dock.png" alt="The glass dock on a component gallery, with a card outlined, its box model shaded and labelled div#card.card.primary 376×156" width="100%">
 
-<sup>The dock sits on every page since v1.7. Hover to outline, click to copy the bundle.
+<sup>The glass dock sits on every page since v1.7. Hover to outline, click to copy the bundle.
 MIT-licensed and fully open source — no paid tier.</sup>
+
+<img src="web/public/shots/drawer.png" alt="The settings drawer open on the right, listing every output toggle over a blurred page" width="100%">
+
+<sup>Settings, in the page: the drawer behind the dock's gear.</sup>
 
 Current version: **1.7.0** ([releases](https://github.com/niyamvora/component-picker/releases)) ·
 [the site](web/README.md) covers every capability and every issue behind it.
@@ -169,9 +173,9 @@ cd web && npm install && npm run dev
 Video placeholders fill themselves in: drop `web/public/clips/<id>.mp4` next to a slot and rebuild.
 Until then each slot shows the real screenshot or its shot list.
 
-The popup and its Studio library:
+The toolbar popup — viewports, your component inventory, the MCP bridge, recent picks and the Studio library:
 
-<img src="web/public/shots/popup.png" alt="The Component Picker popup — output toggles, viewports, your components, MCP bridge and the saved library" width="340">
+<img src="web/public/shots/popup.png" alt="The Component Picker popup — output toggles, your components, viewports, MCP bridge, compare reference, recent picks and the library" width="340">
 
 A real capture is committed at [`examples/sample-capture.md`](examples/sample-capture.md) so you can
 see exactly what a bundle looks like without installing anything.

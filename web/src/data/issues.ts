@@ -1093,13 +1093,14 @@ export const issues: Issue[] = [
     tier: "v1.7",
     priority: "P2",
     areas: ["ui"],
-    why: "The reference you set with `R` was always global — `chrome.storage.local`, shared across every tab and session. You just could not see it, so switching tabs felt like it had been thrown away, and people re-picked the reference they already had.",
-    proof: "The drawer shows `Comparing against <label> · <host>` in every tab, with a clear button.",
+    why: "The reference you set with `R` is shared across every tab, so switching tabs never lost it — you just could not see that, and people re-picked a reference they already had. It is now session-scoped too (`chrome.storage.session`): a reference you set and forget stops silently attaching a Compared section to every later capture once the browser closes.",
+    proof: "The drawer shows `Comparing against <label> · <host>` in every tab, with a clear button, and it is gone after a browser restart.",
     record: [
       "Capture a reference on site A and press **R** while the toast is up.",
       "Switch to a completely different tab and open the drawer — `Comparing against <label> · <host>` is sitting there.",
       "Capture your rebuild in that tab; the `## Compared with reference` section still lands.",
       "Click clear and show the line disappear. Short beat — it is a “nothing was lost” shot.",
+      "If you want the whole story: set a reference, quit Chrome, reopen. The line is gone — it is session-scoped, so a forgotten reference cannot follow you around for weeks.",
     ],
   },
   {

@@ -38,8 +38,12 @@ public/clips/<scene-id>.mp4    # one per scene on /record (install, arm, hover, 
 public/clips/issue-<n>.mp4     # optional, per issue page
 ```
 
-`/record` lists every filename the site is waiting for, in order. `public/shots/` holds the
-stills — `dock.png` and `popup.png` are the real Web Store screenshots from `store/assets/`.
+`/record` lists every filename the site is waiting for, in order.
+
+`public/shots/` holds the stills. `dock.png`, `drawer.png` and `popup.png` are real captures of the
+running extension, not mockups — the shot script boots the built `dist/` in Chrome for Testing,
+arms the picker over a demo page and screenshots through CDP. They need GPU compositing:
+`--disable-gpu` flattens `backdrop-filter` and the glass renders as a dull slab.
 
 ## Data
 
