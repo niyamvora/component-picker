@@ -7,7 +7,7 @@ import { sel } from "./const";
 import { parseInventory } from "./mapping";
 import { detectTheme } from "./snapshot";
 import { options } from "../shared/options";
-import type { AnimeInfo, GsapTween, InventoryEntry, LottieInfo, MeasureResult, Message, MotionInfo, ProbeResult, PropShape, Reference, SourceLoc, StateIndices } from "../shared/types";
+import type { AnimeInfo, CanvasScene, GsapTween, InventoryEntry, LottieInfo, MeasureResult, Message, MotionInfo, ProbeResult, PropShape, Reference, SourceLoc, StateIndices } from "../shared/types";
 
 /** Messaging the service worker — or a reason there is none, since the engine also runs bare. */
 export async function send(msg: Message): Promise<unknown> {
@@ -44,7 +44,7 @@ export async function getReference(): Promise<Reference | null> {
 // Page-JS expandos (__reactFiber$…) are invisible from this isolated world, so background.js runs
 // pageProbe() in the MAIN world; elements are handed over via a temporary data-cp-tmp attribute.
 export async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
-  const info: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], sources: [], props: [] };
+  const info: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], canvases: [], sources: [], props: [] };
   els.forEach((el, i) => { for (const a of el.attributes) if (/^on/i.test(a.name)) info.handlers.push(`${sel(i)} ${a.name}="${a.value.slice(0, 300)}"`); });
   try {
     const r = (await send({ type: "probe" })) as ProbeResult | undefined;
@@ -58,6 +58,7 @@ export async function frameworkInfo(els: Element[]): Promise<ProbeResult> {
       info.gsap = r.gsap ?? [];
       info.lottie = r.lottie ?? [];
       info.anime = r.anime ?? [];
+      info.canvases = r.canvases ?? [];
       info.sources = r.sources ?? [];
       info.props = r.props ?? [];
     }
@@ -80,7 +81,7 @@ export async function inventory(): Promise<InventoryEntry[]> {
  * Each carries the registry id the bundle files it under (#80), so the drawer's rows never have to
  * guess one back out of the heading.
  */
-export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; lottie: LottieInfo[]; anime: AnimeInfo[]; platformNotes: string[]; sources: SourceLoc[]; props: PropShape[] }): { id: string; text: string }[] {
+export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; lottie: LottieInfo[]; anime: AnimeInfo[]; canvases: CanvasScene[]; platformNotes: string[]; sources: SourceLoc[]; props: PropShape[] }): { id: string; text: string }[] {
   const out: { id: string; text: string }[] = [];
   if (p.lottie.length) out.push({ id: "lottie", text: `## Lottie\n${p.lottie.map((l) => {
     const secs = l.fps ? ` · ${(l.frames / l.fps).toFixed(1)}s` : "";
@@ -93,6 +94,11 @@ export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; 
   if (p.anime.length) out.push({ id: "anime", text: `## anime.js\n${p.anime.map((a) =>
     `${sel(a.id)} — ${a.properties.join(", ") || "(properties unavailable)"} · ${a.duration}ms · ${a.easing}` +
     `${a.delay ? ` · delay ${a.delay}ms` : ""}${a.direction && a.direction !== "normal" ? ` · ${a.direction}` : ""}${a.loop ? " · loop" : ""}`).join("\n")}` });
+  if (p.canvases.length) out.push({ id: "canvas", text: `## Canvas / WebGL scene (not extractable as code)\n` +
+    `${p.canvases.map((c) => `${sel(c.id)} <canvas> ${c.width}\u00d7${c.height}${c.library ? ` \u2014 ${c.library} detected` : ""}.`).join("\n")}\n` +
+    `A scene drawn at runtime has no HTML or CSS to capture \u2014 the pixels live on the GPU (WebGL) or come from canvas draw calls. ` +
+    (options.screenshots ? "The Screenshots section below shows the rendered frame; " : "Turn Screenshots on to capture the rendered frame; ") +
+    `rebuild the effect with the named library, or treat it as an image/video asset.` });
   if (p.platformNotes.length) out.push({ id: "platform", text: `## Platform notes\n${p.platformNotes.map((n) => `- ${n}`).join("\n")}` });
   if (p.sources.length) out.push({ id: "sources", text: `## Source locations (React dev build)\n${p.sources.map((s) => `${sel(s.id)} <${s.component}>  ${s.file}:${s.line}:${s.col}`).join("\n")}\n_Only on a dev build; production/minified sites have no debug source._` });
   if (p.props.length) out.push({ id: "props", text: `## Props (inferred from the React fiber)\n${p.props.map((pr) => `<${pr.name}>\n${pr.props.map((x) => `  ${x.key}: ${x.value} (${x.type})`).join("\n")}`).join("\n\n")}` });

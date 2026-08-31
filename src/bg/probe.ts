@@ -16,7 +16,7 @@ function pageProbe(): ProbeResult {
     .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const idxOf = (el: HTMLElement) => Number(el.dataset.cpTmp);
   const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], sources: [], props: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], canvases: [], sources: [], props: [] };
   if (!root) return out;
 
   // A guarded stringify: motion/GSAP vars hold MotionValues, functions and cyclic refs.
@@ -154,6 +154,27 @@ function pageProbe(): ProbeResult {
         loop: !!inst.loop, direction: String(inst.direction ?? ""), delay: Math.round(Number(inst.delay) || 0),
       });
     } catch { /* skip this instance quietly */ }
+  }
+
+  // ---- Canvas / WebGL: detect it, name it, and say plainly that it is not code (#91) ----
+  // A GPU scene cannot be captured as HTML/CSS. Pretending otherwise would be a lie; saying nothing
+  // leaves the user wondering why their capture is an empty <canvas>.
+  const three = (window as any).THREE;
+  const engineName = (c: HTMLCanvasElement) =>
+    // three.js stamps the canvas itself, which beats any global when a page runs more than one engine.
+    c.getAttribute("data-engine") ||
+    (three ? `three.js${three.REVISION ? ` r${three.REVISION}` : ""}` : "") ||
+    ((window as any).rive || (window as any).Rive ? "Rive" : "") ||
+    ((window as any).PIXI ? "PixiJS" : "") ||
+    ((window as any).BABYLON ? "Babylon.js" : "");
+  for (const c of document.querySelectorAll("canvas")) {
+    const host = hostOf(c);
+    if (!host || out.canvases.length >= 4) continue;
+    // ponytail: named globals and data-engine only, never getContext probing. Asking a canvas for a
+    // context it does not have CREATES one, and the page's own later getContext then fails. A raw
+    // WebGL canvas with no global reads as an unnamed canvas — still the honest note, just vaguer.
+    const r = c.getBoundingClientRect();
+    out.canvases.push({ id: idxOf(host), width: Math.round(r.width) || c.width, height: Math.round(r.height) || c.height, library: engineName(c) });
   }
 
   // ---- Platform: the builder behind the page ----

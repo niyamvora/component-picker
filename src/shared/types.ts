@@ -99,6 +99,14 @@ export interface AnimeInfo {
   loop: boolean; direction: string; delay: number;
 }
 
+/**
+ * A `<canvas>` in the picked subtree (#91).
+ *
+ * Not an extraction — a scene drawn at runtime has no HTML/CSS to capture. Recording it is what
+ * stops a capture from being a silently empty box. `library` is the engine when one was named.
+ */
+export interface CanvasScene { id: number; width: number; height: number; library: string }
+
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
   framework: string;
@@ -116,6 +124,8 @@ export interface ProbeResult {
   lottie: LottieInfo[];
   /** Running anime.js instances animating the subtree (#90). */
   anime: AnimeInfo[];
+  /** Canvases in the subtree, with the rendering library when one is detectable (#91). */
+  canvases: CanvasScene[];
   /** Source file locations from the React dev build's fiber, when present (#60). */
   sources: SourceLoc[];
   /** Inferred prop shape of picked components (#62). */

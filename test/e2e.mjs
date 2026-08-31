@@ -117,6 +117,12 @@ try {
         wrapper: card, name: "hero-loader", animationData: { v: "5.9.6", fr: 30, layers: [] },
         totalFrames: 60, frameRate: 30, loop: true,
       }] };
+      // #91 — a WebGL hero: only the THREE global is planted, so detection is what is under test
+      window.THREE = { REVISION: "160" };
+      const gl = document.createElement("canvas");
+      gl.width = 1280; gl.height = 640;
+      gl.style.cssText = "width:200px;height:100px;display:block";
+      card.appendChild(gl);
       // #90 — an anime.js instance animating a child of the card (matched via its captured ancestor)
       window.anime = { running: [{
         animatables: [{ target: card.querySelector(".btn") }],
@@ -173,6 +179,9 @@ try {
     "## Lottie", '"hero-loader"', "60 frames @ 30fps", "2.0s", '"fr":30',
     // #90 — anime.js: the animated properties, timing and easing of the running instance
     "## anime.js", "translateX, opacity", "800ms", "easeOutExpo", "delay 100ms", "alternate", "loop",
+    // #91 — the canvas is named, sized, and honestly declared not extractable
+    "## Canvas / WebGL scene (not extractable as code)", "<canvas> 200×100 — three.js r160 detected.",
+    "no HTML or CSS to capture", "treat it as an image/video asset",
     // #33 — the builder behind the page, named in the header and detailed in Platform notes
     "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container",
     // #60 source locations from the (fake) dev-build fiber
