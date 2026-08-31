@@ -37,7 +37,7 @@ export default function RecordPage() {
           What to record, in the order to record it
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground text-pretty">
-          Twelve scenes, about three and a half minutes, plus a fifteen-second silent loop for
+          Fourteen scenes, about four and a half minutes, plus a fifteen-second silent loop for
           the top of the site. Every scene below names its clip file — drop the file in{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">public/clips/</code>{" "}
           and the placeholder becomes the video.
@@ -88,7 +88,7 @@ export default function RecordPage() {
 
       <Separator />
 
-      {/* ── The twelve scenes ────────────────────────────────── */}
+      {/* ── The scenes ────────────────────────────────── */}
       <section className="flex flex-col gap-2">
         <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
           <Film className="size-5 text-primary" />

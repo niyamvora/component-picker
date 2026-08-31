@@ -73,20 +73,21 @@ export const scenes: Scene[] = [
   {
     id: "arm",
     t: "0:10 – 0:25",
-    title: "The dock — it is already there",
-    goal: "Since v1.6 the front door is a floating glass dock instead of a keyboard shortcut, and since v1.7 it is on every page without being summoned. Show it once, properly; every switch used later in the video lives behind its Settings button.",
+    title: "The dock and the panel",
+    goal: "Since v1.6 the front door is a floating glass dock instead of a keyboard shortcut, since v1.7 it is on every page without being summoned, and since v1.8 the toolbar click opens the side panel beside it. There is no popup any more.",
     steps: [
       "Load any page you have never used the extension on. **The dock is already up, bottom-centre.** No toolbar click, no shortcut — hold on that.",
       "**Still no crosshair.** That is the point of the change: the tool is mouse-discoverable now.",
       "Hover each icon left to right so the tooltips read: Pick, Fast, Measure, Copy image, Figma, Save to library, Settings, dismiss.",
-      "Click **Settings** — the glass drawer slides in from the right with every output toggle, the viewports, the library, and the current compare reference. Flip one, Esc, reopen: it stuck.",
+      "Click the toolbar icon: the **side panel** opens beside the page — last capture, Copy bundle, Download assets, Recent picks, Library, Compare reference, Output, Viewports, Your components, MCP bridge. This is where the old popup went.",
+      "Click **⚙ Settings** in the dock — the glass drawer slides in from the right with four groups: **Copy**, **Design**, **Capture options**, **Extension**. Open one; the last one closes.",
       "Same shot on a light page and a dark page back to back — the dock is theme-neutral dark glass and has to read on both.",
       "Press **Pick**. Now the cursor becomes a crosshair, a banner appears at the top and a breadcrumb bar at the bottom.",
     ],
     onScreen:
       "The dock on a cold page with a tooltip open, then the drawer, then the armed page with banner and breadcrumb.",
     still: "/shots/drawer.png",
-    issues: [69, 72, 73, 16],
+    issues: [69, 72, 73, 16, 94],
   },
   {
     id: "hover",
@@ -133,12 +134,49 @@ export const scenes: Scene[] = [
     issues: [17, 1],
   },
   {
-    id: "bundle",
-    t: "1:10 – 2:00",
-    title: "Paste — scroll the bundle",
-    goal: "The longest scene and the most important. Scroll at reading pace and pause a beat on every heading.",
+    id: "sections",
+    t: "1:10 – 1:45",
+    title: "Copy only the part you want",
+    goal: "The headline of v1.8, and the scene most likely to make someone install this. A capture used to be a 400 KB wall you pasted whole.",
     steps: [
-      "⌘V into the Markdown editor. Start at the top.",
+      "With the capture done, the drawer opens on **Copy**. Every section of that pick is listed with a checkbox — HTML, CSS, Tokens, States, Responsive, the rest.",
+      "Say the thing the panel says: the pick already put the **whole** capture on your clipboard. This button copies a *subset* — otherwise a two-section copy looks like the tool lost your data.",
+      "Expand **CSS** with its caret so the real rules unfold in place. That is the point: you can see what a section holds before deciding to take it.",
+      "Type in the prompt line: `rebuild this in our Next.js project`. The output box below updates **as you type** — hold on that.",
+      "Click **none**, then tick just **HTML** and **CSS**. Watch the box shrink to match.",
+      "**Copy selected.** It reports the section count and the KB.",
+      "Paste into Claude Code. Let the camera sit on how short it is.",
+      "If you shot this with a compare reference set, point out that **Compared with reference** stayed ticked on its own — it is the one thing you set the reference up to get, so it is never dropped.",
+    ],
+    onScreen:
+      "The prompt line, the live output box and the checkboxes in one frame. The live update is the whole scene — do not cut away from it.",
+    still: "/shots/drawer.png",
+    issues: [79, 80, 81, 82, 83],
+  },
+  {
+    id: "design",
+    t: "1:45 – 2:05",
+    title: "See the design, do not read it",
+    goal: "Everything here is drawn from data the capture already had. It is presentation, and it is the part that looks like nothing else in this category.",
+    steps: [
+      "Open the drawer's **Design** group.",
+      "**Colours** are chips, not hex codes. Click one — the exact value is on the clipboard. Find a translucent one so the checkerboard behind it reads.",
+      "**Type**: each captured style as an `Aa` in its real family, weight and size, beside its metrics.",
+      "**Spacing**: proportional bars. Say the grid out loud — this is a 4px scale, and you can see it.",
+      "**Easing**: put a `linear` card and a `cubic-bezier` card in the same frame. The straight diagonal against the S-curve is the argument.",
+    ],
+    onScreen:
+      "One slow pan down the open Design group. No commentary needed until the easing curves.",
+    still: "/shots/design.png",
+    issues: [84, 85, 86, 87],
+  },
+  {
+    id: "bundle",
+    t: "2:05 – 2:50",
+    title: "Or take the whole thing",
+    goal: "When you do want everything. The longest scene: scroll at reading pace and pause a beat on every heading — the length of the bundle IS the argument for the previous scene.",
+    steps: [
+      "Side panel → **Copy bundle**, then ⌘V into the Markdown editor. Start at the top.",
       "**Header** — URL, size, viewport, framework + component chain, `UI: Base UI + Tailwind v4`, platform, icons.",
       "**Context** — three ancestors and the sibling boxes.",
       "**HTML** — `data-cp` ids linking nodes to the CSS below.",
@@ -148,19 +186,20 @@ export const scenes: Scene[] = [
       "**Theme: light (diff vs dark)**, **Tokens used**, **Palette and type**, **Fonts**.",
       "**Animations**, **Accessibility** (pause on a ⚠ contrast line), **Screenshots**.",
       "If you shot this on your own dev build: **Source locations** (`src/components/Card.tsx:12:4`) and **Props (inferred from the React fiber)**.",
+      "If the pick had motion: **Lottie** (with its JSON), **anime.js**, **GSAP** with its ScrollTrigger line, or the honest `## Canvas / WebGL scene (not extractable as code)` note.",
       "End on the `## Component (JSX)` block.",
     ],
     onScreen: "One continuous scroll. No cuts — the length of the bundle IS the argument.",
-    issues: [2, 3, 5, 8, 9, 10, 11, 12, 13, 15, 29, 40, 41, 47, 60, 62],
+    issues: [2, 3, 5, 8, 9, 10, 11, 12, 13, 15, 29, 40, 41, 47, 60, 62, 89, 90, 91, 92],
   },
   {
     id: "fast",
-    t: "2:00 – 2:12",
+    t: "2:50 – 3:02",
     title: "Fast mode — kill the bar",
     goal: "The single best A/B shot in the video. One take, no cut between the two captures.",
     steps: [
       "Capture normally. Debugger bar, two seconds.",
-      "Popup → **Fast mode** on.",
+      "Flip **Fast** in the dock — the lightning bolt lights up.",
       "Capture the same element again. No bar. Near-instant.",
       "Put both bundles side by side: HTML, CSS, tokens, animations and a11y are all still there.",
     ],
@@ -169,7 +208,7 @@ export const scenes: Scene[] = [
   },
   {
     id: "panel",
-    t: "2:12 – 2:25",
+    t: "3:02 – 3:15",
     title: "Side panel — verify before you paste",
     goal: "Show the capture is provably faithful, not just plausible.",
     steps: [
@@ -177,14 +216,14 @@ export const scenes: Scene[] = [
       "The panel renders the component from the bundle alone — no page CSS.",
       "Drag the window to mobile width; both reflow the same way.",
       "Click **Download assets**, unzip on camera: the image, the font, and HTML rewritten to local paths.",
-      "Then the popup's **Studio**: save this pick with a name, and show the thumbnail land in the library.",
+      "Then the side panel's **Library**: **+ save latest**, name the pick, and show the thumbnail land.",
     ],
     onScreen: "The real component and the rebuilt one in the same frame, matching.",
     issues: [20, 44, 65],
   },
   {
     id: "compare",
-    t: "2:25 – 2:40",
+    t: "4:05 – 4:20",
     title: "The fix-it loop — R",
     goal: "This is the loop the review team ran by hand all day. Show it collapse into two picks.",
     steps: [
@@ -198,7 +237,7 @@ export const scenes: Scene[] = [
   },
   {
     id: "payoff",
-    t: "2:40 – 3:00",
+    t: "3:30 – 3:50",
     title: "The payoff — paste into the agent",
     goal: "Everything before this was mechanism. This is the reason.",
     steps: [
@@ -212,12 +251,12 @@ export const scenes: Scene[] = [
   },
   {
     id: "mcp",
-    t: "3:00 – 3:15",
+    t: "3:50 – 4:05",
     title: "MCP — no paste at all",
     goal: "The “oh” moment for anyone already running agents.",
     steps: [
       "Terminal visible: `npx component-picker-mcp`.",
-      "Popup → **MCP bridge** on. The badge appears.",
+      "Side panel → **MCP bridge (advanced)** → on. The badge appears.",
       "In Claude Code, ask it to pick a component. **The picker arms by itself** — hold on that.",
       "Click an element. Cut to the agent's transcript with the bundle already in it.",
       "Second take, faster: Esc out of the picker, then just hold **Alt/Option** and click. Same result, no arming step.",
@@ -227,7 +266,7 @@ export const scenes: Scene[] = [
   },
   {
     id: "close",
-    t: "3:15 – 3:30",
+    t: "4:05 – 4:20",
     title: "Close",
     goal: "One claim, stated plainly, that no competitor can repeat.",
     steps: [

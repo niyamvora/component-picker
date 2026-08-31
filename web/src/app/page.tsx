@@ -7,6 +7,7 @@ import {
   Gauge,
   Layers,
   LayoutDashboard,
+  ListChecks,
   MousePointerClick,
   Palette,
   Smartphone,
@@ -32,7 +33,7 @@ import { REPO, VERSION } from "@/data/types";
 const stats = [
   { k: String(issues.length), v: "issues filed" },
   { k: String(shipped.length), v: "shipped and closed" },
-  { k: "24", v: "bundle sections" },
+  { k: "25", v: "bundle sections" },
   { k: "0", v: "network calls" },
   { k: "MIT", v: "free, and staying free" },
 ];
@@ -69,10 +70,18 @@ const capture = [
   },
   {
     icon: LayoutDashboard,
-    title: "A front door, since v1.6",
-    body: "A frosted dock at the bottom of the page — Pick, Fast, Measure, Copy image, Figma, Save — and a settings drawer. No more guessing that G copies for Figma.",
-    n: [69],
+    title: "A front door, not a shortcut",
+    body: "A frosted dock on every page — Pick, Fast, Measure, Copy image, Figma, Save, Compare — a drawer behind the gear, and a side panel where the popup used to be.",
+    n: [69, 72, 94],
     clip: "dock",
+  },
+  {
+    icon: ListChecks,
+    title: "Copy the part you want",
+    body: "Tick the sections, type a prompt, watch the output box update as you type. A targeted paste instead of a 400 KB wall — and the drawer draws the palette, type, spacing and easing rather than quoting them.",
+    n: [82, 85, 87],
+    className: "md:col-span-2",
+    clip: "sections",
   },
   {
     icon: Sparkles,
@@ -195,7 +204,7 @@ export default function Home() {
             one pick
           </Badge>
           <h2 className="max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Twenty-four sections, and every one of them was an issue
+            Twenty-five sections, and every one of them was an issue
           </h2>
           <p className="max-w-2xl text-muted-foreground">
             Nothing here was designed up front. Every section below exists because a specific
