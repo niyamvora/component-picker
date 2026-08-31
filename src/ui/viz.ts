@@ -21,6 +21,7 @@ const CHECKER = "conic-gradient(rgba(255,255,255,.22) 0 25%, rgba(0,0,0,.3) 0 50
 export function visualise(section: CaptureSection): HTMLElement | null {
   if (section.id === "palette") return paletteViz(section.body);
   if (section.id === "tokens") return tokenChips(parseTokens(section.body));
+  if (section.id === "fonts") return typeSpecimens(section.body.split("\n"));
   return null;
 }
 
@@ -44,8 +45,10 @@ const lineOf = (body: string, prefix: string) => body.split("\n").find((l) => l.
 
 function paletteViz(body: string): HTMLElement | null {
   const colours = parsePaletteLine(lineOf(body, "Colours:"));
+  const spacing = parsePaletteLine(lineOf(body, "Spacing:"));
   const box = el("div", "padding:4px 0");
   if (colours.length) box.append(colourStrip(colours));
+  if (spacing.length) box.append(spacingBars(spacing, /\(multiples of[^)]*\)/.exec(body)?.[0] ?? ""));
   return box.childElementCount ? box : null;
 }
 
@@ -93,6 +96,51 @@ export function tokenChips(tokens: { name: string; value: string }[]): HTMLEleme
     row.addEventListener("click", () => flash(row, `var(${t.name})`));
     list.append(row);
   }
+  return list;
+}
+
+// ---------- type and spacing (#86) ----------
+
+/**
+ * `- Georgia 700 — 24px/normal (h2.title)` into something renderable.
+ *
+ * The family can be several words (`Helvetica Neue`), so the weight — always numeric in a computed
+ * style — is what separates it from the metrics. Lines that are not a style (`- Font stylesheets:`)
+ * simply do not match.
+ */
+export function parseFontLine(line: string): { family: string; weight: number; size: number; lineHeight: string } | null {
+  const m = /^-\s+(.+?)\s+(\d{2,4})\s+—\s+([\d.]+)px\/(\S+)/.exec(line.trim());
+  return m ? { family: m[1], weight: Number(m[2]), size: parseFloat(m[3]), lineHeight: m[4] } : null;
+}
+
+/** A font list reads as trivia; an `Aa` at size in that face is the typography. */
+export function typeSpecimens(lines: string[]): HTMLElement | null {
+  const fonts = lines.map(parseFontLine).filter((f): f is NonNullable<typeof f> => !!f);
+  if (!fonts.length) return null;
+  const list = el("div", "padding:4px 0");
+  for (const f of fonts) {
+    const row = el("div", "display:flex;align-items:baseline;gap:10px;padding:4px 0");
+    // Capped, or a 96px hero headline pushes everything else out of a 300px drawer.
+    row.append(Object.assign(el("span", `flex:none;font-family:${f.family},serif;font-weight:${f.weight};font-size:${Math.min(f.size, 28)}px;line-height:1.1;color:#f5f5f7`), { textContent: "Aa" }));
+    row.append(Object.assign(el("span", `flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:${DIM}`), {
+      textContent: `${f.family} ${f.weight} — ${f.size}px/${f.lineHeight}`,
+    }));
+    list.append(row);
+  }
+  return list;
+}
+
+/** Spacing values as proportional bars: the 4px/8px grid is a shape, not a list of numbers. */
+export function spacingBars(values: { value: string; count: number }[], note = ""): HTMLElement {
+  const list = el("div", "padding:6px 0");
+  for (const v of values) {
+    const px = parseFloat(v.value);
+    const row = el("div", "display:flex;align-items:center;gap:8px;padding:2px 0");
+    row.append(Object.assign(el("span", `flex:none;width:44px;text-align:right;font:11px/1.4 ${MONO};color:${DIM}`), { textContent: v.value }));
+    row.append(el("span", `flex:none;height:8px;border-radius:4px;background:${ACCENT};opacity:.6;width:${Math.min(px * 4, 160)}px`));
+    list.append(row);
+  }
+  if (note) list.append(Object.assign(el("div", `font-size:11px;color:${DIM};padding-top:4px`), { textContent: note }));
   return list;
 }
 

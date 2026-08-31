@@ -122,6 +122,12 @@
       && spacings.every((s) => /^[\d.]+px$/.test(s.value))
       && tokenList.some((t) => t.name === "--panel" && t.value === "rgb(250, 250, 250)")
       && tokenList.every((t) => !t.value.endsWith(";"));
+    // #86 — a font line becomes a specimen's family/weight/size; the non-style lines do not
+    const georgia = window.__cp.ui.parseFont("- Georgia 700 — 24px/normal (h2.title)");
+    const typeOk = georgia.family === "Georgia" && georgia.weight === 700 && georgia.size === 24 && georgia.lineHeight === "normal"
+      && window.__cp.ui.parseFont("- Helvetica Neue 400 — 13.5px/20px (p)").family === "Helvetica Neue"
+      && window.__cp.ui.parseFont("- Font stylesheets: https://x/y.css") === null
+      && window.__cp.ui.parseFont("- 1 @font-face rule(s) omitted — set `x` to include them.") === null;
     // #83 — the selection round-trips per host, one entry per host, oldest dropped past 50
     const { remember, recall } = window.__cp.ui;
     const twoHosts = remember("b.com", ["css"], remember("a.com", ["html"], []));
@@ -221,6 +227,7 @@
     if (!asmOk) fails.push("#82 assembleSelection did not return prompt + only the checked sections");
     if (!memOk) fails.push("#83 the per-site selection did not round-trip, or the 50-host cap failed");
     if (!vizOk) fails.push("#85 the palette/token lines did not parse into swatch values and counts");
+    if (!typeOk) fails.push("#86 a font line did not parse into a specimen, or a non-style line did");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
