@@ -25,12 +25,12 @@ import { Timeline } from "@/components/ui/timeline";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 import { VideoSlot } from "@/components/site/video-slot";
-import { issues, issuesInTier, openIssues, tiers } from "@/data/issues";
-import { REPO } from "@/data/types";
+import { issues, issuesInTier, openIssues, shipped, tiers } from "@/data/issues";
+import { REPO, VERSION } from "@/data/types";
 
 const stats = [
-  { k: "59", v: "issues, five tiers" },
-  { k: "51", v: "shipped and closed" },
+  { k: String(issues.length), v: "issues filed" },
+  { k: String(shipped.length), v: "shipped and closed" },
   { k: "24", v: "bundle sections" },
   { k: "0", v: "network calls" },
 ];
@@ -107,7 +107,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-6 text-center">
           <Badge variant="outline" className="glass h-7 gap-2 px-3 font-mono text-[11px]">
             <span className="size-1.5 rounded-full bg-lime" />
-            v1.4.1 · 51 of 59 issues shipped
+            v{VERSION} · {shipped.length} of {issues.length} issues shipped
           </Badge>
 
           <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
@@ -230,7 +230,7 @@ export default function Home() {
       {/* ── The tier timeline ────────────────────────────────── */}
       <section id="tiers">
         <Timeline
-          heading="Five tiers, in the order they had to happen"
+          heading="Ten milestones, in the order they had to happen"
           subheading="Correctness first — a wrong capture is worse than a missing one — then the sections that save the reader the most time, then the ground nobody else is standing on."
           data={tiers
             .filter((t) => t.id !== "meta")
@@ -310,8 +310,8 @@ export default function Home() {
               What is still open
             </h2>
             <p className="text-sm text-muted-foreground">
-              {openIssues.length} of {issues.length}. One of them — publishing to the Web Store —
-              needs a person and a paid developer account, not code.
+              {openIssues.length} of {issues.length}. Two of them are the same thing: the Web Store
+              listing needs a person and a paid developer account, not code.
             </p>
           </div>
           <ul className="flex flex-1 flex-col gap-2">
