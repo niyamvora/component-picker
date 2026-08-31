@@ -129,13 +129,17 @@ async function saveToLibrary(entry: import("../shared/types").LibraryEntry) {
   const next = [entry, ...(library as import("../shared/types").LibraryEntry[])].slice(0, MAX_LIBRARY);
   await chrome.storage.local.set({ library: next });
 }
-/** Save the most recent pick (from history) to the library — the dock's bookmark button. */
-async function saveLastToLibrary() {
+/**
+ * Save the most recent pick (from history) to the library — the dock's bookmark button.
+ * Reports what happened: the button leaves nothing on screen, so silence reads as broken.
+ */
+async function saveLastToLibrary(): Promise<{ saved: boolean; name?: string }> {
   const { history = [], preview } = await chrome.storage.local.get(["history", "preview"]);
   const h = (history as HistoryEntry[])[0];
-  if (!h) return;
+  if (!h) return { saved: false };
   const thumb = (preview as { shot?: string } | undefined)?.shot;
   await saveToLibrary({ id: `${Date.now()}`, name: h.label, host: h.host, url: "", at: h.at, bundle: h.bundle, thumb: thumb ? `data:image/png;base64,${thumb}` : undefined });
+  return { saved: true, name: h.label };
 }
 
 async function deleteFromLibrary(id: string) {

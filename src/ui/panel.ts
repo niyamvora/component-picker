@@ -133,7 +133,8 @@ async function renderReference() {
   const { reference } = await chrome.storage.session.get("reference");
   const ref = reference as Reference | undefined;
   if (!ref) {
-    host.append(emptyLine("None. Use the compare button in the page dock, then pick the component to compare against."));
+    host.append(emptyLine("None set. Compare diffs a later capture against an earlier one — how someone else built it versus how you did."));
+    host.append(emptyLine("1. Click the compare button in the page dock (it lights up). 2. Pick the component to measure against. 3. Go anywhere, even another site, and pick again — that capture carries the differences."));
     return;
   }
   const row = document.createElement("div");
@@ -143,6 +144,7 @@ async function renderReference() {
   clear.addEventListener("click", async () => { await chrome.runtime.sendMessage({ type: "clear-reference" }); renderReference(); });
   row.append(what, clear);
   host.append(row);
+  host.append(emptyLine("Every capture from now on — any tab, any site — carries a “Compared with reference” section. Lasts until you clear it or close the browser."));
 }
 
 async function renderHistory() {

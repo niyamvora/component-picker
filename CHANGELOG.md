@@ -11,6 +11,14 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Hover tooltips on the dock.** A row of nine unlabelled glyphs was a guessing game. Each button now shows its name and a line explaining what it does, on hover and on keyboard focus — including the bookmark, which saves the most recent capture to the library in the side panel. Toggles say which way they are currently set, and the tooltip under the cursor updates the moment you click.
+- **Save-to-library now says what happened.** The bookmark button reported nothing at all, so with no pick yet it was indistinguishable from broken. It confirms the name it saved, or says there is nothing to save yet.
+
+### Fixed
+- **The drawer's Copy selected silently dropped the compare section.** The section list defaults to HTML + CSS, so a capture taken against a compare reference copied without the comparison — the one thing you set the reference up to get. A comparison exists only because a reference was deliberately set, so it is now always ticked when the capture has one. The Copy group also says outright that picking already put the whole capture on the clipboard and that this button copies a subset, which is the part that made a two-section copy look like data loss.
+- **Explained how compare works**, in the side panel: what it does, the three steps to set it up, and that it lasts across tabs and sites until cleared or the browser closes.
+
 ## [1.8.0] — 2026-08-31
 
 ### Changed

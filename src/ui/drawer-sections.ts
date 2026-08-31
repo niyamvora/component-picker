@@ -101,6 +101,9 @@ export async function mountSections(host: HTMLElement) {
   const wanted = recallSelection(location.host, store) ?? DEFAULT_SELECTION;
   selected.clear();
   for (const s of sections) if (wanted.includes(s.id)) selected.add(s.id);
+  // A comparison exists only because a reference was deliberately set, so it is never the thing you
+  // meant to leave out — tick it even when this host's remembered selection predates it.
+  if (sections.some((s) => s.id === "compare")) selected.add("compare");
 
   // The output box comes first: what you are about to copy, then the switches that decide it.
   const { box, refresh } = copyBox(sections, () => [...selected]);
@@ -146,7 +149,12 @@ export function copyBox(sections: CaptureSection[], getSelected: () => string[])
   const out = el("pre", `margin:8px 0;padding:8px;border-radius:8px;background:rgba(0,0,0,.3);font:11px/1.45 ${MONO};max-height:160px;overflow:auto;scrollbar-width:thin;white-space:pre-wrap;overflow-wrap:anywhere;color:rgba(245,245,247,.85)`);
   const button = el("button", "all:unset;display:block;width:100%;box-sizing:border-box;text-align:center;padding:8px 0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600");
   const status = el("div", `font-size:11px;color:${DIM};min-height:15px;padding-top:4px;text-align:center`);
-  box.append(prompt, out, button, status);
+  // The full bundle went to the clipboard the moment you picked. Without saying so, a copy of two
+  // ticked sections reads as the tool having dropped everything else.
+  const explain = Object.assign(el("div", `font-size:11px;color:${DIM};padding:2px 0 6px`), {
+    textContent: "Picking already copied the whole capture. This copies only the sections you tick.",
+  });
+  box.append(explain, prompt, out, button, status);
 
   const refresh = () => {
     const ids = new Set(getSelected());

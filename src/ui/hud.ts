@@ -30,11 +30,18 @@ let dock: HTMLDivElement | null = null;
 let drawer: HTMLDivElement | null = null;
 let hudStyle: HTMLStyleElement | null = null;
 
-interface Action { icon: string; label: string; run: () => void; toggle?: () => boolean }
+/** `hint` may be a function so a toggle's tooltip can say which way it is currently set. */
+interface Action { icon: string; label: string; hint?: Hint; run: () => void; toggle?: () => boolean }
+type Hint = string | (() => string);
+const read = (h?: Hint) => (typeof h === "function" ? h() : h);
 
 /** Toggle buttons repaint from state that other modules own, so the dock needs a way to re-read it. */
 const toggles: { button: HTMLButtonElement; read: () => boolean }[] = [];
-export const refreshDock = () => { for (const t of toggles) t.button.dataset.on = String(t.read()); };
+export const refreshDock = () => {
+  for (const t of toggles) t.button.dataset.on = String(t.read());
+  // A tooltip open under the cursor is describing state that just changed.
+  if (shown) showTip(shown.button, shown.label, shown.hint);
+};
 
 /** Mount the dock with the given actions. Idempotent. */
 export function showDock(actions: Action[]) {
@@ -42,15 +49,15 @@ export function showDock(actions: Action[]) {
   toggles.length = 0;
   dock = el("div", `position:fixed;z-index:2147483646;left:50%;bottom:20px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;border-radius:16px;font:13px/1 -apple-system,system-ui,sans-serif;${GLASS}`);
   for (const a of actions) {
-    const b = iconButton(a.icon, a.label);
+    const b = iconButton(a.icon, a.label, a.hint);
     if (a.toggle) { b.dataset.on = String(a.toggle()); toggles.push({ button: b, read: a.toggle }); }
     b.addEventListener("click", () => { a.run(); refreshDock(); });
     dock.append(b);
   }
   dock.append(divider());
-  const gear = iconButton(ICONS.sliders, "Settings");
+  const gear = iconButton(ICONS.sliders, "Settings", "Sections to copy, the design visualizations, and what the next capture includes");
   gear.addEventListener("click", toggleDrawer);
-  const close = iconButton(ICONS.x, "Hide toolbar");
+  const close = iconButton(ICONS.x, "Hide toolbar", "Bring it back from the extension's toolbar icon");
   close.addEventListener("click", hideDock);
   dock.append(gear, close);
   hudStyle = Object.assign(el("style", ""), { textContent: HUD_CSS });
@@ -66,6 +73,7 @@ export const dockClearance = () => (dock ? Math.round(dock.getBoundingClientRect
 export function hideDock() {
   dock?.remove(); dock = null;
   hudStyle?.remove(); hudStyle = null;
+  tipEl?.remove(); tipEl = null; shown = null;
   closeDrawer();
 }
 
@@ -77,20 +85,57 @@ export const el = <K extends keyof HTMLElementTagNameMap>(tag: K, css: string): 
   return d;
 };
 
-function iconButton(icon: string, label: string): HTMLButtonElement {
+function iconButton(icon: string, label: string, hint?: Hint): HTMLButtonElement {
   const b = document.createElement("button");
   b.setAttribute(UI, "");
-  b.title = label;
+  // aria-label rather than title: the native tooltip would arrive a second late, in the OS's own
+  // styling, on top of the one below. The accessible name still has to be here.
+  b.setAttribute("aria-label", label);
   b.innerHTML = icon;
   b.style.cssText = "all:unset;display:grid;place-items:center;width:38px;height:38px;border-radius:11px;color:rgba(245,245,247,.72);cursor:pointer;transition:background .15s,color .15s,transform .15s";
-  b.addEventListener("mouseenter", () => { b.style.background = "rgba(255,255,255,.12)"; b.style.color = "#fff"; b.style.transform = "translateY(-1px)"; });
-  b.addEventListener("mouseleave", () => { b.style.background = b.dataset.on === "true" ? "rgba(37,99,235,.9)" : "transparent"; b.style.color = b.dataset.on === "true" ? "#fff" : "rgba(245,245,247,.72)"; b.style.transform = "none"; });
+  b.addEventListener("mouseenter", () => { b.style.background = "rgba(255,255,255,.12)"; b.style.color = "#fff"; b.style.transform = "translateY(-1px)"; showTip(b, label, hint); });
+  b.addEventListener("mouseleave", () => { b.style.background = b.dataset.on === "true" ? "rgba(37,99,235,.9)" : "transparent"; b.style.color = b.dataset.on === "true" ? "#fff" : "rgba(245,245,247,.72)"; b.style.transform = "none"; hideTip(); });
+  // Keyboard users get the same explanation the pointer does.
+  b.addEventListener("focus", () => showTip(b, label, hint));
+  b.addEventListener("blur", hideTip);
   const paint = () => { b.style.background = b.dataset.on === "true" ? "rgba(37,99,235,.9)" : "transparent"; b.style.color = b.dataset.on === "true" ? "#fff" : "rgba(245,245,247,.72)"; };
   new MutationObserver(paint).observe(b, { attributes: true, attributeFilter: ["data-on"] });
   return b;
 }
 
 const divider = () => el("div", "width:1px;height:22px;background:rgba(255,255,255,.14);margin:0 3px");
+
+// ---------- tooltips ----------
+// A row of nine unlabelled glyphs is a guessing game, and the native `title` tooltip arrives a
+// second late in the OS's own styling. One bubble is shared: there are nine buttons and one pointer.
+
+let tipEl: HTMLDivElement | null = null;
+let shown: { button: HTMLElement; label: string; hint?: Hint } | null = null;
+
+function showTip(button: HTMLElement, label: string, hint?: Hint) {
+  if (!dock) return; // the toolbar can be torn down by the very click that would show this
+  tipEl ??= el("div", `position:fixed;z-index:2147483647;left:0;top:0;pointer-events:none;opacity:0;` +
+    `transition:opacity .12s;padding:6px 10px;border-radius:9px;max-width:min(300px,80vw);${GLASS}`);
+  tipEl.setAttribute("role", "tooltip");
+  tipEl.textContent = "";
+  tipEl.append(Object.assign(el("div", "font:600 12px/1.4 -apple-system,system-ui,sans-serif"), { textContent: label }));
+  const text = read(hint);
+  if (text) tipEl.append(Object.assign(el("div", "font:12px/1.4 -apple-system,system-ui,sans-serif;color:rgba(245,245,247,.7);margin-top:2px"), { textContent: text }));
+  if (!tipEl.isConnected) document.documentElement.append(tipEl);
+  // Measured after filling: a two-line hint has to be centred on the button at its real width.
+  const anchor = button.getBoundingClientRect();
+  const box = tipEl.getBoundingClientRect();
+  const left = anchor.left + anchor.width / 2 - box.width / 2;
+  tipEl.style.left = `${Math.round(Math.max(8, Math.min(left, innerWidth - box.width - 8)))}px`;
+  tipEl.style.top = `${Math.round(Math.max(8, anchor.top - box.height - 8))}px`;
+  tipEl.style.opacity = "1";
+  shown = { button, label, hint };
+}
+
+function hideTip() {
+  if (tipEl) tipEl.style.opacity = "0";
+  shown = null;
+}
 
 function toggleDrawer() {
   if (drawer) { closeDrawer(); return; }

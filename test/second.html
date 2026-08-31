@@ -1,0 +1,19 @@
+<!doctype html>
+<html class="light">
+<meta charset="utf-8">
+<title>Second page — compare target</title>
+<!--
+  A different URL from fixture.html, so the e2e can prove the compare reference survives a
+  navigation: set it on one page, pick on another, and the capture must carry the diff.
+  Deliberately close to the fixture's card but not identical — a real rebuild never is.
+-->
+<style>
+  .card { display: flex; flex-direction: column; gap: 10px; border: 1px solid #ccc; border-radius: 6px; width: 300px; font-family: Georgia; color: rgb(17, 24, 39); }
+</style>
+<div id="card" class="card">
+  <h2>Hello</h2>
+  <button>Go</button>
+  <a href="/rel">rel link</a>
+</div>
+<pre id="result">SECOND</pre>
+<script>window.__cpNoAutostart = true;</script>

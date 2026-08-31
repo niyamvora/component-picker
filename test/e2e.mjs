@@ -162,6 +162,28 @@ try {
     } });
     return r.result;
   })()`);
+  // The reference is meant to outlive the page it was taken on: set it on one page, navigate, pick
+  // there, and the capture must carry the diff. Set through the real `set-reference` message from
+  // the page — the same one the R key and the dock's compare button send — not by writing storage.
+  const crossPage = await evaluate(`(async () => {
+    const [tab] = await chrome.tabs.query({});
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => chrome.runtime.sendMessage({
+      type: "set-reference",
+      reference: { blocks: window.__cp.lastBlocks(), label: "div#card.card", url: location.href, at: Date.now() },
+    }) });
+    await chrome.tabs.update(tab.id, { url: "http://localhost:${PORT}/test/second.html" });
+    for (let i = 0; i < 60; i++) {
+      const t = await chrome.tabs.get(tab.id);
+      if (t.status === "complete" && t.url.includes("second.html")) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["picker.js"] });
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
+      window.__cp.stop();
+      return window.__cp.extract(document.querySelector("#card"));
+    } });
+    return r.result;
+  })()`);
   ws.close();
 
   const section = (name, next) => md.slice(md.indexOf(name), next ? md.indexOf(next) : undefined);
@@ -200,6 +222,14 @@ try {
     fails.push("second capture is missing the comparison against the stored reference");
   if (!/border-radius: 2px;\s+\/\* reference: 8px \*\//.test(compared))
     fails.push("comparison does not carry the reference value for a changed property");
+  // A reference set on one page must still apply after navigating to another one.
+  if (!crossPage.includes("## Compared with reference"))
+    fails.push("the compare reference did not survive a navigation to another page");
+  if (!/## Compared with reference \(div#card\.card — localhost/.test(crossPage))
+    fails.push("the cross-page comparison does not name the reference it was diffed against");
+  const crossCmp = crossPage.slice(crossPage.indexOf("## Compared with reference"));
+  if (!/border-radius: 6px;\s+\/\* reference: /.test(crossCmp))
+    fails.push("the cross-page comparison carries no property diff against the reference");
   // #16 — stored options drive the capture: one custom viewport, no screenshots, no states.
   if (!compared.includes("## Responsive: phone 320×600 (DPR 2)")) fails.push("stored viewport list was ignored");
   if (compared.includes("## Screenshots")) fails.push("screenshots were captured with the option off");

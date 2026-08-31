@@ -120,7 +120,8 @@ let armed = false, hasReference = false;
 /** Lit when a reference is set, or while the next pick is going to become one. */
 export const referenceOn = () => armed || hasReference;
 
-const flash = (text: string) => { const t = toast(text); setTimeout(() => t.remove(), 3500); };
+/** A toast that clears itself — for dock buttons whose work leaves nothing on screen. */
+export const flash = (text: string) => { const t = toast(text); setTimeout(() => t.remove(), 3500); };
 
 /** The dock button: no reference → arm; armed → disarm; reference set → clear it. */
 export function toggleReference() {

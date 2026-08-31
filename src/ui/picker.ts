@@ -9,7 +9,7 @@ import { extract, extractMany } from "../core/bundle";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
-import { currentEl, isActive, referenceOn, start, stop, toggleReference } from "./handlers";
+import { currentEl, flash, isActive, referenceOn, start, stop, toggleReference } from "./handlers";
 import { showDock } from "./hud";
 import { assembleSelection, group, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";
 import { easingCurve, parseAnimations, parseFontLine, parsePaletteLine, parseTokens, visualise } from "./viz";
@@ -86,13 +86,31 @@ if (window.__cp) {
   // never in the test fixture (which sets __cpNoAutostart in the page world). The dock's Pick
   // button arms the crosshair; it does not auto-arm.
   const dockActions = () => [
-    { icon: ICONS.crosshair, label: "Pick a component", run: () => start() },
-    { icon: ICONS.zap, label: "Fast mode (no debugger)", run: () => { options.fast = !options.fast; }, toggle: () => options.fast },
-    { icon: ICONS.ruler, label: "Measure — then hover", run: () => start() },
-    { icon: ICONS.camera, label: "Copy image (pick first, then C)", run: () => start() },
-    { icon: ICONS.frame, label: "Copy for Figma (pick first, then G)", run: () => start() },
-    { icon: ICONS.compare, label: "Compare — pick a reference, then diff later picks against it", run: toggleReference, toggle: referenceOn },
-    { icon: ICONS.bookmark, label: "Save last to library", run: () => void chrome.runtime?.sendMessage?.({ type: "save-last-to-library" }) },
+    { icon: ICONS.crosshair, label: "Pick a component",
+      hint: "Click any element to copy it as an AI-ready bundle", run: () => start() },
+    { icon: ICONS.zap, label: "Fast mode",
+      hint: () => options.fast
+        ? "On — no debugger bar, and no viewport, state, theme or screenshot sections"
+        : "Off — viewports, states, themes and screenshots are captured via the debugger",
+      run: () => { options.fast = !options.fast; }, toggle: () => options.fast },
+    { icon: ICONS.ruler, label: "Measure",
+      hint: "Arms the picker; M then draws padding and margin bands as you hover", run: () => start() },
+    { icon: ICONS.camera, label: "Copy as image",
+      hint: "Arms the picker; press C over an element to put a PNG on the clipboard", run: () => start() },
+    { icon: ICONS.frame, label: "Copy for Figma",
+      hint: "Arms the picker; press G to copy SVG layers you can paste straight into Figma", run: () => start() },
+    { icon: ICONS.compare, label: "Compare reference",
+      hint: () => referenceOn()
+        ? "Set — every later pick carries a diff against it. Click to clear."
+        : "Click, then pick the component later captures should be diffed against",
+      run: toggleReference, toggle: referenceOn },
+    { icon: ICONS.bookmark, label: "Save last pick to library",
+      hint: "Keeps the most recent capture in the library, in the side panel",
+      run: () => void chrome.runtime?.sendMessage?.({ type: "save-last-to-library" })
+        ?.then((r: { saved?: boolean; name?: string } | undefined) => flash(r?.saved
+          ? `Saved "${r.name}" to the library`
+          : "Nothing to save yet — pick a component first"))
+        .catch(() => {}) },
   ];
   if (!window.__cpNoAutostart) {
     chrome.storage?.local?.get?.("options").then(({ options: o }) => {
