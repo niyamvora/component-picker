@@ -117,6 +117,12 @@ try {
         wrapper: card, name: "hero-loader", animationData: { v: "5.9.6", fr: 30, layers: [] },
         totalFrames: 60, frameRate: 30, loop: true,
       }] };
+      // #90 — an anime.js instance animating a child of the card (matched via its captured ancestor)
+      window.anime = { running: [{
+        animatables: [{ target: card.querySelector(".btn") }],
+        animations: [{ property: "translateX" }, { property: "opacity" }],
+        duration: 800, easing: "easeOutExpo", loop: true, direction: "alternate", delay: 100,
+      }] };
     } });
   })()`);
 
@@ -165,6 +171,8 @@ try {
     "## GSAP", '[data-cp="1"]', '"power2.out"', "0.6s", "(paused — likely scroll-driven)",
     // #89 — Lottie: the frame metadata and the animationData JSON itself
     "## Lottie", '"hero-loader"', "60 frames @ 30fps", "2.0s", '"fr":30',
+    // #90 — anime.js: the animated properties, timing and easing of the running instance
+    "## anime.js", "translateX, opacity", "800ms", "easeOutExpo", "delay 100ms", "alternate", "loop",
     // #33 — the builder behind the page, named in the header and detailed in Platform notes
     "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container",
     // #60 source locations from the (fake) dev-build fiber

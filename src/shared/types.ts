@@ -93,6 +93,12 @@ export interface LottieInfo {
   summary?: string;
 }
 
+/** A running anime.js instance touching the subtree (#90) — partial, but enough to describe the motion. */
+export interface AnimeInfo {
+  id: number; properties: string[]; duration: number; easing: string;
+  loop: boolean; direction: string; delay: number;
+}
+
 /** What the MAIN-world probe can see that an isolated content script cannot. */
 export interface ProbeResult {
   framework: string;
@@ -108,6 +114,8 @@ export interface ProbeResult {
   gsap: GsapTween[];
   /** Lottie animations on the subtree, with their full JSON where it fits (#89). */
   lottie: LottieInfo[];
+  /** Running anime.js instances animating the subtree (#90). */
+  anime: AnimeInfo[];
   /** Source file locations from the React dev build's fiber, when present (#60). */
   sources: SourceLoc[];
   /** Inferred prop shape of picked components (#62). */

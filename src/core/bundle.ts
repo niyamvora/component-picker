@@ -90,7 +90,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const anims = new Set(els.flatMap((el) => splitList(getComputedStyle(el).animationName)).filter((n) => n !== "none"));
   const kf = [...anims].map((n) => keyframes[n]).filter(Boolean);
   const font = fonts(els, fontFaces);
-  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap, lottie, sources, props } = await frameworkInfo(els);
+  const { framework, chain, handlers: js, platform, platformNotes, motion, gsap, lottie, anime, sources, props } = await frameworkInfo(els);
   const variants = variantsOf(root, els, desktop);
   const libs = libraries(els);
   const rootSrc = sources.find((x) => x.id === 0);
@@ -174,7 +174,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (assetUrlList.length) part("assets", `## Assets\n- ${assetUrlList.length} asset(s) referenced. Download them (with the HTML rewritten to local paths) from the extension's side panel.`);
   if (running) part("animations", running);
   if (scroll) part("scroll", scroll);
-  for (const s of frameworkSections({ motion, gsap, lottie, platformNotes, sources, props })) part(s.id, s.text);
+  for (const s of frameworkSections({ motion, gsap, lottie, anime, platformNotes, sources, props })) part(s.id, s.text);
   if (kf.length) part("keyframes", `## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   part("fonts", `## Fonts\n${font.lines.join("\n") || "- No text of its own."}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +

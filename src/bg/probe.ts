@@ -16,7 +16,7 @@ function pageProbe(): ProbeResult {
     .sort((a, b) => Number(a.dataset.cpTmp) - Number(b.dataset.cpTmp));
   const idxOf = (el: HTMLElement) => Number(el.dataset.cpTmp);
   const root = els[0];
-  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], sources: [], props: [] };
+  const out: ProbeResult = { framework: "not detected", chain: [], handlers: [], platformNotes: [], motion: [], gsap: [], lottie: [], anime: [], sources: [], props: [] };
   if (!root) return out;
 
   // A guarded stringify: motion/GSAP vars hold MotionValues, functions and cyclic refs.
@@ -138,6 +138,23 @@ function pageProbe(): ProbeResult {
     }
     for (const el of els) addLottie(el, (el as any).__lottie);
   } catch { /* players and versions differ; a miss is fine, a throw is not */ }
+
+  // ---- anime.js: what is running on the subtree right now (#90) ----
+  // v3 and v4 renamed enough internals that every read is worth its own try — a version this does
+  // not know should cost the section, not the capture.
+  for (const inst of ((window as any).anime?.running ?? []) as any[]) {
+    if (out.anime.length >= 20) break;
+    try {
+      const host = ((inst.animatables ?? []) as any[]).map((a) => hostOf(a?.target)).find(Boolean);
+      if (!host) continue;
+      const props = [...new Set(((inst.animations ?? []) as any[]).map((a) => a?.property).filter(Boolean))];
+      out.anime.push({
+        id: idxOf(host), properties: props.slice(0, 12) as string[],
+        duration: Math.round(Number(inst.duration) || 0), easing: String(inst.easing ?? ""),
+        loop: !!inst.loop, direction: String(inst.direction ?? ""), delay: Math.round(Number(inst.delay) || 0),
+      });
+    } catch { /* skip this instance quietly */ }
+  }
 
   // ---- Platform: the builder behind the page ----
   const has = (sel: string) => !!document.querySelector(sel);
