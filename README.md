@@ -11,7 +11,7 @@ and GSAP timelines · repeated cards collapsed to one + a data table · mapping 
 `<Button>`/`<Card>` · accessibility (roles, contrast, focus order) · element screenshots · and a
 ready-to-paste JSX/Vue/Svelte component. Everything runs locally — no network, no account.
 
-Current version: **1.4.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
+Current version: **1.5.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
 
 ## Layout
 
@@ -82,7 +82,7 @@ theme and screenshot sections (see [Firefox](#firefox) below). Everything else i
    from the bundle alone (with a **Download assets** button), and the popup keeps the last ten picks.
 
 Keys at a glance: **click/Enter** copy · **shift-click** add · **↑↓** parent/child · **E** edit ·
-**M** measure · **P** whole page · **F** freeze · **R** set reference · **Esc** exit.
+**C** copy image · **G** copy as Figma SVG · **M** measure · **P** whole page · **F** freeze · **R** set reference · **Esc** exit.
 
 ## What the bundle contains
 

@@ -93,9 +93,9 @@
     window.__cp.edit.revert();
     const editReverted = editApplied && editTarget.style.getPropertyValue("gap") === "";
     // #35/#36/#41/#40 — turn on the extra outputs and capture once more
-    Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true, vue: true, svelte: true, htmlCss: true });
+    Object.assign(window.__cp.opts, { tokensJson: true, tailwind: true, jsx: true, a11y: true, fast: true, vue: true, svelte: true, htmlCss: true, styled: true, cssModules: true });
     const full = await window.__cp.extract(document.getElementById("card"));
-    Object.assign(window.__cp.opts, { tokensJson: false, tailwind: false, jsx: false, fast: false, vue: false, svelte: false, htmlCss: false });
+    Object.assign(window.__cp.opts, { tokensJson: false, tailwind: false, jsx: false, fast: false, vue: false, svelte: false, htmlCss: false, styled: false, cssModules: false });
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -157,6 +157,8 @@
       "## Component (Vue SFC)", "<template>", "<style scoped>",      // #48
       "## Component (Svelte)",                                       // #48
       "## Palette and type", "Colours:",                            // #47
+      "## Component (styled-components)", "styled.div",              // #64 styled-components
+      "## CSS Modules", ".card {",                                  // #64 CSS Modules
     ];
     // #37 — the repeat list collapses to one row plus a table
     const listMust = ["## Repeated structure", "repeats 4×", "Starter", "$0",
