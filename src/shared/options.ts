@@ -16,6 +16,7 @@ export const DEFAULT_OPTIONS: Options = {
   jsx: false,
   a11y: true,
   fast: false,
+  dockEverywhere: true,
   extraMedia: false,
   vue: false,
   svelte: false,

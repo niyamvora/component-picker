@@ -24,6 +24,8 @@ const EXT = mkdtempSync(join(tmpdir(), "cp-ext-"));
 // panel, a popup) makes Chrome reject the extension outright.
 cpSync(join(ROOT, "dist"), EXT, { recursive: true });
 const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
+// Strip the all_urls content script so the test drives injection manually (no double-inject).
+delete manifest.content_scripts;
 writeFileSync(join(EXT, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${PORT}/*`] }));
 
 

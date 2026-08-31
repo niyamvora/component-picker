@@ -25,7 +25,14 @@ $<HTMLButtonElement>("#pick").addEventListener("click", async () => {
     $("#pick").textContent = "Not a page the picker can run on";
     return;
   }
-  await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["picker.js"] });
+  // The dock is usually already present (content script on every page). Ask it to start picking;
+  // if there is no receiver (a restricted page, or the host permission was declined), inject.
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: "start-pick" });
+  } catch {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["picker.js"] });
+    await chrome.tabs.sendMessage(tab.id, { type: "start-pick" }).catch(() => {});
+  }
   window.close();
 });
 

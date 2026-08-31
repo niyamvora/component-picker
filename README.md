@@ -11,7 +11,7 @@ and GSAP timelines · repeated cards collapsed to one + a data table · mapping 
 `<Button>`/`<Card>` · accessibility (roles, contrast, focus order) · element screenshots · and a
 ready-to-paste JSX/Vue/Svelte component. Everything runs locally — no network, no account.
 
-Current version: **1.6.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
+Current version: **1.7.0** ([releases](https://github.com/niyamvora/component-picker/releases)).
 
 ## Layout
 
@@ -54,6 +54,16 @@ minified, so what ships stays readable.
 Or download the zip from the [latest release](https://github.com/niyamvora/component-picker/releases/latest)
 and load that folder — no build needed.
 4. Optional: pin it from the puzzle-piece menu. Shortcut is **Alt+Shift+C** (change at `chrome://extensions/shortcuts`).
+
+The dock appears on **every page** by default (a content script on all sites — that's why Chrome
+asks for access to all sites; nothing leaves your browser). Turn it off with **Show dock on every
+page** in the drawer to go back to per-tab activation via the toolbar icon.
+
+**Incognito & other profiles:** Chrome won't let any extension enable its own incognito access or
+install itself across separate profiles — those are one-time user toggles. To use it in incognito:
+`chrome://extensions` → Component Picker → **Details** → **Allow in incognito**. In another Chrome
+profile, install it once there too. The extension is built `incognito: spanning`, so it works
+correctly as soon as you flip that toggle.
 
 Works in any Chromium browser (Chrome, Edge, Brave, Arc). **Firefox** is supported too — load
 `dist-firefox/` via `about:debugging` — but without `chrome.debugger` it drops the viewport, state,

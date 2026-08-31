@@ -43,6 +43,7 @@ if (window.__cp) {
   // The service worker asks for a measurement whenever it changes the viewport, forces a state,
   // or wants the other theme — which only the page itself can switch when a class drives it.
   chrome.runtime?.onMessage?.addListener((msg: Message, _sender, reply) => {
+    if (msg.type === "start-pick") { start(); reply?.({ ok: true }); return; }
     if (msg.type !== "snapshot") return;
     const job = msg.theme === "flip"
       ? snapshotOtherTheme(msg.settle ?? 400).then((s) => {
@@ -60,14 +61,20 @@ if (window.__cp) {
     last: "", opts: options, lastBlocks: blocksOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },
   };
-  // Toolbar-click injects this; show the glass dock rather than immediately arming the crosshair.
-  // The dock's Pick button arms it. (activeTab: the dock appears on the tab you activate, #69.)
-  if (!window.__cpNoAutostart) showDock([
+  // Shown on every page (a content script on <all_urls>, #72) unless the user turns it off, and
+  // never in the test fixture (which sets __cpNoAutostart in the page world). The dock's Pick
+  // button arms the crosshair; it does not auto-arm.
+  const dockActions = () => [
     { icon: ICONS.crosshair, label: "Pick a component", run: () => start() },
     { icon: ICONS.zap, label: "Fast mode (no debugger)", run: () => { options.fast = !options.fast; }, toggle: () => options.fast },
     { icon: ICONS.ruler, label: "Measure — then hover", run: () => start() },
     { icon: ICONS.camera, label: "Copy image (pick first, then C)", run: () => start() },
     { icon: ICONS.frame, label: "Copy for Figma (pick first, then G)", run: () => start() },
     { icon: ICONS.bookmark, label: "Save last to library", run: () => void chrome.runtime?.sendMessage?.({ type: "save-last-to-library" }) },
-  ]);
+  ];
+  if (!window.__cpNoAutostart) {
+    chrome.storage?.local?.get?.("options").then(({ options: o }) => {
+      if (!o || o.dockEverywhere !== false) showDock(dockActions());
+    }).catch(() => showDock(dockActions()));
+  }
 }
