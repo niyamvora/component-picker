@@ -77,10 +77,8 @@ export interface MeasureResult {
 /** A stored pick to diff later captures against (#14). */
 export interface Reference { blocks: Blocks; label: string; url: string; at: number }
 
-/** A Framer Motion component's declarative props, by element index (#30). */
+/** A Framer Motion component's props (#30) and a GSAP tween targeting the subtree (#31), by element index. */
 export interface MotionInfo { id: number; name: string; props: Record<string, string> }
-
-/** One GSAP tween that targets the picked subtree (#31). */
 export interface GsapTween { id: number; vars: string; duration: number; start: number; paused: boolean }
 
 /** What the MAIN-world probe can see that an isolated content script cannot. */
@@ -192,6 +190,7 @@ export type Message =
   | { type: "assets" }
   | { type: "screenshot" }
   | { type: "save-to-library"; entry: LibraryEntry }
+  | { type: "save-last-to-library" }
   | { type: "get-library" }
   | { type: "delete-from-library"; id: string }
   | { type: "clear-reference" }

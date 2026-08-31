@@ -57,6 +57,7 @@ chrome.runtime.onMessage.addListener((msg: Message, sender, reply) => {
     : msg.type === "screenshot" && tabId !== undefined ? screenshotElement(tabId)
     : msg.type === "remember" ? remember(msg.entry)
     : msg.type === "save-to-library" ? saveToLibrary(msg.entry)
+    : msg.type === "save-last-to-library" ? saveLastToLibrary()
     : msg.type === "get-library" ? chrome.storage.local.get("library").then((s) => s.library ?? [])
     : msg.type === "delete-from-library" ? deleteFromLibrary(msg.id)
     : msg.type === "picking" ? chrome.action.setBadgeText({ tabId, text: msg.on ? "ON" : "" })
@@ -116,6 +117,15 @@ async function saveToLibrary(entry: import("../shared/types").LibraryEntry) {
   const next = [entry, ...(library as import("../shared/types").LibraryEntry[])].slice(0, MAX_LIBRARY);
   await chrome.storage.local.set({ library: next });
 }
+/** Save the most recent pick (from history) to the library — the dock's bookmark button. */
+async function saveLastToLibrary() {
+  const { history = [], preview } = await chrome.storage.local.get(["history", "preview"]);
+  const h = (history as HistoryEntry[])[0];
+  if (!h) return;
+  const thumb = (preview as { shot?: string } | undefined)?.shot;
+  await saveToLibrary({ id: `${Date.now()}`, name: h.label, host: h.host, url: "", at: h.at, bundle: h.bundle, thumb: thumb ? `data:image/png;base64,${thumb}` : undefined });
+}
+
 async function deleteFromLibrary(id: string) {
   const { library = [] } = await chrome.storage.local.get("library");
   await chrome.storage.local.set({ library: (library as import("../shared/types").LibraryEntry[]).filter((e) => e.id !== id) });

@@ -56,3 +56,8 @@ export async function refreshOptions() {
   const stored = await loadOptions();
   if (stored) Object.assign(options, stored);
 }
+
+/** Persist the in-memory options to storage — the drawer writes through this. */
+export function saveOptions() {
+  try { void chrome.storage?.local?.set?.({ options }); } catch { /* not an extension context */ }
+}
