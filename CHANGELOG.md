@@ -11,6 +11,30 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-09-07
+
+Stage 5 (#102): an agent can read a page and rebuild it without a human clicking anything. The
+engine was already decoupled — `extract` takes an element, not a click — so most of this is
+exposure rather than new extraction. Prompted by an external review that spent forty minutes of
+Playwright re-deriving `core/rules`, `core/state`, `core/animations` and `core/tokens` to read one
+landing page.
+
+### Added
+- **`capture_selector`** (#103): the same bundle `pick_component` returns, addressed by CSS selector on the active tab, with no click and no human in the loop. Takes a list, so several components come back in one call. The bridge envelope grew from a boolean into a request object to carry parameters, and errors now travel back over the same channel and fail the waiting tool call instead of hanging until the timeout.
+- **`capture_page`** (#105): the whole tab, section by section, behind a table of contents. This is the `P` key's split, lifted out of the key handler so the bridge can reach it too — one function, two callers, so the key and the tool cannot drift. The per-section cap is what makes it usable: a twelve-section page yields twelve capped bundles rather than one bundle truncated at the first hero. The split now also picks up a header, nav or footer sitting outside `<main>`, and unwraps the single tall container common to Next.js pages.
+- **`capture_interaction`** (#104): runs hover, click, focus, leave or scroll **for real** and returns a timeline — what appeared (including popups mounted in a portal), what moved, and the resolved timing of everything that ran. Steps are a sequence, so `hover A → hover B` is one continuous recording; captured as two calls the transition between them would not exist. This is deliberately not the States section: `CSS.forcePseudoState` sets an end state without running a transition, so a popup that mounts, slides and settles was previously invisible. `getAnimations()` is the authoritative source — resolved keyframes and timing, read without the animation feeling it — and the samples are the observed path for script-driven motion, labelled as the fallback they are. The pointer is driven through the debugger, because a synthetic `mouseover` does not set `:hover` in Chrome and would report a subtly wrong component rather than an obviously incomplete one.
+- **`list_captures` and `get_capture`** (#110): the last ten picks and the saved library, by id. An agent can now consume picks the user made at the browser without re-arming anything. `last_capture` stays, scoped to the session.
+- **Tailwind v4 variant rules, decoded** (#107): on a Tailwind v4 site the variant utilities *are* the animation, and nothing in a capture carried them — `.data-starting-style\:scale-90[data-starting-style]` is not a `:hover` rule, and the attribute it keys off is absent at rest, so neither the source-rules scan nor `querySelectorAll` could find it. Matching now happens on the class, which stays on the element whatever the state, and the condition is read back out of the name: `group-data-[popup-open]:translate-y-0.5` prints as "when an ancestor `.group` is popup open → translate-y-0.5".
+- **The component state machine as its own section** (#106): `data-state`, `data-open`, `data-starting-style`, `data-ending-style`, `data-side`/`align` and the inline `--positioner-*`, `--popup-*` and `--transform-origin` variables. A rebuild that drops `data-starting-style` drops the whole enter animation; a popup rebuilt without the positioner variables lands in the wrong corner and grows from the wrong point.
+- **Load the component inventory from a file** (#109): the mapping belongs in the repo next to the components it names, versioned and reviewed with them, and writable by an agent. `parseInventory` learned JSON — a bare array or a `components.json`-shaped object — rather than gaining a second entry point, so the file format and the textarea format cannot drift apart.
+
+### Fixed
+- **Base UI was reported as Radix** (#106). The library test looked for `data-state` plus `data-orientation`, which Base UI also sets, so every Base UI page was described as "Radix + shadcn/ui" — markup Radix never wrote. `data-radix-` stays unambiguous; the attribute-pair heuristic is withdrawn when anything on the page carries a Base UI marker.
+- **A reveal is now named, not guessed at** (#108). The probe already read `whileInView`, `initial`, `viewport` and `transition` off the fiber; the Scroll behaviour section now reports them, so it says what the element becomes rather than only that it is hidden. Gated on the element actually being hidden unless `whileInView` is present, or a finished mount animation would add a puzzling section to every Framer Motion capture.
+
+### Changed
+- **The bridge toggle is now the consent model.** `pick_component` still needs a person, and there the click is both the selection and the consent. Every other tool runs without one, so turning the bridge on is what allows a connected agent to read the pages in this browser. The `MCP` badge stays lit for automatic captures too, and the README says this outright (#111) — along with the step that catches everyone once: Claude Code reads its MCP config at startup, so the tools do not exist in the session that ran `claude mcp add`.
+
 ## [1.8.1] — 2026-08-31
 
 ### Added
