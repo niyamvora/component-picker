@@ -1,6 +1,6 @@
 {
   "name": "component-picker-mcp",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "MCP server that lets an agent request a component capture from the Component Picker extension.",
   "type": "module",
   "bin": {

@@ -168,12 +168,35 @@ The **side panel** (opens with the toolbar icon): the last capture rendered from
 the viewports (name, width, height and DPR all editable) and your component inventory
 (`Card  .card`) for mapping the output onto `<Card>`/`<Button>` instead of div soup.
 
-## MCP — let an agent request a capture
+## MCP — let an agent drive the capture
 
-`npx component-picker-mcp` starts a small server exposing `pick_component` (arms the picker, waits
-for a click, returns the bundle) and `last_capture`. Turn on **MCP bridge** in the side panel to connect
-the extension to it. This is the only feature that opens a network connection; it is off by default,
-localhost-only, and marked with an `MCP` badge while a pick is in flight.
+`npx component-picker-mcp` starts a small server. Turn on **MCP bridge** in the side panel to
+connect the extension to it. This is the only feature that opens a network connection; it is off by
+default, localhost-only, and marked with an `MCP` badge while a request is in flight.
+
+```sh
+claude mcp add component-picker -- npx component-picker-mcp
+```
+
+**Restart your agent after adding the server.** Claude Code reads its MCP config at startup, so
+`mcp__component-picker__*` does not exist in the session you ran `claude mcp add` in. This catches
+everyone once.
+
+| Tool | What it does |
+| --- | --- |
+| `pick_component` | Arms the picker and waits for a human click. |
+| `capture_selector` | Captures by CSS selector, no click. Takes a list. |
+| `capture_page` | The whole tab, section by section, behind a table of contents. |
+| `capture_interaction` | Runs hover/click/focus/leave/scroll for real and returns a timeline. |
+| `list_captures` / `get_capture` | The last ten picks and the saved library, by id. |
+| `last_capture` | The most recent capture in this session. |
+
+`pick_component` is the only tool that needs a person, and there the click is both the selection and
+the consent. The rest run without one, so **the bridge toggle is the consent**: turning it on is
+what allows a connected agent to read the pages in this browser. Turn it off when you are done.
+
+A page you intend to rebuild is usually one `capture_page` call, then a `capture_interaction` per
+piece of motion that matters.
 
 ## Site & example
 

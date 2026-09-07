@@ -10,14 +10,14 @@ import { a11ySnapshot } from "./a11y";
 import { runningAnimations } from "./animations";
 import { scrollBehaviour } from "./scroll";
 import { findRepeats } from "./repeats";
-import { toTailwind } from "./tailwind";
+import { tailwindVariants, toTailwind } from "./tailwind";
 import { toJsx } from "./jsx";
 import { mapToInventory } from "./mapping";
 import { toCssModules, toHtmlCss, toStyledComponents, toSvelte, toVue } from "./emit";
 import { paletteSummary } from "./summary";
 import { assetUrls } from "./assets";
 import { frameworkInfo, frameworkSections, getReference, inventory, measureAll, send } from "./messaging";
-import { contextOf, libraries, variantsOf } from "./context";
+import { contextOf, libraries, stateAttributes, variantsOf } from "./context";
 import { fonts } from "./fonts";
 import { matchRules, sheetRules } from "./rules";
 import { state } from "./state";
@@ -55,7 +55,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
  */
 const TITLES: Record<string, string> = {
   header: "Header", howto: "How to use", context: "Context", css: "CSS (desktop)",
-  states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive",
+  states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive", "state-attrs": "Component state", "tw-variants": "Tailwind variants",
   theme: "Theme", compare: "Compared with reference", media: "Media", tailwind: "Tailwind",
   "css-modules": "CSS Modules", js: "JS / handlers", canvas: "Canvas / WebGL", sources: "Source locations", props: "Props",
 };
@@ -95,7 +95,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const libs = libraries(els);
   const rootSrc = sources.find((x) => x.id === 0);
   const running = runningAnimations(els, anims);
-  const scroll = scrollBehaviour(els, allRules);
+  const scroll = scrollBehaviour(els, allRules, motion);
   const rect = root.getBoundingClientRect();
 
   const md: string[] = [];
@@ -133,6 +133,10 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
     part("states", `## State: ${st.name} (diff vs resting)\n` +
       (diff.length ? `\`\`\`css\n${diff.join("\n\n")}\n\`\`\`` : "_No changes._"));
   }
+  const stateAttrs = stateAttributes(els);
+  if (stateAttrs) part("state-attrs", stateAttrs);
+  const twVariants = tailwindVariants(els, allRules);
+  if (twVariants) part("tw-variants", twVariants);
   if (variants.length) part("variants", `## Variants (siblings of the picked element)\n\n${variants.join("\n\n")}`);
   if (rules.length) part("source-rules", `## Source rules (hover/focus/media, from the site's stylesheets)\n\`\`\`css\n${rules.join("\n\n")}\n\`\`\``);
   if (resp.error) part("responsive", `## Responsive + states\n_Viewport and interaction-state snapshots unavailable: ${resp.error}. Use the source rules above._`);

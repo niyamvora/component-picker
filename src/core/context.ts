@@ -2,7 +2,7 @@
  * What the picked element sits in, and what it looks like in its other states.
  */
 
-import { SKIP_TAGS, UI } from "./const";
+import { sel, SKIP_TAGS, UI } from "./const";
 import { computeBlocks, diffBlocks, label } from "./blocks";
 import { defaultsFor, DIV_DEF } from "./defaults";
 import { diffProps } from "./props";
@@ -68,8 +68,18 @@ export function contextOf(root: Element): string | null {
 }
 
 // ---------- sibling variants: the same component in its other states ----------
+/**
+ * Base UI's state vocabulary, which Radix does not share (#106).
+ *
+ * These are the attributes a headless library flips to drive its CSS, so they *are* the component's
+ * state machine. `data-starting-style` and `data-ending-style` are the enter and exit frames of a
+ * mount animation; `data-activation-direction` is which way a navigation menu slid in from.
+ */
+export const BASE_UI_ATTRS = ["data-open", "data-closed", "data-starting-style", "data-ending-style",
+  "data-activation-direction", "data-popup-open", "data-side", "data-align", "data-instant"];
+
 const VARIANT_ATTRS = ["data-state", "aria-selected", "aria-current", "aria-checked", "aria-expanded",
-  "aria-pressed", "disabled", "data-active", "data-highlighted", "data-disabled"];
+  "aria-pressed", "disabled", "data-active", "data-highlighted", "data-disabled", ...BASE_UI_ATTRS];
 const attrOf = (el: Element, a: string) => (el.hasAttribute(a) ? el.getAttribute(a) || "true" : null);
 
 /**
@@ -97,6 +107,43 @@ export function variantsOf(root: Element, els: Element[], desktop: Blocks): stri
   return out;
 }
 
+/**
+ * The headless state machine, as its own section (#106).
+ *
+ * A rebuild that misses `data-starting-style` misses the entire enter animation, because in a
+ * Tailwind v4 codebase that attribute is the only thing the `data-starting-style:scale-90` variant
+ * keys off. The same goes for the positioning variables: Base UI writes the resolved side, align
+ * and transform-origin as custom properties, and a popup rebuilt without them lands in the wrong
+ * corner and grows from the wrong point.
+ */
+const STATE_ATTRS = ["data-state", "data-orientation", "aria-expanded", "aria-selected", "aria-checked",
+  "aria-current", "aria-pressed", "data-active", "data-highlighted", "data-disabled", ...BASE_UI_ATTRS];
+/** Base UI writes its resolved geometry into these; the prefixes cover the whole family. */
+const STATE_VAR_PREFIXES = ["--positioner-", "--popup-", "--anchor-", "--available-", "--transform-origin"];
+
+export function stateAttributes(els: Element[]): string {
+  const lines: string[] = [];
+  for (const [i, el] of els.entries()) {
+    const present = STATE_ATTRS.filter((a) => el.hasAttribute(a))
+      .map((a) => `${a}${el.getAttribute(a) ? `="${el.getAttribute(a)}"` : ""}`);
+    // Only the inline custom properties: a library sets these per instance, and the cascade would
+    // otherwise hand back every token on :root for every element.
+    const style = el.getAttribute("style") ?? "";
+    const vars = [...style.matchAll(/(--[\w-]+)\s*:\s*([^;]+)/g)]
+      .filter((m) => STATE_VAR_PREFIXES.some((p) => m[1].startsWith(p)))
+      .map((m) => `${m[1]}: ${m[2].trim()}`);
+    if (!present.length && !vars.length) continue;
+    lines.push(`${sel(i)} ${label(el)}` +
+      (present.length ? `\n  ${present.join(" ")}` : "") +
+      (vars.length ? `\n  ${vars.join("; ")}` : ""));
+    if (lines.length >= 40) break;
+  }
+  return lines.length
+    ? `## Component state (headless library attributes)\n${lines.join("\n")}\n` +
+      `_These attributes are the component's state machine — CSS keys off them (\`data-starting-style\` is the enter frame, \`data-ending-style\` the exit). Keep them on the rebuilt markup rather than replacing them with class toggles._`
+    : "";
+}
+
 // ---------- which component library built this ----------
 const cls = (el: Element) => (typeof el.className === "string" ? el.className.trim().split(/\s+/) : []);
 const attrs = (el: Element, prefix: string) => [...el.attributes].some((a) => a.name.startsWith(prefix));
@@ -109,8 +156,14 @@ const attrs = (el: Element, prefix: string) => [...el.attributes].some((a) => a.
  * classes, which an isolated world sees perfectly well. Only React's fiber expandos need the
  * page's own world.
  */
+/** A marker only Base UI sets. Radix has `data-state` and `data-orientation`, but never these. */
+const isBaseUI = (el: Element) =>
+  attrs(el, "data-base-ui-") || el.id.startsWith("base-ui-") || BASE_UI_ATTRS.some((a) => el.hasAttribute(a));
+
 const LIBRARIES: { name: string; test: (el: Element) => boolean }[] = [
-  { name: "Base UI", test: (el) => attrs(el, "data-base-ui-") || el.id.startsWith("base-ui-") },
+  { name: "Base UI", test: isBaseUI },
+  // `data-radix-` is unambiguous. The `data-state` + `data-orientation` pair is not — Base UI sets
+  // both too — so that fallback is withdrawn in `libraries()` when a Base UI marker is on the page.
   { name: "Radix", test: (el) => attrs(el, "data-radix-") || (el.hasAttribute("data-state") && el.hasAttribute("data-orientation")) },
   { name: "shadcn/ui", test: (el) => el.hasAttribute("data-slot") },
   { name: "Headless UI", test: (el) => el.hasAttribute("data-headlessui-state") },
@@ -128,9 +181,16 @@ const LIBRARIES: { name: string; test: (el: Element) => boolean }[] = [
 
 export function libraries(els: Element[]): string[] {
   const scan = els.slice(0, 500);
+  // Base UI and Radix share `data-state` + `data-orientation`, so on a Base UI page the Radix
+  // heuristic fires on markup Radix never wrote. A page is one or the other: if anything carries a
+  // Base UI marker, only an explicit `data-radix-` prefix still counts as Radix (#106).
+  const baseUI = scan.some(isBaseUI);
   // One stray `data-slot` is not a design system; two is.
   const found = LIBRARIES
-    .filter(({ name, test }) => (name === "shadcn/ui" ? scan.filter(test).length >= 2 : scan.some(test)))
+    .filter(({ name, test }) =>
+      name === "shadcn/ui" ? scan.filter(test).length >= 2
+      : name === "Radix" && baseUI ? scan.some((el) => attrs(el, "data-radix-"))
+      : scan.some(test))
     .map((l) => l.name);
   const root = getComputedStyle(document.documentElement);
   if (root.getPropertyValue("--bs-body-color")) found.push("Bootstrap");

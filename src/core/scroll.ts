@@ -8,6 +8,7 @@
  */
 
 import { sel } from "./const";
+import type { MotionInfo } from "../shared/types";
 
 /** Native scroll-driven animation, read straight off the computed style. */
 function scrollTimeline(cs: CSSStyleDeclaration): string | null {
@@ -50,15 +51,41 @@ function revealClass(el: Element, sheetRules: { selectorText: string; cssText: s
   return null;
 }
 
-export function scrollBehaviour(els: Element[], sheetRules: { selectorText: string; cssText: string }[]): string {
+/**
+ * A Framer Motion reveal, named (#108).
+ *
+ * `whileInView` is the single most common reason a captured hero reads `opacity: 0`, and the props
+ * are already on the fiber — `initial` is literally the resting style the capture recorded, and
+ * `whileInView` is what it becomes. Saying so turns a confusing capture into an instruction.
+ */
+function motionReveal(id: number, motion: MotionInfo[], hidden: boolean): string | null {
+  const m = motion.find((x) => x.id === id);
+  if (!m) return null;
+  const inView = m.props.whileInView ?? m.props.animate;
+  if (!m.props.initial || !inView) return null;
+  // This section answers "why is this invisible". `whileInView` is scroll behaviour by definition,
+  // but a plain mount `animate` on an element that is already visible has finished and explains
+  // nothing — reporting it would add a puzzling section to every Framer Motion capture.
+  if (!m.props.whileInView && !hidden) return null;
+  const once = m.props.viewport ? ` · viewport ${m.props.viewport}` : "";
+  const how = m.props.whileInView ? "whileInView (Framer Motion, fires when scrolled into view)" : "animate (Framer Motion, fires on mount)";
+  return `${how} — initial ${m.props.initial} → ${inView}${once}` +
+    `${m.props.transition ? ` · transition ${m.props.transition}` : ""}`;
+}
+
+export function scrollBehaviour(els: Element[], sheetRules: { selectorText: string; cssText: string }[], motion: MotionInfo[] = []): string {
   const lines: string[] = [];
   for (const [i, el] of els.entries()) {
     const cs = getComputedStyle(el);
+    const resting = `opacity: ${cs.opacity}${cs.transform !== "none" ? `; transform: ${cs.transform}` : ""}`;
+    const hidden = parseFloat(cs.opacity) === 0 || (cs.transform !== "none" && cs.transform !== "matrix(1, 0, 0, 1, 0, 0)");
     const native = scrollTimeline(cs);
     if (native) { lines.push(`${sel(i)} — ${native}`); continue; }
+    // Named library first: it explains the same symptom the class heuristic guesses at, but exactly.
+    const fm = motionReveal(i, motion, hidden);
+    if (fm) { lines.push(`${sel(i)} — ${hidden ? `hidden at rest (${resting}), ` : ""}revealed by ${fm}`); continue; }
     const reveal = revealClass(el, sheetRules);
     if (reveal) {
-      const resting = `opacity: ${cs.opacity}${cs.transform !== "none" ? `; transform: ${cs.transform}` : ""}`;
       lines.push(`${sel(i)} — hidden at rest (${resting}), ${reveal}`);
       continue;
     }
@@ -67,5 +94,8 @@ export function scrollBehaviour(els: Element[], sheetRules: { selectorText: stri
       lines.push(`${sel(i)} — hidden at rest by a Webflow IX2 interaction (see the Platform section).`);
     }
   }
-  return lines.length ? `## Scroll behaviour\n${lines.join("\n")}` : "";
+  return lines.length
+    ? `## Scroll behaviour\n${lines.join("\n")}\n` +
+      `_These elements are captured in their hidden resting state, which is what the page actually renders before the reveal. Rebuild with both states; do not treat the resting values as the final design. To watch a reveal run, use capture_interaction with the \`scroll\` action._`
+    : "";
 }

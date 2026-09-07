@@ -34,6 +34,11 @@
   @media print { .card { display: none; } }
   @media (prefers-reduced-motion: reduce) { .btn { animation-name: none; } }
   @keyframes spin { to { transform: rotate(1turn); } }
+  /* #107 — Tailwind v4 variant utilities, escaped exactly as the compiler emits them. The attribute
+     is absent at rest, so only the class can match these back to the element. */
+  .data-starting-style\:scale-90[data-starting-style] { scale: .9; }
+  .group-data-\[popup-open\]\:translate-y-0\.5:is(:where(.group)[data-popup-open] *) { translate: 0 .125rem; }
+  .hover\:bg-red-500:hover { background-color: rgb(239, 68, 68); }
 </style>
 <section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
 <div id="card" class="card w-container" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
@@ -70,10 +75,31 @@
   <li class="row"><span class="name">Team</span><span class="val">$99</span></li>
   <li class="row"><span class="name">Max</span><span class="val">$299</span></li>
 </ul>
+<!-- #106 — Base UI's shape: data-state + data-orientation like Radix, but with data-open and
+     data-starting-style, which Radix never sets. Must report Base UI and not Radix. -->
+<div id="baseui" data-state="open" data-orientation="horizontal" data-open data-starting-style
+     data-side="bottom" data-align="center"
+     class="data-starting-style:scale-90 group-data-[popup-open]:translate-y-0.5 hover:bg-red-500"
+     style="--positioner-side: bottom; --popup-height: 120px; --transform-origin: center top; padding:4px">base ui popup</div>
+<!-- #104 — a trigger that mounts its popup in a portal, the shape capture_interaction exists for. -->
+<button id="menu-trigger" data-state="closed" style="padding:6px 10px">Menu</button>
 <pre id="result">RUNNING</pre>
 <pre id="md" hidden></pre>
 <script>
   window.__cpNoAutostart = true;
+  document.getElementById("menu-trigger").addEventListener("click", (e) => {
+    e.currentTarget.setAttribute("data-state", "open");
+    const pop = document.createElement("div");
+    pop.id = "menu-popup";
+    pop.setAttribute("data-popup-open", "");
+    pop.style.cssText = "position:absolute;left:0;top:0;width:120px;height:60px;opacity:0;transition:opacity .1s linear";
+    document.body.appendChild(pop);
+    requestAnimationFrame(() => { pop.style.opacity = "1"; });
+  });
+  // #108 — a Framer Motion whileInView reveal, as the fiber presents it
+  document.querySelector(".reveal").__reactFiber$test = { type: { name: "motion.div" }, memoizedProps: {
+    initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true }, transition: { duration: 0.6 } }, return: null };
   document.getElementById("waapi").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: "forwards" });
   document.getElementById("card").__reactFiber$test = { type: { name: "Card" }, memoizedProps: { onClick: function handleCard() { return 1; } }, return: { type: { displayName: "Page" }, return: null } };
 </script>
@@ -167,6 +193,57 @@
       && remember("a.com", ["css", "tokens"], twoHosts).length === 2
       && recall("a.com", remember("a.com", ["css", "tokens"], twoHosts)).join() === "css,tokens"
       && capped.length === 50 && recall("h0.com", capped) === null && recall("h59.com", capped).join() === "html";
+    // #105 — the page split the P key and capture_page share. No <main> here, so it falls back to
+    // the body's children, skips <script>/<style>, and keeps them in document order.
+    const secs = window.__cp.pageSections();
+    const secOk = secs.length > 0 && secs.includes(document.getElementById("wrap"))
+      && secs.every((s) => !["SCRIPT", "STYLE", "LINK", "META"].includes(s.tagName))
+      && secs.every((s, i) => i === 0 || (secs[i - 1].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING))
+      && window.__cp.pageSections(1).length === 1;
+    // #106 — the same attributes Radix uses, plus the ones only Base UI sets. The library line must
+    // say Base UI and must not say Radix, and the state machine gets its own section.
+    const bui = await window.__cp.extract(document.getElementById("baseui"));
+    const buiOk = /UI: [^\n]*Base UI/.test(bui) && !/UI: [^\n]*Radix/.test(bui)
+      && bui.includes("## Component state (headless library attributes)")
+      && bui.includes("data-starting-style") && bui.includes("--transform-origin: center top");
+    // #107 — the variant utilities decoded: matched by class, condition read back out of the name.
+    const twOk = bui.includes("## Tailwind variant rules (decoded)")
+      && bui.includes("when entering (first frame after mount) \u2192 scale-90")
+      && bui.includes("{ scale: 0.9 }")
+      && bui.includes("when an ancestor .group is popup open \u2192 translate-y-0.5")
+      && bui.includes("when hover \u2192 bg-red-500");
+
+    // #109 — the inventory read from a file: JSON as a bare array or components.json shape, and
+    // the two-space textarea format, all through the one parser.
+    const pi = window.__cp.parseInventory;
+    const fromJson = pi(JSON.stringify({ components: [
+      { name: "Button", selectors: ["button", "[role=button]"], props: ["variant"] },
+      { name: "Card", selector: ".card" },
+      { name: "Broken" },
+    ] }));
+    const fromArray = pi(JSON.stringify([{ name: "Icon", selectors: ["svg"] }]));
+    const fromText = pi("Button  button, [role=button]  variant, size\nCard  .card");
+    const invOk = fromJson.length === 2 && fromJson[0].name === "Button"
+      && fromJson[0].selectors.length === 2 && fromJson[0].props[0] === "variant"
+      && fromJson[1].selectors[0] === ".card" && fromJson[1].props.length === 0
+      && fromArray.length === 1 && fromArray[0].name === "Icon"
+      && fromText.length === 2 && fromText[0].props.join() === "variant,size"
+      && pi("not json, not an inventory").length === 0;
+
+    // #104 — the observation half of capture_interaction. The service worker normally drives the
+    // pointer through the debugger; here the click is dispatched directly, which is enough to prove
+    // the portal is noticed, the timeline records the fade, and getAnimations() sees the transition.
+    const iact = window.__cp.interaction;
+    const step104 = { trigger: "#menu-trigger", action: "click" };
+    iact.begin(step104.trigger);
+    document.getElementById("menu-trigger").click();
+    for (let i = 0; i < 12; i++) { iact.tick(); await new Promise((r) => setTimeout(r, 20)); }
+    iact.end(step104);
+    const iactReport = iact.report([step104]);
+    const iactOk = iactReport.includes("Appeared:") && iactReport.includes("menu-popup")
+      && iactReport.includes("data-state=open") && /opacity: (0\.|1)/.test(iactReport)
+      && iact.report([step104]) === "No interaction was recorded.";   // report() resets
+
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -261,6 +338,11 @@
     if (!animOk) fails.push("#87 an easing did not draw the expected curve");
     if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
     if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
+    if (!secOk) fails.push("#105 the page split found no sections, or lost document order / the limit");
+    if (!buiOk) fails.push("#106 Base UI mis-detected, or the state section is missing:\n" + bui.slice(0, 1200));
+    if (!twOk) fails.push("#107 the Tailwind v4 variant rules were not decoded:\n" + bui.slice(bui.indexOf("## Tailwind variant"), bui.indexOf("## Tailwind variant") + 900));
+    if (!invOk) fails.push("#109 the inventory parser did not read JSON and text alike");
+    if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
