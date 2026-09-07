@@ -70,10 +70,21 @@
   <li class="row"><span class="name">Team</span><span class="val">$99</span></li>
   <li class="row"><span class="name">Max</span><span class="val">$299</span></li>
 </ul>
+<!-- #104 — a trigger that mounts its popup in a portal, the shape capture_interaction exists for. -->
+<button id="menu-trigger" data-state="closed" style="padding:6px 10px">Menu</button>
 <pre id="result">RUNNING</pre>
 <pre id="md" hidden></pre>
 <script>
   window.__cpNoAutostart = true;
+  document.getElementById("menu-trigger").addEventListener("click", (e) => {
+    e.currentTarget.setAttribute("data-state", "open");
+    const pop = document.createElement("div");
+    pop.id = "menu-popup";
+    pop.setAttribute("data-popup-open", "");
+    pop.style.cssText = "position:absolute;left:0;top:0;width:120px;height:60px;opacity:0;transition:opacity .1s linear";
+    document.body.appendChild(pop);
+    requestAnimationFrame(() => { pop.style.opacity = "1"; });
+  });
   document.getElementById("waapi").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: "forwards" });
   document.getElementById("card").__reactFiber$test = { type: { name: "Card" }, memoizedProps: { onClick: function handleCard() { return 1; } }, return: { type: { displayName: "Page" }, return: null } };
 </script>
@@ -174,6 +185,20 @@
       && secs.every((s) => !["SCRIPT", "STYLE", "LINK", "META"].includes(s.tagName))
       && secs.every((s, i) => i === 0 || (secs[i - 1].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING))
       && window.__cp.pageSections(1).length === 1;
+    // #104 — the observation half of capture_interaction. The service worker normally drives the
+    // pointer through the debugger; here the click is dispatched directly, which is enough to prove
+    // the portal is noticed, the timeline records the fade, and getAnimations() sees the transition.
+    const iact = window.__cp.interaction;
+    const step104 = { trigger: "#menu-trigger", action: "click" };
+    iact.begin(step104.trigger);
+    document.getElementById("menu-trigger").click();
+    for (let i = 0; i < 12; i++) { iact.tick(); await new Promise((r) => setTimeout(r, 20)); }
+    iact.end(step104);
+    const iactReport = iact.report([step104]);
+    const iactOk = iactReport.includes("Appeared:") && iactReport.includes("menu-popup")
+      && iactReport.includes("data-state=open") && /opacity: (0\.|1)/.test(iactReport)
+      && iact.report([step104]) === "No interaction was recorded.";   // report() resets
+
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -269,6 +294,7 @@
     if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
     if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
     if (!secOk) fails.push("#105 the page split found no sections, or lost document order / the limit");
+    if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

@@ -16,7 +16,7 @@ const MAX_ANIMATIONS = 40;
 const kebab = (p: string) => p.replace(/([A-Z])/g, "-$1").toLowerCase();
 const NON_STYLE = new Set(["offset", "composite", "computedOffset", "easing"]);
 
-function timingLine(a: Animation): string {
+export function timingLine(a: Animation): string {
   const t = a.effect?.getTiming();
   if (!t) return a.playState;
   const dur = typeof t.duration === "number" ? `${Math.round(t.duration)}ms` : String(t.duration);
@@ -25,7 +25,7 @@ function timingLine(a: Animation): string {
   return `${dur} · ${t.easing} · ${iter} · ${t.direction} · ${a.playState}${delay}`;
 }
 
-function keyframeBody(a: Animation): string {
+export function keyframeBody(a: Animation): string {
   // getKeyframes() is a KeyframeEffect method; the base AnimationEffect type does not declare it.
   const effect = a.effect as KeyframeEffect | null;
   const frames = effect?.getKeyframes?.() ?? [];
@@ -39,7 +39,7 @@ function keyframeBody(a: Animation): string {
   }).join("\n");
 }
 
-function label(a: Animation): string {
+export function animationLabel(a: Animation): string {
   if (a instanceof CSSAnimation) return `"${a.animationName}"`;
   if (a instanceof CSSTransition) return `transition ${a.transitionProperty}`;
   return "(WAAPI)";
@@ -61,7 +61,7 @@ export function runningAnimations(els: Element[], named: Set<string>): string {
       if (a.playState === "idle") continue;
       if (a instanceof CSSAnimation && named.has(a.animationName)) continue; // already in ## Keyframes
       count++;
-      lines.push(`${sel(i)} — ${label(a)} · ${timingLine(a)}\n${keyframeBody(a)}`);
+      lines.push(`${sel(i)} — ${animationLabel(a)} · ${timingLine(a)}\n${keyframeBody(a)}`);
     }
   }
   return lines.length ? `## Animations (running)\n${lines.join("\n\n")}` : "";

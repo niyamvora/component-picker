@@ -109,6 +109,15 @@ server.tool("capture_selector",
     all: z.boolean().optional().describe("Capture every match of each selector rather than only the first") },
   async ({ selectors, all }) => text(await request({ type: "selector", selectors, all: !!all })));
 
+server.tool("capture_interaction",
+  "Run a real interaction on the active tab and return a timeline of what happened — what appeared (including popups mounted in a portal), what moved, and the resolved timing of every transition and animation that ran. Pass several steps to capture a sequence such as hover A then hover B, which is the only way to see panel-to-panel motion. Pointer events go through the debugger, so CSS :hover applies for real. Requires the MCP bridge to be on.",
+  { steps: z.array(z.object({
+      trigger: z.string().describe("CSS selector for the element to act on"),
+      action: z.enum(["hover", "click", "focus", "leave"]),
+    })).min(1).max(6),
+    watch: z.string().optional().describe("CSS selector for what to observe; defaults to the trigger's subtree plus anything that appears") },
+  async ({ steps, watch }) => text(await request({ type: "interaction", steps, watch }, PAGE_TIMEOUT)));
+
 server.tool("capture_page",
   "Capture the whole active tab section by section — one capped bundle per top-level section, behind a table of contents. Use this to read a page you intend to rebuild; use capture_selector when you already know which element you want. Requires the MCP bridge to be on.",
   { limit: z.number().int().min(1).max(12).optional().describe("Maximum sections to capture (default 12)") },

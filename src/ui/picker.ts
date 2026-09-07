@@ -7,6 +7,7 @@
 
 import { extract, extractMany } from "../core/bundle";
 import { capturePage, pageSections } from "../core/page";
+import { interaction } from "../core/interaction";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
@@ -27,6 +28,8 @@ declare global {
       extract: typeof extract; extractMany: typeof extractMany;
       /** The whole page as one bundle, section by section (#105), and the split behind it. */
       capturePage: typeof capturePage; pageSections: typeof pageSections;
+      /** The interaction runner the service worker drives, step by step (#104). */
+      interaction: typeof interaction;
       start: () => void; stop: () => void; toggle: () => void;
       last: string; opts: typeof options;
       /** The last capture's desktop blocks — what "set as reference" stores. */
@@ -74,7 +77,7 @@ if (window.__cp) {
   });
 
   window.__cp = {
-    extract, extractMany, capturePage, pageSections, start, stop,
+    extract, extractMany, capturePage, pageSections, interaction, start, stop,
     toggle: () => (isActive() ? stop() : start()),
     last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },

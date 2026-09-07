@@ -13,6 +13,8 @@
  */
 
 import { runInActiveTab } from "./tab";
+import { runInteraction } from "./interact";
+import type { Step } from "../core/interaction";
 import type { HistoryEntry, LibraryEntry } from "../shared/types";
 
 const ENDPOINT = "http://127.0.0.1:8787";
@@ -24,6 +26,7 @@ export type BridgeRequest =
   | { type: "pick" }
   | { type: "selector"; selectors: string[]; all?: boolean }
   | { type: "page"; limit?: number }
+  | { type: "interaction"; steps: Step[]; watch?: string }
   | { type: "captures" }
   | { type: "capture"; id: string };
 
@@ -71,6 +74,7 @@ async function handle(req: BridgeRequest) {
       req.type === "captures" ? await listCaptures()
       : req.type === "capture" ? await getCapture(req.id)
       : req.type === "page" ? await capturePage(req.limit)
+      : req.type === "interaction" ? await runInteraction(req.steps, req.watch)
       : await captureBySelector(req);
     await deliver({ bundle });
   } catch (e) {
