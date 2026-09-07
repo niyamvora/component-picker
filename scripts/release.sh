@@ -13,12 +13,19 @@ DATE=$(date +%Y-%m-%d)
 PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
 printf '%s\n' "$V" > VERSION
 npm version "$V" --no-git-tag-version --allow-same-version >/dev/null
-sed -i '' "s|^## \[Unreleased\]|## [Unreleased]\n\n## [$V] — $DATE|; \
-  s|^\[Unreleased\]: .*|[Unreleased]: https://github.com/niyamvora/component-picker/compare/v$V...main\n[$V]: https://github.com/niyamvora/component-picker/compare/$PREV...v$V|" CHANGELOG.md
+# Both edits are skipped when they have already been made, because a release whose notes were
+# written in the PR that earned them arrives here with its heading in place. Inserting a second one
+# would leave a duplicate heading and publish empty release notes from the empty half.
+grep -q "^## \[$V\]" CHANGELOG.md \
+  || sed -i '' "s|^## \[Unreleased\]|## [Unreleased]\n\n## [$V] — $DATE|" CHANGELOG.md
+grep -q "^\[$V\]:" CHANGELOG.md \
+  || sed -i '' "s|^\[Unreleased\]: .*|[Unreleased]: https://github.com/niyamvora/component-picker/compare/v$V...main\n[$V]: https://github.com/niyamvora/component-picker/compare/$PREV...v$V|" CHANGELOG.md
 NOTES=$(awk "/^## \\[$V\\]/{f=1;next} /^## \\[/{f=0} f" CHANGELOG.md)
+[ -n "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ] || { echo "CHANGELOG has no notes under [$V]"; exit 1; }
 npm run build
 git add VERSION package.json CHANGELOG.md
-git commit -qm "release: v$V"
+# Nothing to commit when the version and notes were already landed; the tag is still the point.
+git diff --cached --quiet || git commit -qm "release: v$V"
 git tag "v$V"
 git push -q origin main "v$V"
 ZIP="component-picker-$V.zip"

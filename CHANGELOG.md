@@ -11,7 +11,7 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
-## [1.9.0] — 2026-09-07
+## [1.9.0] — 2026-09-08
 
 Stage 5 (#102): an agent can read a page and rebuild it without a human clicking anything. The
 engine was already decoupled — `extract` takes an element, not a click — so most of this is
