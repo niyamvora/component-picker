@@ -18,6 +18,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 const PORT = Number(process.env.CP_MCP_PORT ?? 8787);
 const PICK_TIMEOUT = 120_000; // a human has to click
 const AUTO_TIMEOUT = 90_000;  // no human in the loop, but the debugger work is still slow
+const PAGE_TIMEOUT = 600_000; // a full-page capture is a dozen of those, one after another
 
 /**
  * One pending request at a time; the extension long-polls /next and posts to /result.
@@ -107,6 +108,11 @@ server.tool("capture_selector",
   { selectors: z.array(z.string()).min(1).describe("CSS selectors, e.g. ['header nav', '.pricing-card']"),
     all: z.boolean().optional().describe("Capture every match of each selector rather than only the first") },
   async ({ selectors, all }) => text(await request({ type: "selector", selectors, all: !!all })));
+
+server.tool("capture_page",
+  "Capture the whole active tab section by section — one capped bundle per top-level section, behind a table of contents. Use this to read a page you intend to rebuild; use capture_selector when you already know which element you want. Requires the MCP bridge to be on.",
+  { limit: z.number().int().min(1).max(12).optional().describe("Maximum sections to capture (default 12)") },
+  async ({ limit }) => text(await request({ type: "page", limit }, PAGE_TIMEOUT)));
 
 server.tool("list_captures",
   "List the captures already stored in the browser — the last ten picks plus anything saved to the library — as id, where, and a one-line description. Lets an agent consume picks the user made at the browser without re-arming anything. Pair with get_capture.",

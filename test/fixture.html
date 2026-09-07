@@ -167,6 +167,13 @@
       && remember("a.com", ["css", "tokens"], twoHosts).length === 2
       && recall("a.com", remember("a.com", ["css", "tokens"], twoHosts)).join() === "css,tokens"
       && capped.length === 50 && recall("h0.com", capped) === null && recall("h59.com", capped).join() === "html";
+    // #105 — the page split the P key and capture_page share. No <main> here, so it falls back to
+    // the body's children, skips <script>/<style>, and keeps them in document order.
+    const secs = window.__cp.pageSections();
+    const secOk = secs.length > 0 && secs.includes(document.getElementById("wrap"))
+      && secs.every((s) => !["SCRIPT", "STYLE", "LINK", "META"].includes(s.tagName))
+      && secs.every((s, i) => i === 0 || (secs[i - 1].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING))
+      && window.__cp.pageSections(1).length === 1;
     const must = [
       '<div id="card" class="card w-container"', 'data-cp="1"',                // root stamped
       "flex-direction: column;", "gap: 12px; /* 0.75rem */",
@@ -261,6 +268,7 @@
     if (!animOk) fails.push("#87 an easing did not draw the expected curve");
     if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
     if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
+    if (!secOk) fails.push("#105 the page split found no sections, or lost document order / the limit");
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

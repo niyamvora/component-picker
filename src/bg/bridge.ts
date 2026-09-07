@@ -23,6 +23,7 @@ const POLL_MS = 2000;
 export type BridgeRequest =
   | { type: "pick" }
   | { type: "selector"; selectors: string[]; all?: boolean }
+  | { type: "page"; limit?: number }
   | { type: "captures" }
   | { type: "capture"; id: string };
 
@@ -69,6 +70,7 @@ async function handle(req: BridgeRequest) {
     const bundle =
       req.type === "captures" ? await listCaptures()
       : req.type === "capture" ? await getCapture(req.id)
+      : req.type === "page" ? await capturePage(req.limit)
       : await captureBySelector(req);
     await deliver({ bundle });
   } catch (e) {
@@ -113,6 +115,24 @@ async function captureBySelector({ selectors, all }: { selectors: string[]; all?
         return cp.extractMany(els).then((bundle) => ({
           bundle: missed.length ? `${bundle}\n\n<!-- no element matched: ${missed.join(", ")} -->` : bundle,
         }));
+      },
+    });
+    const out = r.result as { bundle?: string; error?: string };
+    if (out?.error) throw new Error(out.error);
+    return out?.bundle ?? "";
+  });
+}
+
+/** The whole active tab, section by section (#105). */
+async function capturePage(limit?: number): Promise<string> {
+  return runInActiveTab(async (tabId) => {
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [limit ?? null],
+      func: (n: number | null) => {
+        const cp = (window as { __cp?: { capturePage: (n?: number) => Promise<string> } }).__cp;
+        if (!cp) return { error: "the picker did not load in this tab" };
+        return cp.capturePage(n ?? undefined).then((bundle) => ({ bundle }), (e: Error) => ({ error: e.message }));
       },
     });
     const out = r.result as { bundle?: string; error?: string };

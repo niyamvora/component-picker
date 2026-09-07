@@ -3,6 +3,7 @@
  */
 
 import { extractMany } from "../core/bundle";
+import { pageSections } from "../core/page";
 import { commitEdits, revert, toggleEdit } from "./edit";
 import { copyFigma, copyImage } from "./capture-extras";
 import { label } from "../core/blocks";
@@ -27,7 +28,6 @@ function addToSelection(el: Element) {
   highlight(el);
 }
 
-const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "LINK", "META"]);
 const pick = (e: Event): Element | null => { const t = e.composedPath()[0]; return t instanceof Element && !t.closest(`[${UI}]`) ? t : null; };
 const SWALLOW = ["pointerdown", "mousedown", "pointerup", "mouseup", "click", "auxclick", "dblclick"];
 const onMove = (e: PointerEvent) => {
@@ -61,8 +61,8 @@ const onKey = (e: KeyboardEvent) => {
   else if (e.key === "Backspace" && selection.length) { selection.pop(); unmark(); highlight(currentEl()); }
   else if (e.key === "p" || e.key === "P") {
     // A landing page, section by section: each one is its own component in the bundle.
-    const host = document.querySelector("main") ?? document.body;
-    const sections = [...host.children].filter((c) => !SKIP.has(c.tagName) && !c.closest(`[${UI}]`)).slice(0, 12);
+    // Same split the MCP bridge's capture_page uses (#105), so the key and the tool cannot drift.
+    const sections = pageSections();
     if (!sections.length) return;
     selection = []; clearMarks();
     for (const s of sections.slice(0, -1)) addToSelection(s);
