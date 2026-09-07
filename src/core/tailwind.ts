@@ -62,6 +62,95 @@ function utility(prop: string, value: string, token: string | undefined): string
   return `[${prop}:${value.replace(/\s+/g, "_")}]`;
 }
 
+// ---------- Tailwind v4 variant rules: the motion spec, decoded (#107) ----------
+/**
+ * On a Tailwind v4 site the variant utilities *are* the animation.
+ *
+ * `.data-starting-style\:scale-90[data-starting-style] { scale: .9 }` is the entire enter frame of
+ * a popup, and nothing else in a capture carries it: it is not a `:hover` rule, so the source-rules
+ * scan skips it, and the attribute it keys off is absent at rest, so `querySelectorAll` cannot find
+ * the element either. The class name is the reliable handle — it is on the element the whole time,
+ * whatever the state — so matching happens on the class and the condition is read back out of it.
+ *
+ * Printed decoded, because `group-data-\[popup-open\]\:translate-y-0\.5` is not something a reader
+ * should have to parse twice.
+ */
+
+/** The leading class of a selector, with Tailwind's backslash escapes resolved to real characters. */
+function leadingClass(selector: string): string | null {
+  if (selector[0] !== ".") return null;
+  let out = "";
+  for (let i = 1; i < selector.length; i++) {
+    const ch = selector[i];
+    if (ch === "\\") { out += selector[++i] ?? ""; continue; }  // `\:` is a literal colon in the name
+    if (/[.#[:>+~,\s]/.test(ch)) break;
+    out += ch;
+  }
+  return out || null;
+}
+
+/** `data-starting-style:scale-90` → variants `[data-starting-style]`, utility `scale-90`. */
+function splitVariants(cls: string): { variants: string[]; utility: string } {
+  const parts: string[] = [];
+  let cur = "", depth = 0;
+  for (const ch of cls) {
+    if (ch === "[") depth++;
+    else if (ch === "]") depth--;
+    if (ch === ":" && !depth) { parts.push(cur); cur = ""; } else cur += ch;
+  }
+  parts.push(cur);
+  return { variants: parts.slice(0, -1), utility: parts[parts.length - 1] };
+}
+
+const PLAIN: Record<string, string> = {
+  "data-starting-style": "entering (first frame after mount)",
+  "data-ending-style": "leaving (last frame before unmount)",
+  "data-open": "open", "data-closed": "closed", "data-popup-open": "popup open",
+  hover: "hover", focus: "focus", "focus-visible": "keyboard focus", active: "pressed",
+  disabled: "disabled", first: "first child", last: "last child", dark: "dark theme",
+  "motion-reduce": "reduced motion", "motion-safe": "motion allowed",
+};
+
+/** One variant, in words. Falls back to the raw token rather than dropping a condition. */
+function humanVariant(v: string): string {
+  if (PLAIN[v]) return PLAIN[v];
+  const rel = /^(group|peer)-(.*)$/.exec(v);
+  if (rel) return `${rel[1] === "group" ? "an ancestor" : "a sibling"} .${rel[1]} is ${humanVariant(rel[2])}`;
+  const attr = /^data-\[([\w-]+)=?(.*?)\]$/.exec(v);
+  // `data-[popup-open]` and a bare `data-popup-open` are the same condition written two ways.
+  if (attr) return attr[2] ? `data-${attr[1]}="${attr[2]}"` : PLAIN[`data-${attr[1]}`] ?? `data-${attr[1]} set`;
+  const aria = /^aria-\[?([\w-]+)=?(.*?)\]?$/.exec(v);
+  if (aria && v.startsWith("aria-")) return `aria-${aria[1]}${aria[2] ? `="${aria[2]}"` : ""}`;
+  if (/^(sm|md|lg|xl|2xl)$/.test(v)) return `viewport ≥ ${v}`;
+  if (/^max-/.test(v)) return `viewport below ${v.slice(4)}`;
+  return v;
+}
+
+const bodyOf = (cssText: string) =>
+  cssText.slice(cssText.indexOf("{") + 1, cssText.lastIndexOf("}")).trim().replace(/\s*;\s*$/, "");
+
+export function tailwindVariants(els: Element[], rules: { selectorText: string; cssText: string }[]): string {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const r of rules) {
+    const cls = leadingClass(r.selectorText);
+    if (!cls || !cls.includes(":") || seen.has(cls)) continue;
+    const { variants, utility } = splitVariants(cls);
+    if (!variants.length) continue;
+    const i = els.findIndex((el) => el.classList.contains(cls));
+    if (i < 0) continue;
+    seen.add(cls);
+    const body = bodyOf(r.cssText);
+    if (!body) continue;
+    lines.push(`${sel(i)} \`${cls}\`\n  when ${variants.map(humanVariant).join(" and ")} → ${utility}\n  { ${body} }`);
+    if (lines.length >= 40) break;
+  }
+  return lines.length
+    ? `## Tailwind variant rules (decoded)\n${lines.join("\n\n")}\n` +
+      `_These are conditional rules keyed off state attributes, not resting styles — on a Tailwind v4 site they carry the enter/exit animation. The class stays on the element; the condition decides when the declarations apply._`
+    : "";
+}
+
 export function toTailwind(blocks: Blocks): string {
   const lines: string[] = [];
   for (const i of Object.keys(blocks)) {

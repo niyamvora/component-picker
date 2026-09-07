@@ -34,6 +34,11 @@
   @media print { .card { display: none; } }
   @media (prefers-reduced-motion: reduce) { .btn { animation-name: none; } }
   @keyframes spin { to { transform: rotate(1turn); } }
+  /* #107 — Tailwind v4 variant utilities, escaped exactly as the compiler emits them. The attribute
+     is absent at rest, so only the class can match these back to the element. */
+  .data-starting-style\:scale-90[data-starting-style] { scale: .9; }
+  .group-data-\[popup-open\]\:translate-y-0\.5:is(:where(.group)[data-popup-open] *) { translate: 0 .125rem; }
+  .hover\:bg-red-500:hover { background-color: rgb(239, 68, 68); }
 </style>
 <section id="wrap" style="display:grid;gap:8px;padding:20px;position:relative">
 <div id="card" class="card w-container" style="display:flex;gap:12px;border:1px solid #ddd;border-radius:8px;width:320px;font-family:Georgia;color:rgb(17,24,39)">
@@ -74,6 +79,7 @@
      data-starting-style, which Radix never sets. Must report Base UI and not Radix. -->
 <div id="baseui" data-state="open" data-orientation="horizontal" data-open data-starting-style
      data-side="bottom" data-align="center"
+     class="data-starting-style:scale-90 group-data-[popup-open]:translate-y-0.5 hover:bg-red-500"
      style="--positioner-side: bottom; --popup-height: 120px; --transform-origin: center top; padding:4px">base ui popup</div>
 <!-- #104 — a trigger that mounts its popup in a portal, the shape capture_interaction exists for. -->
 <button id="menu-trigger" data-state="closed" style="padding:6px 10px">Menu</button>
@@ -196,6 +202,12 @@
     const buiOk = /UI: [^\n]*Base UI/.test(bui) && !/UI: [^\n]*Radix/.test(bui)
       && bui.includes("## Component state (headless library attributes)")
       && bui.includes("data-starting-style") && bui.includes("--transform-origin: center top");
+    // #107 — the variant utilities decoded: matched by class, condition read back out of the name.
+    const twOk = bui.includes("## Tailwind variant rules (decoded)")
+      && bui.includes("when entering (first frame after mount) \u2192 scale-90")
+      && bui.includes("{ scale: 0.9 }")
+      && bui.includes("when an ancestor .group is popup open \u2192 translate-y-0.5")
+      && bui.includes("when hover \u2192 bg-red-500");
 
     // #104 — the observation half of capture_interaction. The service worker normally drives the
     // pointer through the debugger; here the click is dispatched directly, which is enough to prove
@@ -307,6 +319,7 @@
     if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
     if (!secOk) fails.push("#105 the page split found no sections, or lost document order / the limit");
     if (!buiOk) fails.push("#106 Base UI mis-detected, or the state section is missing:\n" + bui.slice(0, 1200));
+    if (!twOk) fails.push("#107 the Tailwind v4 variant rules were not decoded:\n" + bui.slice(bui.indexOf("## Tailwind variant"), bui.indexOf("## Tailwind variant") + 900));
     if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;

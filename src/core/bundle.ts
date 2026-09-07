@@ -10,7 +10,7 @@ import { a11ySnapshot } from "./a11y";
 import { runningAnimations } from "./animations";
 import { scrollBehaviour } from "./scroll";
 import { findRepeats } from "./repeats";
-import { toTailwind } from "./tailwind";
+import { tailwindVariants, toTailwind } from "./tailwind";
 import { toJsx } from "./jsx";
 import { mapToInventory } from "./mapping";
 import { toCssModules, toHtmlCss, toStyledComponents, toSvelte, toVue } from "./emit";
@@ -55,7 +55,7 @@ export async function extract(root: Element, onStatus: (s: string) => void = () 
  */
 const TITLES: Record<string, string> = {
   header: "Header", howto: "How to use", context: "Context", css: "CSS (desktop)",
-  states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive", "state-attrs": "Component state",
+  states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive", "state-attrs": "Component state", "tw-variants": "Tailwind variants",
   theme: "Theme", compare: "Compared with reference", media: "Media", tailwind: "Tailwind",
   "css-modules": "CSS Modules", js: "JS / handlers", canvas: "Canvas / WebGL", sources: "Source locations", props: "Props",
 };
@@ -135,6 +135,8 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   }
   const stateAttrs = stateAttributes(els);
   if (stateAttrs) part("state-attrs", stateAttrs);
+  const twVariants = tailwindVariants(els, allRules);
+  if (twVariants) part("tw-variants", twVariants);
   if (variants.length) part("variants", `## Variants (siblings of the picked element)\n\n${variants.join("\n\n")}`);
   if (rules.length) part("source-rules", `## Source rules (hover/focus/media, from the site's stylesheets)\n\`\`\`css\n${rules.join("\n\n")}\n\`\`\``);
   if (resp.error) part("responsive", `## Responsive + states\n_Viewport and interaction-state snapshots unavailable: ${resp.error}. Use the source rules above._`);
