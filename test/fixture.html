@@ -70,6 +70,11 @@
   <li class="row"><span class="name">Team</span><span class="val">$99</span></li>
   <li class="row"><span class="name">Max</span><span class="val">$299</span></li>
 </ul>
+<!-- #106 — Base UI's shape: data-state + data-orientation like Radix, but with data-open and
+     data-starting-style, which Radix never sets. Must report Base UI and not Radix. -->
+<div id="baseui" data-state="open" data-orientation="horizontal" data-open data-starting-style
+     data-side="bottom" data-align="center"
+     style="--positioner-side: bottom; --popup-height: 120px; --transform-origin: center top; padding:4px">base ui popup</div>
 <!-- #104 — a trigger that mounts its popup in a portal, the shape capture_interaction exists for. -->
 <button id="menu-trigger" data-state="closed" style="padding:6px 10px">Menu</button>
 <pre id="result">RUNNING</pre>
@@ -185,6 +190,13 @@
       && secs.every((s) => !["SCRIPT", "STYLE", "LINK", "META"].includes(s.tagName))
       && secs.every((s, i) => i === 0 || (secs[i - 1].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING))
       && window.__cp.pageSections(1).length === 1;
+    // #106 — the same attributes Radix uses, plus the ones only Base UI sets. The library line must
+    // say Base UI and must not say Radix, and the state machine gets its own section.
+    const bui = await window.__cp.extract(document.getElementById("baseui"));
+    const buiOk = /UI: [^\n]*Base UI/.test(bui) && !/UI: [^\n]*Radix/.test(bui)
+      && bui.includes("## Component state (headless library attributes)")
+      && bui.includes("data-starting-style") && bui.includes("--transform-origin: center top");
+
     // #104 — the observation half of capture_interaction. The service worker normally drives the
     // pointer through the debugger; here the click is dispatched directly, which is enough to prove
     // the portal is noticed, the timeline records the fade, and getAnimations() sees the transition.
@@ -294,6 +306,7 @@
     if (!drawnOk) fails.push("#84 sections with no visual form: " + drawn.join(", "));
     if (!groupOk) fails.push("#94 a drawer group did not build lazily, or rebuilt on re-expand");
     if (!secOk) fails.push("#105 the page split found no sections, or lost document order / the limit");
+    if (!buiOk) fails.push("#106 Base UI mis-detected, or the state section is missing:\n" + bui.slice(0, 1200));
     if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
