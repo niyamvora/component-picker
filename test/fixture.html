@@ -213,6 +213,23 @@
       && bui.includes("when an ancestor .group is popup open \u2192 translate-y-0.5")
       && bui.includes("when hover \u2192 bg-red-500");
 
+    // #109 — the inventory read from a file: JSON as a bare array or components.json shape, and
+    // the two-space textarea format, all through the one parser.
+    const pi = window.__cp.parseInventory;
+    const fromJson = pi(JSON.stringify({ components: [
+      { name: "Button", selectors: ["button", "[role=button]"], props: ["variant"] },
+      { name: "Card", selector: ".card" },
+      { name: "Broken" },
+    ] }));
+    const fromArray = pi(JSON.stringify([{ name: "Icon", selectors: ["svg"] }]));
+    const fromText = pi("Button  button, [role=button]  variant, size\nCard  .card");
+    const invOk = fromJson.length === 2 && fromJson[0].name === "Button"
+      && fromJson[0].selectors.length === 2 && fromJson[0].props[0] === "variant"
+      && fromJson[1].selectors[0] === ".card" && fromJson[1].props.length === 0
+      && fromArray.length === 1 && fromArray[0].name === "Icon"
+      && fromText.length === 2 && fromText[0].props.join() === "variant,size"
+      && pi("not json, not an inventory").length === 0;
+
     // #104 — the observation half of capture_interaction. The service worker normally drives the
     // pointer through the debugger; here the click is dispatched directly, which is enough to prove
     // the portal is noticed, the timeline records the fade, and getAnimations() sees the transition.
@@ -324,6 +341,7 @@
     if (!secOk) fails.push("#105 the page split found no sections, or lost document order / the limit");
     if (!buiOk) fails.push("#106 Base UI mis-detected, or the state section is missing:\n" + bui.slice(0, 1200));
     if (!twOk) fails.push("#107 the Tailwind v4 variant rules were not decoded:\n" + bui.slice(bui.indexOf("## Tailwind variant"), bui.indexOf("## Tailwind variant") + 900));
+    if (!invOk) fails.push("#109 the inventory parser did not read JSON and text alike");
     if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;

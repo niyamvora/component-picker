@@ -15,7 +15,35 @@ import type { InventoryEntry } from "../shared/types";
  *   `Button  button, [role=button]   variant, size`
  * name, then a comma-separated selector list, then optional prop names. Malformed lines are ignored.
  */
+/**
+ * The same inventory as JSON, so it can live in the repo (#109).
+ *
+ * Accepts a bare array or a `components.json`-shaped object, because those are the two ways anyone
+ * would actually write the file. Parsing it here rather than converting at the point of loading
+ * means the file format and the textarea format cannot drift apart.
+ */
+function parseInventoryJson(text: string): InventoryEntry[] | null {
+  let data: unknown;
+  try { data = JSON.parse(text); } catch { return null; }
+  const list = Array.isArray(data) ? data : (data as { components?: unknown })?.components;
+  if (!Array.isArray(list)) return null;
+  const out: InventoryEntry[] = [];
+  for (const raw of list) {
+    const c = raw as { name?: unknown; selectors?: unknown; selector?: unknown; props?: unknown };
+    const name = typeof c?.name === "string" ? c.name.trim() : "";
+    const selectors = (Array.isArray(c?.selectors) ? c.selectors : [c?.selector])
+      .filter((s): s is string => typeof s === "string" && !!s.trim()).map((s) => s.trim());
+    if (!name || !selectors.length) continue;
+    const props = (Array.isArray(c?.props) ? c.props : []).filter((p): p is string => typeof p === "string");
+    out.push({ name, selectors, props });
+  }
+  return out.length ? out : null;
+}
+
 export function parseInventory(text: string): InventoryEntry[] {
+  // A file from the repo arrives as JSON; the side panel's textarea is the two-space format.
+  const json = parseInventoryJson(text);
+  if (json) return json;
   const out: InventoryEntry[] = [];
   for (const line of text.split("\n")) {
     const parts = line.split(/\t+|\s{2,}/).map((p) => p.trim()).filter(Boolean);

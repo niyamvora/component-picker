@@ -10,6 +10,7 @@
  * the real site's stylesheet was still loaded shows up here as wrong, which is the entire point.
  */
 
+import { parseInventory } from "../core/mapping";
 import { DEFAULT_OPTIONS, loadOptions } from "../shared/options";
 import type { HistoryEntry, LibraryEntry, Options, Preview, Reference, Viewport } from "../shared/types";
 
@@ -210,6 +211,41 @@ chrome.runtime.onMessage.addListener((msg: { type: string; preview?: Preview }) 
   void renderReference();
 });
 
+/**
+ * Load the component inventory from a file instead of retyping it (#109).
+ *
+ * The mapping belongs in the repo next to the components it names, so it is reviewed and versioned
+ * with them and an agent can write it. The fetched text goes into the same textarea and the same
+ * storage key as a hand-typed inventory — `parseInventory` already reads both the JSON and the
+ * two-space format, so nothing downstream has to know where it came from.
+ */
+async function wireInventoryUrl(inv: HTMLTextAreaElement) {
+  const url = $<HTMLInputElement>("#inventory-url");
+  const load = $<HTMLButtonElement>("#inventory-load");
+  const note = $<HTMLParagraphElement>("#inventory-note");
+  const { inventoryUrl = "" } = await chrome.storage.local.get("inventoryUrl");
+  url.value = inventoryUrl as string;
+  url.addEventListener("input", () => chrome.storage.local.set({ inventoryUrl: url.value }));
+  load.addEventListener("click", async () => {
+    const href = url.value.trim();
+    if (!href) { note.textContent = "Enter the URL of an inventory file first."; return; }
+    note.textContent = "Loading…";
+    try {
+      const r = await fetch(href, { cache: "no-store" });
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      const text = await r.text();
+      const parsed = parseInventory(text);
+      if (!parsed.length) throw new Error("no components found in that file");
+      inv.value = text;
+      await chrome.storage.local.set({ inventory: text });
+      note.textContent = `Loaded ${parsed.length} component(s): ${parsed.slice(0, 4).map((p) => p.name).join(", ")}${parsed.length > 4 ? "…" : ""}`;
+    } catch (e) {
+      // A dev server that is not running is the common case, and the fetch error alone does not say so.
+      note.textContent = `Could not load: ${e instanceof Error ? e.message : String(e)}. The file has to be reachable over http(s) — a dev server URL works, a bare repo path does not.`;
+    }
+  });
+}
+
 async function init() {
   options = (await loadOptions()) ?? DEFAULT_OPTIONS;
   for (const box of document.querySelectorAll<HTMLInputElement>("input[data-opt]")) {
@@ -221,6 +257,7 @@ async function init() {
   const { inventory = "" } = await chrome.storage.local.get("inventory");
   inv.value = inventory as string;
   inv.addEventListener("input", () => chrome.storage.local.set({ inventory: inv.value }));
+  await wireInventoryUrl(inv);
   const bridge = $<HTMLInputElement>("#bridge");
   const { bridge: bridgeOn = false } = await chrome.storage.local.get("bridge");
   bridge.checked = Boolean(bridgeOn);

@@ -33,6 +33,8 @@
   .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 3px 0; }
   /* min-width:0 or a flex item refuses to shrink below its text and the panel scrolls sideways. */
   .row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .note { margin: 4px 0 0; color: var(--dim); font-size: 11px; line-height: 1.4; }
+  #inventory-url { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); font: 11px/1.4 ui-monospace, monospace; }
   .row time { color: var(--dim); font-size: 11px; flex: none; }
   .link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 11px; flex: none; }
 </style>
@@ -107,6 +109,11 @@
   <details>
     <summary>Your components (for mapping)</summary>
     <textarea id="inventory" rows="3" placeholder="Button  button, [role=button]  variant, size&#10;Card  .card  &#10;Icon  svg  name"></textarea>
+    <div class="row">
+      <input id="inventory-url" type="url" placeholder="…or a URL to cp-inventory.json" spellcheck="false">
+      <button id="inventory-load" type="button">Load</button>
+    </div>
+    <p id="inventory-note" class="note">Keep the inventory in your repo and load it here, so the mapping is versioned with the code.</p>
   </details>
 </section>
 
