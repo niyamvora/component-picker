@@ -13,6 +13,7 @@
  */
 
 import { runInActiveTab } from "./tab";
+import type { HistoryEntry, LibraryEntry } from "../shared/types";
 
 const ENDPOINT = "http://127.0.0.1:8787";
 const WS_ENDPOINT = "ws://127.0.0.1:8787";
@@ -21,7 +22,9 @@ const POLL_MS = 2000;
 /** What the MCP server can ask for. Mirrors the tool list in `mcp/server.mjs`. */
 export type BridgeRequest =
   | { type: "pick" }
-  | { type: "selector"; selectors: string[]; all?: boolean };
+  | { type: "selector"; selectors: string[]; all?: boolean }
+  | { type: "captures" }
+  | { type: "capture"; id: string };
 
 let armed = false;   // a `pick` is waiting for a click
 let busy = false;    // any request is in flight, so the poll does not start a second one
@@ -63,7 +66,10 @@ async function handle(req: BridgeRequest) {
   chrome.action.setBadgeText({ text: "MCP" });
   try {
     if (req.type === "pick") { await armPick(); return; } // stays busy until the click lands
-    const bundle = await captureBySelector(req);
+    const bundle =
+      req.type === "captures" ? await listCaptures()
+      : req.type === "capture" ? await getCapture(req.id)
+      : await captureBySelector(req);
     await deliver({ bundle });
   } catch (e) {
     await deliver({ error: e instanceof Error ? e.message : String(e) });
@@ -113,6 +119,37 @@ async function captureBySelector({ selectors, all }: { selectors: string[]; all?
     if (out?.error) throw new Error(out.error);
     return out?.bundle ?? "";
   });
+}
+
+/**
+ * The captures already on disk (#110).
+ *
+ * The picker keeps the last ten picks and the library keeps what was saved deliberately, so an
+ * agent can consume work the user did at the browser without re-arming anything. A history entry
+ * has no id of its own, but `at` is already unique per pick and never changes — using it is one
+ * less field to migrate than inventing one.
+ */
+const historyId = (h: HistoryEntry) => String(h.at);
+const when = (at: number) => new Date(at).toISOString().replace("T", " ").slice(0, 19);
+
+async function listCaptures(): Promise<string> {
+  const { history = [], library = [] } = await chrome.storage.local.get(["history", "library"]);
+  const h = history as HistoryEntry[];
+  const l = library as LibraryEntry[];
+  if (!h.length && !l.length) return "No captures yet. Use pick_component or capture_selector first.";
+  const rows = [
+    ...h.map((e) => `${historyId(e)}\trecent\t${e.label} — ${e.host} — ${when(e.at)} — ${(e.bundle.length / 1024).toFixed(0)} KB`),
+    ...l.map((e) => `${e.id}\tlibrary\t${e.name} — ${e.host} — ${when(e.at)} — ${(e.bundle.length / 1024).toFixed(0)} KB`),
+  ];
+  return `# Captures (${rows.length})\n\nid\twhere\twhat\n${rows.join("\n")}\n\nCall get_capture with an id for the full bundle.`;
+}
+
+async function getCapture(id: string): Promise<string> {
+  const { history = [], library = [] } = await chrome.storage.local.get(["history", "library"]);
+  const hit = (history as HistoryEntry[]).find((e) => historyId(e) === id)
+    ?? (library as LibraryEntry[]).find((e) => e.id === id);
+  if (!hit) throw new Error(`no capture with id ${id} — call list_captures for the ids that exist`);
+  return hit.bundle;
 }
 
 /** Called from the message router when a bridge-armed (or Alt-clicked) capture completes. */

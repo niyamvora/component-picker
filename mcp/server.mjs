@@ -108,8 +108,19 @@ server.tool("capture_selector",
     all: z.boolean().optional().describe("Capture every match of each selector rather than only the first") },
   async ({ selectors, all }) => text(await request({ type: "selector", selectors, all: !!all })));
 
+server.tool("list_captures",
+  "List the captures already stored in the browser — the last ten picks plus anything saved to the library — as id, where, and a one-line description. Lets an agent consume picks the user made at the browser without re-arming anything. Pair with get_capture.",
+  {},
+  async () => text(await request({ type: "captures" }, 15_000)));
+
+server.tool("get_capture",
+  "Return one stored capture in full, by an id from list_captures.",
+  { id: z.string().describe("An id from list_captures") },
+  async ({ id }) => text(await request({ type: "capture", id }, 15_000)));
+
 server.tool("last_capture",
-  "Return the most recent capture without picking again.", {},
-  async () => text(lastCapture || "No capture yet — call pick_component or capture_selector first."));
+  "Return the most recent capture from this session without picking again. For picks made before this session started, use list_captures.",
+  {},
+  async () => text(lastCapture || "No capture yet in this session — call pick_component, capture_selector, or list_captures."));
 
 await server.connect(new StdioServerTransport());
