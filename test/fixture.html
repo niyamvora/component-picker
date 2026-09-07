@@ -96,6 +96,10 @@
     document.body.appendChild(pop);
     requestAnimationFrame(() => { pop.style.opacity = "1"; });
   });
+  // #108 — a Framer Motion whileInView reveal, as the fiber presents it
+  document.querySelector(".reveal").__reactFiber$test = { type: { name: "motion.div" }, memoizedProps: {
+    initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true }, transition: { duration: 0.6 } }, return: null };
   document.getElementById("waapi").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: "forwards" });
   document.getElementById("card").__reactFiber$test = { type: { name: "Card" }, memoizedProps: { onClick: function handleCard() { return 1; } }, return: { type: { displayName: "Page" }, return: null } };
 </script>

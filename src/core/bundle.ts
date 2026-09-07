@@ -95,7 +95,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   const libs = libraries(els);
   const rootSrc = sources.find((x) => x.id === 0);
   const running = runningAnimations(els, anims);
-  const scroll = scrollBehaviour(els, allRules);
+  const scroll = scrollBehaviour(els, allRules, motion);
   const rect = root.getBoundingClientRect();
 
   const md: string[] = [];

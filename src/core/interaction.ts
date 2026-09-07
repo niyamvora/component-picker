@@ -21,7 +21,12 @@
 import { UI } from "./const";
 import { animationLabel, keyframeBody, timingLine } from "./animations";
 
-export type Action = "hover" | "click" | "focus" | "leave";
+/**
+ * `scroll` is here rather than in its own runner (#108): scrolling an element into view and
+ * diffing what changes is the same observation problem as hovering it, and a reveal is exactly
+ * the opacity-and-transform path this already records.
+ */
+export type Action = "hover" | "click" | "focus" | "leave" | "scroll";
 export interface Step { trigger: string; action: Action }
 
 const MAX_WATCH = 12;      // elements followed through one step
@@ -163,11 +168,15 @@ export const interaction = {
     if (!this.run) this.run = new Run();
     return this.run.begin(trigger, watch);
   },
-  /** Focus and leave have no pointer to dispatch, so they act from here. */
+  /** Focus, leave and scroll have no pointer to dispatch, so they act from here. */
   act(triggerSel: string, action: Action) {
     const el = document.querySelector(triggerSel);
     if (!el) return;
     if (action === "focus" && el instanceof HTMLElement) el.focus();
+    // An IntersectionObserver reveal only fires on a real scroll, so this must move the viewport
+    // rather than fake an event. `instant` keeps the sampling window measuring the reveal instead
+    // of the smooth-scroll the site may have asked for.
+    if (action === "scroll") el.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
     if (action === "leave") {
       for (const t of ["pointerleave", "mouseleave", "pointerout", "mouseout"]) {
         el.dispatchEvent(new MouseEvent(t, { bubbles: t.endsWith("out"), cancelable: true }));

@@ -105,6 +105,10 @@ try {
       document.getElementById("card").__reactFiber$test.memoizedProps.variant = "primary";
       document.getElementById("card").__reactFiber$test.memoizedProps.size = "sm";
       document.getElementById("card").__reactFiber$test.memoizedProps.disabled = false;
+      // #108 — a whileInView reveal on the hidden .reveal child
+      document.querySelector(".reveal").__reactFiber$test = { type: { name: "motion.div" }, memoizedProps: {
+        initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true }, transition: { duration: 0.6 } }, return: null };
       document.getElementById("card").__reactFiber$test._debugSource = { fileName: "/project/src/components/Card.tsx", lineNumber: 12, columnNumber: 4 };
       document.documentElement.setAttribute("data-wf-page", "x");
       const card = document.getElementById("card");
@@ -212,6 +216,9 @@ try {
     "no HTML or CSS to capture", "treat it as an image/video asset",
     // #33 — the builder behind the page, named in the header and detailed in Platform notes
     "Platform: Webflow.", "## Platform notes", "Webflow grid/util classes to replace: w-container",
+    // #108 — the reveal is named, not guessed: whileInView off the fiber, with its initial style
+    "## Scroll behaviour", 'revealed by whileInView (Framer Motion, fires when scrolled into view)',
+    'initial {"opacity":0,"y":20}', 'viewport {"once":true}',
     // #60 source locations from the (fake) dev-build fiber
     "Source: src/components/Card.tsx:12:4", "## Source locations", "src/components/Card.tsx:12:4",
     // #62 inferred prop shape
