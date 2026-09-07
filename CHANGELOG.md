@@ -220,7 +220,8 @@ Evaluated and skipped. Plasmo's on-demand content-script filename is undocumente
 - `top/right/bottom/left: 0px` reported for `position: relative` (Chrome renders `auto` as `0px`).
 - Default `transform-origin` and mid-animation `transform` matrices leaking into CSS.
 
-[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.8.1...main
+[Unreleased]: https://github.com/niyamvora/component-picker/compare/v1.9.0...main
+[1.9.0]: https://github.com/niyamvora/component-picker/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/niyamvora/component-picker/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/niyamvora/component-picker/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/niyamvora/component-picker/compare/v1.6.0...v1.7.0
