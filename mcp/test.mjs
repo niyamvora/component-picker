@@ -33,21 +33,34 @@ try {
   await rpc("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "test", version: "0" } });
   server.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
 
-  // Play the extension: poll /next, and once the agent has armed a pick, post a bundle back.
-  (async () => {
+  /** Play the extension: poll /next, and answer whatever request is waiting. */
+  const respond = (reply) => (async () => {
     for (let i = 0; i < 50; i++) {
-      const { pick } = await (await fetch(`http://127.0.0.1:${PORT}/next`)).json();
-      if (pick) {
-        await fetch(`http://127.0.0.1:${PORT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bundle: "# Component picked\nHELLO" }) });
+      const { req } = await (await fetch(`http://127.0.0.1:${PORT}/next`)).json();
+      if (req) {
+        await fetch(`http://127.0.0.1:${PORT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(reply(req)) });
         return;
       }
       await sleep(100);
     }
   })();
 
+  respond(() => ({ bundle: "# Component picked\nHELLO" }));
   const res = await rpc("tools/call", { name: "pick_component", arguments: {} });
   const text = res.result?.content?.[0]?.text ?? "";
   const httpOk = text.includes("HELLO");
+
+  // #103 — capture_selector carries its selectors through the envelope, and needs no click.
+  let sawReq = null;
+  respond((req) => { sawReq = req; return { bundle: `# Captured ${req.selectors.join(", ")}\nSELOK` }; });
+  const selRes = await rpc("tools/call", { name: "capture_selector", arguments: { selectors: ["header", ".card"] } });
+  const selOk = (selRes.result?.content?.[0]?.text ?? "").includes("SELOK")
+    && sawReq?.type === "selector" && sawReq.selectors.length === 2;
+
+  // An error from the extension must fail the tool call rather than hang until the timeout.
+  respond(() => ({ error: "no element matched: .nope" }));
+  const errRes = await rpc("tools/call", { name: "capture_selector", arguments: { selectors: [".nope"] } });
+  const errOk = JSON.stringify(errRes).includes("no element matched");
 
   // #67 — the same round trip over the WebSocket transport.
   const { WebSocket } = await import("ws");
@@ -60,8 +73,11 @@ try {
   ws.close();
   const wsOk = (wsRes.result?.content?.[0]?.text ?? "").includes("WSHELLO");
 
-  console.log(httpOk && wsOk ? `PASS — HTTP and WebSocket round trips both delivered` : `FAIL — http=${httpOk} ws=${wsOk}`);
-  process.exitCode = httpOk && wsOk ? 0 : 1;
+  const ok = httpOk && wsOk && selOk && errOk;
+  console.log(ok
+    ? `PASS — pick over HTTP and WebSocket, capture_selector, and error propagation`
+    : `FAIL — http=${httpOk} ws=${wsOk} selector=${selOk} error=${errOk}`);
+  process.exitCode = ok ? 0 : 1;
 } catch (e) {
   console.log("FAIL", e);
   process.exitCode = 1;
