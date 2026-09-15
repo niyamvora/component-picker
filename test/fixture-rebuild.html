@@ -29,7 +29,27 @@
   <button class="btn">Go</button>
   <div class="panel"><p>panel</p></div>
   <div class="ring logo">ring</div>
+  <!-- #115 — a closed tab panel, responsive image, inline handler and shadow root that must all survive -->
+  <section id="tabs-demo">
+    <div role="tablist">
+      <button role="tab" id="t1" aria-selected="true" aria-controls="p1" data-state="active">One</button>
+      <button role="tab" id="t2" aria-selected="false" aria-controls="p2" data-state="inactive">Two</button>
+    </div>
+    <div role="tabpanel" id="p1">First panel text</div>
+    <div role="tabpanel" id="p2" hidden>Second panel secret text</div>
+  </section>
+  <img class="pic" src="img/a.png" srcset="img/a.png 1x, img/a@2x.png 2x" alt="A">
+  <button class="handler" onclick="void 0" nonce="abc">handler</button>
+  <shadow-card></shadow-card>
+  <div id="many"></div>
 </main>
+<script>
+  customElements.define("shadow-card", class extends HTMLElement {
+    connectedCallback() { this.attachShadow({ mode: "open" }).innerHTML = '<p class="inside">shadow text</p>'; }
+  });
+  // #115 — more elements than the 300 a section capture keeps
+  for (let i = 0; i < 400; i++) document.getElementById("many").appendChild(Object.assign(document.createElement("div"), { className: "many-item", textContent: String(i) }));
+</script>
 <pre id="result">RUNNING</pre>
 <script>window.__cpNoAutostart = true;</script>
 <script src="../dist/picker.js"></script>
@@ -63,6 +83,21 @@
     expect(rb.atRest(".group-data-\\[open\\]\\:x:is(:where(.group)[data-open] *)") === ".group-data-\\[open\\]\\:x"
       && rb.atRest("html.dark .card:hover::before") === "html .card" && rb.atRest(".a > :focus-visible") === ".a",
       "#114 atRest did not strip state, theme and attribute parts correctly");
+
+    // #115 — the whole page as one document, uncapped, runnable code removed
+    const dom = rb.exportDom();
+    const page = dom.html;
+    const absUrl = (u) => new URL(u, location.href).href;
+    expect((page.match(/class="many-item"/g) || []).length === 400 && dom.elements > 400, "#115 not every element was exported: " + dom.elements);
+    expect(page.includes("Second panel secret text") && page.includes('aria-selected="false"') && page.includes('data-state="inactive"'), "#115 a closed tab panel, ARIA or data-state was lost");
+    expect(!/<script|onclick=|nonce=/.test(page), "#115 a script, handler or nonce survived");
+    expect(page.startsWith("<!doctype html>") && page.includes('<html lang="en">') && page.includes("<title>Component Picker rebuild self-check</title>")
+      && page.includes('<link rel="stylesheet" href="styles.css">'), "#115 the head is not a standalone document linking styles.css");
+    expect(page.includes(`srcset="${absUrl("img/a.png")} 1x, ${absUrl("img/a@2x.png")} 2x"`), "#115 srcset was not kept with absolute URLs");
+    expect(page.includes('<template shadowrootmode="open"><p class="inside">shadow text</p></template>'), "#115 the open shadow root was not kept as a declarative template");
+    expect(page.includes('<meta charset="utf-8">') && !page.includes("http-equiv"), "#115 the charset meta is missing or malformed");
+    const mapped = rb.exportDom({ stylesheet: "", mapUrl: (u) => u.endsWith("/img/a.png") ? "assets/media/a.png" : u }).html;
+    expect(mapped.includes('src="assets/media/a.png"') && !mapped.includes('rel="stylesheet"'), "#115 mapUrl or stylesheet option ignored");
 
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
