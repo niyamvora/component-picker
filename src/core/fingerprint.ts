@@ -70,31 +70,42 @@ const label = (n: FingerprintNode) => `${n.tags.split(">").pop()}${n.text ? ` "$
 /**
  * Align a rebuild's fingerprint with the original's and report what differs, largest first.
  *
- * Elements pair up by tag and own text, in document order; elements without text pair by their
- * ancestor tag path and occurrence. A box within `tolerance` px counts as the same.
+ * Elements pair up, strongest key first: the same selector path and tag (an export, or a rebuild
+ * that kept the structure, has the element at the same place); then tag and own text, in document
+ * order; then ancestor tag path and occurrence. Occurrence is last because it is fragile — one
+ * missing element shifts every later pairing by one, which on resend.com turned ten missing nodes
+ * into hundreds of reports comparing a grid with an unrelated block. A box within `tolerance` px
+ * counts as the same.
  */
 export function compareFingerprints(original: Fingerprint, rebuild: Fingerprint, tolerance = 2): Comparison {
-  const queues = new Map<string, FingerprintNode[]>();
-  const keyOf = (n: FingerprintNode, seen: Map<string, number>) => {
-    if (n.text) return `t|${n.tags.split(">").pop()}|${n.text}`;
-    const k = `p|${n.tags}`;
-    const i = seen.get(k) ?? 0;
-    seen.set(k, i + 1);
-    return `${k}|${i}`;
-  };
-  const rebuildSeen = new Map<string, number>();
+  const tag = (n: FingerprintNode) => n.tags.split(">").pop();
+  const byPath = new Map<string, FingerprintNode>();
+  const byText = new Map<string, FingerprintNode[]>();
+  const byTags = new Map<string, FingerprintNode[]>();
+  const push = (map: Map<string, FingerprintNode[]>, key: string, n: FingerprintNode) => map.set(key, [...(map.get(key) ?? []), n]);
   for (const n of rebuild.nodes) {
-    const k = keyOf(n, rebuildSeen);
-    queues.set(k, [...(queues.get(k) ?? []), n]);
+    byPath.set(`${tag(n)}|${n.path}`, n);
+    if (n.text) push(byText, `${tag(n)}|${n.text}`, n);
+    else push(byTags, n.tags, n);
   }
+  const used = new Set<FingerprintNode>();
+  const take = (list?: FingerprintNode[]) => {
+    while (list?.length) { const n = list.shift()!; if (!used.has(n)) return n; }
+    return undefined;
+  };
+  // Text is identity: an element with text that finds no text match is missing, not paired with
+  // whatever element happens to share its tag path.
+  const partner = (o: FingerprintNode) => {
+    const same = byPath.get(`${tag(o)}|${o.path}`);
+    if (same && !used.has(same) && same.text === o.text) return same;
+    return o.text ? take(byText.get(`${tag(o)}|${o.text}`)) : take(byTags.get(o.tags));
+  };
 
   const mismatches: Mismatch[] = [];
-  const used = new Set<FingerprintNode>();
   let matched = 0, missing = 0;
-  const originalSeen = new Map<string, number>();
   for (const o of original.nodes) {
     const area = o.box[2] * o.box[3];
-    const r = queues.get(keyOf(o, originalSeen))?.shift();
+    const r = partner(o);
     if (!r) {
       missing++;
       mismatches.push({ area, message: `Missing: ${label(o)}` });
