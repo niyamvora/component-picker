@@ -316,6 +316,11 @@ export function locateInteractive(selector: string, label: string): number | nul
     el = [...pool].find((e) => labelOf(e) === label && visible(e)) ?? null;
   }
   if (!el) return null;
+  // One element, one index. verify_rebuild locates once per record, and an element with a hover, a
+  // focus and a press record would otherwise be re-marked each time — leaving the focus record's index
+  // pointing at nothing, so the forced focus silently never happened.
+  const marked = el.getAttribute(MARK);
+  if (marked !== null && targets[Number(marked)] === el) return Number(marked);
   const index = targets.push(el) - 1;
   el.setAttribute(MARK, String(index));
   return index;

@@ -45,7 +45,8 @@ async function forceFocus(target: Target, index: number, on: boolean) {
   if (on) {
     const { root } = await send<{ root: { nodeId: number } }>(target, "DOM.getDocument", { depth: 0 });
     ({ nodeId } = await send<{ nodeId: number }>(target, "DOM.querySelector", { nodeId: root.nodeId, selector: `[data-cp-interact="${index}"]` }));
-    if (!nodeId) return;
+    // A focus that cannot be applied must be reported, not recorded as "focusing changes nothing".
+    if (!nodeId) throw new Error("the element could not be found to focus it");
     forced.set(index, nodeId);
   } else {
     forced.delete(index);

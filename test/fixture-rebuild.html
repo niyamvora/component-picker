@@ -54,6 +54,8 @@
   .lift:hover .lift-arrow { opacity: 1; }
   .ring-btn:focus-visible { outline: 2px solid rgb(37, 99, 235); outline-offset: 2px; }
   .press:active { transform: scale(0.96); }
+  /* Press also has a focus ring: one element with a focus and a press record, as resend.com's "Send test email" has */
+  .press:focus-visible { outline: 2px solid rgb(22, 163, 74); }
 </style>
 <link rel="icon" href="img/favicon.png">
 <main>
@@ -380,6 +382,8 @@
     rb.interact.clear();
     const relocated = rb.interact.locate(liftRec.selector, liftRec.label);
     expect(relocated !== null && document.querySelector(`[data-cp-interact="${relocated}"]`)?.classList.contains("lift"), "#125 locate did not find the recorded element");
+    expect(rb.interact.locate(liftRec.selector, liftRec.label) === relocated,
+      "#125 locating the same element twice gave it a second index, so its first index no longer finds it");
     rb.interact.clear();
     expect(!document.querySelector("[data-cp-interact]"), "#125 interaction marks were left on the page");
 
