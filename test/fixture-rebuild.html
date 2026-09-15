@@ -66,6 +66,9 @@
   <svg class="two" aria-label="Acme" role="img" viewBox="0 0 10 10" width="24" height="24" data-x="1"><rect width="10" height="10"></rect></svg>
   <svg aria-label="Acme" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"></circle></svg>
   <svg viewBox="0 0 4 4"><path d="M0 0h4v4z"></path></svg>
+  <!-- #117 — motion written by script, which getAnimations() cannot see -->
+  <div id="rafbox" style="opacity: 0">raf</div>
+  <ul id="log"></ul>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -73,6 +76,20 @@
   });
   // #115 — more elements than the 300 a section capture keeps
   for (let i = 0; i < 400; i++) document.getElementById("many").appendChild(Object.assign(document.createElement("div"), { className: "many-item", textContent: String(i) }));
+  // #117 — a 1s opacity sawtooth written frame by frame, and a row prepended every 500ms. Both stop
+  // once the motion test is done, so later tests see a still page. The frames come from a 16ms timer,
+  // not requestAnimationFrame: under check.sh's --dump-dom virtual time rAF fires twice in 2.6s while
+  // timers fire normally. The recorder observes the style writes whatever schedules them; the real
+  // rAF path is exercised in the extension e2e, where frames actually render.
+  const rafbox = document.getElementById("rafbox"), loopStart = performance.now();
+  const frameTimer = setInterval(() => {
+    if (window.__stopFixtureMotion) return clearInterval(frameTimer);
+    rafbox.style.opacity = (((performance.now() - loopStart) % 1000) / 1000).toFixed(2);
+  }, 16);
+  const logTimer = setInterval(() => {
+    if (window.__stopFixtureMotion) return clearInterval(logTimer);
+    document.getElementById("log").prepend(Object.assign(document.createElement("li"), { className: "log-row", textContent: "HTTP 200" }));
+  }, 500);
 </script>
 <pre id="result">RUNNING</pre>
 <script>window.__cpNoAutostart = true;</script>
@@ -175,6 +192,22 @@
       "#119 video facts wrong: " + JSON.stringify(clip));
     const font = sub("fonts/fixture-sans.woff2");
     expect(font.selfHosted === true && font.faces[0] === "Fixture Sans 400 normal", "#119 font facts wrong: " + JSON.stringify(font));
+
+    // #117 — the recorder turns script writes into a period, keyframes and a stream
+    rb.motion.start(document.body);
+    await new Promise((r) => setTimeout(r, 2600));
+    const rec = rb.motion.stop();
+    window.__stopFixtureMotion = true;
+    const op = rec.tracks.find((t) => t.selector === rb.cssPath(rafbox) && t.property === "opacity");
+    expect(op && Math.abs(op.period - 1000) <= 100 && /0% \{ opacity: [\d.]+; \}/.test(op.keyframes) && op.keyframes.includes("infinite"),
+      "#117 the rAF opacity loop was not reported with a ~1000ms period: " + JSON.stringify(op && { period: op.period, n: op.samples.length, keyframes: op.keyframes }));
+    const stream = rec.streams.find((s) => s.selector === rb.cssPath(document.getElementById("log")));
+    expect(stream && stream.position === "prepend" && Math.abs(stream.every - 500) <= 60 && stream.template.includes('<li class="log-row">HTTP 200</li>') && stream.count >= 4,
+      "#117 the prepend stream was not reported every ~500ms: " + JSON.stringify(stream));
+    expect(rec.animations.filter((a) => a.name === '"used-spin"').length === 1 && !rec.tracks.some((t) => t.selector.includes("button")),
+      "#117 the CSS animation was not reported exactly once, from getAnimations: " + JSON.stringify(rec.animations.map((a) => a.name)));
+    expect(rb.motion.stop() === null, "#117 a second stop must return null, not a stale recording");
+    expect(rb.motion.periodOf([[0, "0"], [250, "0.5"], [500, "0"], [750, "0.5"], [1000, "0"]]) === 500, "#117 periodOf wrong on a clean 500ms cycle");
 
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });

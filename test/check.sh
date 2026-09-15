@@ -8,7 +8,7 @@ cd test
 status=0
 for fixture in fixture*.html; do
   out=$("${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}" --headless=new --disable-gpu --no-sandbox \
-    --virtual-time-budget=3000 --dump-dom "file://$PWD/$fixture" 2>/dev/null \
+    --virtual-time-budget=10000 --dump-dom "file://$PWD/$fixture" 2>/dev/null \
     | awk '/<pre id="result">/,/<\/pre>/' | sed 's/.*<pre id="result">//; s/<\/pre>.*//' | head -60)
   printf '%s: %s\n' "$fixture" "$out"
   case "$out" in PASS*) ;; *) status=1 ;; esac
