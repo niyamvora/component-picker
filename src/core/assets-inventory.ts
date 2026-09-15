@@ -48,6 +48,8 @@ export interface ManifestEntry {
   /** Path inside the export when the file was downloaded. */
   local?: string;
   note?: string;
+  /** What to write in the rebuild instead of the file (#119), filled in by the export. */
+  replaceWith?: Record<string, string | number | boolean | string[]>;
 }
 
 const URL_RE = /url\((['"]?)([^'")]+)\1\)/g;

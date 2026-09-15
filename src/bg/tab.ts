@@ -15,10 +15,15 @@ export async function runInActiveTab<T>(fn: (tabId: number) => Promise<T>): Prom
   if (!INJECTABLE.test(tab.url || "")) {
     throw new Error(`cannot capture ${tab.url ? new URL(tab.url).protocol : "this"} pages — open the site you want to capture in the active tab`);
   }
-  // Injecting picker.js a second time toggles the picker off, so only inject when it is absent.
-  const [present] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => !!(window as { __cp?: unknown }).__cp });
-  if (!present.result) {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["picker.js"] });
-  }
+  await ensurePicker(tab.id);
   return fn(tab.id);
+}
+
+/**
+ * `picker.js` in the tab, injected only when absent — injecting it a second time toggles the picker
+ * off. Also called after the page export reloads or navigates back, which discards `window.__cp`.
+ */
+export async function ensurePicker(tabId: number) {
+  const [present] = await chrome.scripting.executeScript({ target: { tabId }, func: () => !!(window as { __cp?: unknown }).__cp });
+  if (!present.result) await chrome.scripting.executeScript({ target: { tabId }, files: ["picker.js"] });
 }

@@ -7,8 +7,8 @@
 
 const enc = new TextEncoder();
 
-/** A local filename for a URL, kept unique. */
-function filename(url: string, seen: Set<string>): string {
+/** A local filename for a URL, kept unique. Shared with the page export's media writer (#120). */
+export function filename(url: string, seen: Set<string>): string {
   let base = "asset";
   try { base = new URL(url).pathname.split("/").pop() || "asset"; } catch { /* data: URL */ }
   base = base.replace(/[^\w.-]/g, "_").slice(0, 60) || "asset";

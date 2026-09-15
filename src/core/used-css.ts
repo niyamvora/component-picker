@@ -120,7 +120,9 @@ function collectRuleBases(): string[] {
   return [...out];
 }
 
-export function usedCss(root: Document | Element = document, extra: SheetText[] = []): UsedCss {
+/** `root` may be `null` — `executeScript` turns an omitted argument into one — and means the document. */
+export function usedCss(scope: Document | Element | null = document, extra: SheetText[] = []): UsedCss {
+  const root = scope ?? document;
   const doc = root instanceof Document ? root : root.ownerDocument;
   const cache = new Map<string, boolean>();
   const exists = (selectorText: string) => splitList(selectorText).some((s) => {
