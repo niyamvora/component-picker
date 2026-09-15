@@ -87,6 +87,11 @@ export function tokensSection(md: string[], root: Element, els: Element[]): stri
  * the value does not clearly fit a category — the spec allows an untyped token.
  */
 function w3cTokens(resolved: readonly (readonly [string, string | undefined])[]): string {
+  return `\n\`\`\`json\n${JSON.stringify(w3cTokenGroups(resolved), null, 2)}\n\`\`\``;
+}
+
+/** The token groups themselves, for the page export's `tokens.json` (#120). */
+export function w3cTokenGroups(resolved: readonly (readonly [string, string | undefined])[]): Record<string, Record<string, unknown>> {
   const groups: Record<string, Record<string, unknown>> = {};
   const put = (group: string, name: string, value: unknown, type?: string) => {
     (groups[group] ??= {})[name] = type ? { $type: type, $value: value } : { $value: value };
@@ -106,7 +111,7 @@ function w3cTokens(resolved: readonly (readonly [string, string | undefined])[])
     else if (Number.isFinite(num) && String(num) === value.trim()) put("number", name, num, "number");
     else put("other", name, value); // untyped rather than a wrong guess
   }
-  return `\n\`\`\`json\n${JSON.stringify(groups, null, 2)}\n\`\`\``;
+  return groups;
 }
 
 /** The token behind a printed property, if the stylesheet named one. */

@@ -288,6 +288,25 @@
     const cut = rb.compareFingerprints(original, { ...original, nodes: original.nodes.filter((n) => n.path !== "#fp-a") });
     expect(cut.missing === 1 && cut.mismatches[0]?.message === 'Missing: div "Fingerprint A" (#fp-a)', "#121 a removed element was not reported missing: " + JSON.stringify(cut.mismatches.slice(0, 3)));
 
+    // #120 — the page-side steps of the export, and the README written from what ran
+    const tokens = rb.tokens();
+    expect(tokens.color?.brand?.$value === "rgb(10, 20, 30)" && !Object.keys(tokens.other ?? {}).some((k) => k.startsWith("tw-")), "#120 :root tokens wrong: " + JSON.stringify(tokens));
+    const scrolled = rb.scrollTo(0);
+    expect(scrolled.y === 0 && scrolled.height >= scrolled.viewport && scrolled.viewport > 0, "#120 scrollTo wrong: " + JSON.stringify(scrolled));
+    expect(rb.pageInfo().title === "Component Picker rebuild self-check" && rb.outline().some((o) => o.selector === "#tabs-demo" && o.elements > 0), "#120 page info or outline wrong: " + JSON.stringify(rb.outline().slice(0, 4)));
+    expect(rb.exportDomMapped({ [absUrl("img/a.png")]: "assets/media/a.png" }).html.includes('src="assets/media/a.png"'), "#120 exportDomMapped did not apply the URL map");
+    const readme = rb.readme({
+      title: "Demo", url: "https://demo.example/", at: "2026-09-15T00:00:00.000Z", widths: [1440, 768, 390], media: "manifest",
+      elements: 2434, css: { kept: 1709, total: 11473, breakpoints: ["@media (min-width: 40rem)"] },
+      manifest: [{ url: "https://demo.example/a.png", role: "avatar", usedBy: ["img"], source: "dom" }, { url: "https://demo.example/b.png", role: "avatar", usedBy: ["img"], source: "dom" }, { url: "https://demo.example/c.mp4", role: "video", usedBy: ["video"], source: "dom" }],
+      svgs: 98, states: [{ file: "states/01-two.json", label: "Two", kind: "tab" }], motion: null,
+      outline: [{ heading: "Pricing", selector: "#pricing", elements: 40 }], notes: ["Could not read 1 stylesheet(s): https://cdn.example/x.css"], files: ["index.html", "styles.css"],
+    });
+    expect(readme.startsWith("# Rebuild export: Demo") && readme.includes("no screenshots") && readme.includes("1709 of 11473 rules")
+      && readme.includes("3 files (2 avatar, 1 video)") && readme.includes("1 state opened by clicking") && readme.includes("not recorded")
+      && readme.includes("**Pricing** — `#pricing`") && readme.includes("- Could not read 1 stylesheet(s)") && readme.includes("- README.md")
+      && readme.includes("1440 / 768 / 390px"), "#120 the README does not reflect its input:\n" + readme);
+
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
 </script>
