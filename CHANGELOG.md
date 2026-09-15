@@ -11,6 +11,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Added
+- **Used-CSS export** (#114): the page's own rules, verbatim, with their `@layer` / `@media` / `@supports` / `@container` nesting intact, cut down to the rules whose selector can match something on the page. Matching ignores state and theme — `.btn:hover` stays when `.btn` exists, `html.dark .card` when `.card` does — because hover and dark mode are exactly what a one-frame computed-style capture loses. Keyframes, `@property` registrations and `@font-face` rules are kept only when the kept rules name them; relative `url()`s are absolutized against their sheet; the viewport and container conditions are listed as breakpoints; and a cross-origin sheet the page cannot read is reported by URL and accepted back as text. The foundation of the page export (#124).
+
 ### Fixed
 - **`@property` registrations are captured** (#113). `sheetRules` matched no branch for a `CSSPropertyRule`, so it was dropped silently — and without the registration a custom property cannot be interpolated, so a gradient turned by `@keyframes { to { --angle: 360deg } }` rebuilt frozen on its first frame. A new *Registered properties* section carries only the registrations the capture's keyframes, rules, markup or token sources actually name, so the ~180 `--tw-*` registrations on a Tailwind v4 page stay out of a button's bundle.
 

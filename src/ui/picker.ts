@@ -9,6 +9,7 @@ import { extract, extractMany } from "../core/bundle";
 import { capturePage, pageSections } from "../core/page";
 import { interaction } from "../core/interaction";
 import { parseInventory } from "../core/mapping";
+import { atRest, usedCss } from "../core/used-css";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
@@ -33,6 +34,8 @@ declare global {
       interaction: typeof interaction;
       /** Inventory parsing, exposed for tests (#109). */
       parseInventory: typeof parseInventory;
+      /** The page-export engine (#124): what `export_page` calls in the page, one step at a time. */
+      rebuild: { usedCss: typeof usedCss; atRest: typeof atRest };
       start: () => void; stop: () => void; toggle: () => void;
       last: string; opts: typeof options;
       /** The last capture's desktop blocks — what "set as reference" stores. */
@@ -81,6 +84,7 @@ if (window.__cp) {
 
   window.__cp = {
     extract, extractMany, capturePage, pageSections, interaction, parseInventory, start, stop,
+    rebuild: { usedCss, atRest },
     toggle: () => (isActive() ? stop() : start()),
     last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },

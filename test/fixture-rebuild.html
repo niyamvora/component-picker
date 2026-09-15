@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Component Picker rebuild self-check</title>
+<!-- The v2.0 page export (#124), exercised on a page written for it: every technique the resend.com
+     analysis found, built from scratch. check.sh runs every test/fixture*.html. -->
+<style>
+  @layer base, components;
+  /* #114 — nesting that must survive verbatim, and rules that must not */
+  @layer components { @media (min-width: 768px) { @supports (display: grid) { .lms { display: grid; } } } }
+  .never-used-anywhere { color: red; }
+  .btn { animation: used-spin 1s linear infinite; }
+  .btn:hover { color: rgb(1, 2, 3); }
+  html.dark .panel { background: black; }
+  :root { --brand: rgb(10, 20, 30); }
+  .logo { background-image: url("img/logo.png"); }
+  @keyframes used-spin { to { transform: rotate(1turn); } }
+  @keyframes unused-fade { to { opacity: 0; } }
+  @property --angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  @property --unused-prop { syntax: "<length>"; inherits: false; initial-value: 0px; }
+  .ring { background: linear-gradient(var(--angle), red, blue); }
+  .panel { container-type: inline-size; }
+  @container (min-width: 300px) { .panel p { padding: 8px; } }
+  @media print { .btn { display: none; } }
+</style>
+<main>
+  <div class="lms">layer, media, supports</div>
+  <button class="btn">Go</button>
+  <div class="panel"><p>panel</p></div>
+  <div class="ring logo">ring</div>
+</main>
+<pre id="result">RUNNING</pre>
+<script>window.__cpNoAutostart = true;</script>
+<script src="../dist/picker.js"></script>
+<script>
+  (async () => {
+    const fails = [];
+    const expect = (ok, msg) => { if (!ok) fails.push(msg); };
+    const rb = window.__cp.rebuild;
+
+    // #114 — the page's own rules, verbatim and nested, cut to what the page can use
+    const used = rb.usedCss();
+    const css = used.css;
+    const sheetBytes = [...document.styleSheets].reduce((n, s) => n + [...s.cssRules].map((r) => r.cssText).join("\n").length, 0);
+    expect(/@layer components \{\s*@media \(min-width: 768px\) \{\s*@supports \(display: grid\) \{\s*\.lms \{ display: grid; \}/.test(css), "#114 @layer/@media/@supports nesting was not kept in order");
+    expect(css.includes("@layer base, components;"), "#114 the @layer order statement was dropped");
+    expect(!css.includes("never-used-anywhere"), "#114 a rule matching nothing was kept");
+    expect(css.includes(".btn:hover { color: rgb(1, 2, 3); }"), "#114 a :hover rule for an existing element was dropped");
+    expect(css.includes("html.dark .panel"), "#114 a dark-theme rule was dropped because the theme is not active");
+    expect(css.includes(":root { --brand: rgb(10, 20, 30); }"), "#114 :root tokens were dropped");
+    expect(css.includes(`url("${new URL("img/logo.png", location.href).href}")`), "#114 a relative url() was not absolutized");
+    expect(css.includes("@keyframes used-spin") && !css.includes("unused-fade"), "#114 keyframes were not filtered to the used ones");
+    expect(/@property --angle/.test(css) && !css.includes("--unused-prop"), "#114 @property was not filtered to the referenced ones");
+    expect(css.includes("@media print"), "#114 print rules were dropped");
+    expect(used.breakpoints.includes("@media (min-width: 768px)") && used.breakpoints.includes("@container (min-width: 300px)")
+      && !used.breakpoints.some((b) => b.includes("print")), "#114 breakpoints wrong: " + JSON.stringify(used.breakpoints));
+    expect(css.length < sheetBytes, `#114 output (${css.length}) is not smaller than the sheets (${sheetBytes})`);
+    expect(used.unreadable.length === 0 && used.kept > 0 && used.kept < used.total, "#114 stats wrong: " + JSON.stringify({ ...used, css: undefined }));
+    const cross = rb.usedCss(document, [{ href: "https://cdn.example/x.css", text: ".btn { margin: 1px; } .nope-x { color: red; }" }]).css;
+    expect(cross.includes("/* https://cdn.example/x.css (read through the debugger) */") && cross.includes(".btn { margin: 1px; }")
+      && !cross.includes("nope-x"), "#114 sheet text supplied by the caller was not filtered and labelled");
+    expect(rb.atRest(".group-data-\\[open\\]\\:x:is(:where(.group)[data-open] *)") === ".group-data-\\[open\\]\\:x"
+      && rb.atRest("html.dark .card:hover::before") === "html .card" && rb.atRest(".a > :focus-visible") === ".a",
+      "#114 atRest did not strip state, theme and attribute parts correctly");
+
+    document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
+  })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
+</script>
