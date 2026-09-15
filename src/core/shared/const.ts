@@ -40,11 +40,20 @@ export const DEF_PROPS = [...PROPS, "transition-duration", "animation-name",
 export const STATE_RE = /:(hover|focus-visible|focus-within|focus|active|visited|checked|disabled|placeholder-shown|open)\b/;
 export const PSEUDO_EL_RE = /::?(before|after|placeholder|marker|selection|first-letter|first-line|backdrop|file-selector-button)\b/;
 export const sel = (i: number) => `[data-cp="${i + 1}"]`;
-/** Split a CSS comma list without breaking inside cubic-bezier(…), var(…), url(…). */
+/**
+ * Split a CSS comma list without breaking inside cubic-bezier(…), var(…), url(…), a quoted string,
+ * or an escape. Escapes matter for selectors: Tailwind's `.\[background\:a_var\(--x\)\,b\]` is one
+ * class, and splitting it at `\,` dropped every arbitrary-value rule with a comma from the export.
+ */
 export const splitList = (str: string): string[] => {
-  const out: string[] = []; let depth = 0, cur = "";
-  for (const ch of str) {
-    if (ch === "(") depth++; else if (ch === ")") depth--;
+  const out: string[] = []; let depth = 0, cur = "", quote = "";
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === "\\") { cur += ch + (str[i + 1] ?? ""); i++; continue; }
+    if (quote) { if (ch === quote) quote = ""; cur += ch; continue; }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(") depth++;
+    else if (ch === ")") depth--;
     if (ch === "," && !depth) { out.push(cur.trim()); cur = ""; } else cur += ch;
   }
   return [...out, cur.trim()];
