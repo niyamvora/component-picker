@@ -14,6 +14,7 @@
 
 import { runInActiveTab } from "./tab";
 import { runInteraction } from "./interact";
+import { exportPage, type ExportFile, type ExportOptions } from "./export";
 import type { Step } from "../core/interaction";
 import type { HistoryEntry, LibraryEntry } from "../shared/types";
 
@@ -28,7 +29,8 @@ export type BridgeRequest =
   | { type: "page"; limit?: number }
   | { type: "interaction"; steps: Step[]; watch?: string }
   | { type: "captures" }
-  | { type: "capture"; id: string };
+  | { type: "capture"; id: string }
+  | ({ type: "export" } & ExportOptions);
 
 let armed = false;   // a `pick` is waiting for a click
 let busy = false;    // any request is in flight, so the poll does not start a second one
@@ -75,6 +77,7 @@ async function handle(req: BridgeRequest) {
       : req.type === "capture" ? await getCapture(req.id)
       : req.type === "page" ? await capturePage(req.limit)
       : req.type === "interaction" ? await runInteraction(req.steps, req.watch)
+      : req.type === "export" ? await exportPage(req, deliverPart)
       : await captureBySelector(req);
     await deliver({ bundle });
   } catch (e) {
@@ -182,6 +185,20 @@ export async function deliverToBridge(bundle: string, pushed = false) {
   if (!armed && !pushed) return;
   armed = false;
   await deliver({ bundle });
+}
+
+/**
+ * One file of a page export (#120), sent the moment it exists so the server writes the folder as it
+ * arrives. Over the socket with backpressure — a page's media can run to tens of megabytes and
+ * `send` buffers without limit — and over HTTP when there is no socket.
+ */
+async function deliverPart(part: ExportFile) {
+  while (socket?.readyState === WebSocket.OPEN && socket.bufferedAmount > 8_000_000) await new Promise((r) => setTimeout(r, 50));
+  if (socket?.readyState === WebSocket.OPEN) {
+    try { socket.send(JSON.stringify({ part })); return; } catch { /* fall through to HTTP */ }
+  }
+  const r = await fetch(`${ENDPOINT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ part }) });
+  if (!r.ok) throw new Error(`the MCP server did not accept ${part.path} (HTTP ${r.status})`);
 }
 
 /** One result back to the server, over the socket when there is one and HTTP otherwise. */

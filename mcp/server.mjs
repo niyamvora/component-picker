@@ -10,6 +10,8 @@
  * Run: npx component-picker-mcp   (add it to your agent's MCP config)
  */
 import { createServer } from "node:http";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, relative, resolve, sep } from "node:path";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -27,12 +29,16 @@ const PAGE_TIMEOUT = 600_000; // a full-page capture is a dozen of those, one af
  * `pick_component` needs parameters (which selector, which trigger, which capture id). `pick`
  * is still sent alongside it so an extension built before this change keeps working.
  */
-let pending = null;   // { resolve, reject, req }
+let pending = null;   // { resolve, reject, req, onPart? }
 let lastCapture = ""; // so last_capture works without any interaction
 
-/** A result from the extension, over either transport. `error` fails the waiting tool call. */
+/**
+ * A result from the extension, over either transport. `error` fails the waiting tool call; `part`
+ * is one file of a page export (#120), handed to the waiting tool as it arrives.
+ */
 function settle(payload) {
   if (!pending) return;
+  if (payload.part) { pending.onPart?.(payload.part); return; }
   const { bundle, error } = payload;
   if (error) { pending.reject(new Error(error)); pending = null; return; }
   if (bundle === undefined) return;
@@ -80,17 +86,23 @@ wss.on("connection", (ws) => {
  * listening, so it is generous for the automatic tools and generous again for `pick`, which
  * is waiting on a person.
  */
-function request(req, timeoutMs = AUTO_TIMEOUT) {
+function request(req, timeoutMs = AUTO_TIMEOUT, onPart) {
   return new Promise((resolve, reject) => {
     if (pending) return reject(new Error("a capture is already in progress"));
-    const timer = setTimeout(() => {
-      pending = null;
-      reject(new Error(req.type === "pick"
-        ? "timed out waiting for a click"
-        : "timed out — is the Component Picker extension running with its MCP bridge turned on?"));
-    }, timeoutMs);
+    let timer;
+    // Re-armed by every streamed file: a long export is making progress, not hanging.
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        pending = null;
+        reject(new Error(req.type === "pick"
+          ? "timed out waiting for a click"
+          : "timed out — is the Component Picker extension running with its MCP bridge turned on?"));
+      }, timeoutMs);
+    };
+    arm();
     const done = (fn) => (v) => { clearTimeout(timer); fn(v); };
-    pending = { resolve: done(resolve), reject: done(reject), req };
+    pending = { resolve: done(resolve), reject: done(reject), req, onPart: onPart && ((part) => { arm(); onPart(part); }) };
     if (socket) try { socket.send(JSON.stringify(req)); } catch { /* extension will poll instead */ }
   });
 }
@@ -122,6 +134,35 @@ server.tool("capture_page",
   "Capture the whole active tab section by section — one capped bundle per top-level section, behind a table of contents. Use this to read a page you intend to rebuild; use capture_selector when you already know which element you want. Requires the MCP bridge to be on.",
   { limit: z.number().int().min(1).max(12).optional().describe("Maximum sections to capture (default 12)") },
   async ({ limit }) => text(await request({ type: "page", limit }, PAGE_TIMEOUT)));
+
+/** Write one exported file under `root`, refusing any path that would land outside it. */
+async function writePart(root, part) {
+  const target = resolve(root, String(part.path ?? ""));
+  if (!target.startsWith(root + sep)) throw new Error(`refusing to write outside ${root}: ${part.path}`);
+  await mkdir(dirname(target), { recursive: true });
+  await writeFile(target, part.base64 !== undefined ? Buffer.from(part.base64, "base64") : (part.text ?? ""));
+  return relative(root, target);
+}
+
+server.tool("export_page",
+  "Export the browser's active tab as a folder another agent can rebuild the page from, code first: index.html (the whole page, uncapped), styles.css (the page's own CSS rules, verbatim), tokens.json, states/ (what every tab, disclosure and menu reveals when clicked), motion.json, assets/manifest.json (every media file with a code stand-in), assets/svg/ and a layout fingerprint per width for verify_rebuild, plus a README saying what to read first. No screenshots; binary media is written only with media: \"download\". Takes a minute or two, and changes the tab's viewport while it runs. Requires the MCP bridge to be on.",
+  { out_dir: z.string().describe("Folder to write into; the export lands in <out_dir>/<host>/"),
+    media: z.enum(["manifest", "download"]).optional().describe("\"manifest\" (default) describes media with stand-ins; \"download\" also writes the files"),
+    states: z.boolean().optional().describe("Open tabs, disclosures and menus to record what they reveal (default true)"),
+    motion: z.boolean().optional().describe("Record animation, including script-driven motion (default true)"),
+    reload: z.boolean().optional().describe("Reload the tab first so every file is seen loading (default false; discards the tab's state)") },
+  async ({ out_dir, ...opts }) => {
+    const root = resolve(out_dir);
+    const written = [];
+    let chain = Promise.resolve();
+    let failure = null;
+    const onPart = (part) => { chain = chain.then(() => writePart(root, part)).then((p) => { written.push(p); }, (e) => { failure ??= e; }); };
+    const readme = await request({ type: "export", ...opts }, PAGE_TIMEOUT, onPart);
+    await chain;
+    if (failure) throw failure;
+    const folder = written[0] ? resolve(root, written[0].split(sep)[0]) : root;
+    return text(`Wrote ${written.length} files to ${folder}\n\n${readme}`);
+  });
 
 server.tool("list_captures",
   "List the captures already stored in the browser — the last ten picks plus anything saved to the library — as id, where, and a one-line description. Lets an agent consume picks the user made at the browser without re-arming anything. Pair with get_capture.",

@@ -73,10 +73,46 @@ try {
   ws.close();
   const wsOk = (wsRes.result?.content?.[0]?.text ?? "").includes("WSHELLO");
 
-  const ok = httpOk && wsOk && selOk && errOk;
+  // #120 — export_page: streamed files land under out_dir as they arrive, bytes intact, and a path
+  // that would escape out_dir fails the call without writing anything.
+  const { mkdtempSync, readFileSync, existsSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  /** Play the extension for a streaming request: post each payload in order. */
+  const stream = (payloads) => (async () => {
+    for (let i = 0; i < 50; i++) {
+      const { req } = await (await fetch(`http://127.0.0.1:${PORT}/next`)).json();
+      if (req) {
+        for (const p of payloads(req)) {
+          await fetch(`http://127.0.0.1:${PORT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(p) });
+        }
+        return;
+      }
+      await sleep(100);
+    }
+  })();
+  const out = mkdtempSync(join(tmpdir(), "cp-export-"));
+  let exportReq = null;
+  stream((req) => { exportReq = req; return [
+    { part: { path: "demo.example/index.html", text: "<!doctype html>" } },
+    { part: { path: "demo.example/assets/media/a.bin", base64: Buffer.from([1, 2, 3]).toString("base64") } },
+    { bundle: "# Rebuild export: Demo" },
+  ]; });
+  const exp = await rpc("tools/call", { name: "export_page", arguments: { out_dir: out, media: "download", states: false } });
+  const expText = exp.result?.content?.[0]?.text ?? "";
+  const exportOk = expText.startsWith(`Wrote 2 files to ${join(out, "demo.example")}`) && expText.includes("# Rebuild export: Demo")
+    && readFileSync(join(out, "demo.example/index.html"), "utf8") === "<!doctype html>"
+    && readFileSync(join(out, "demo.example/assets/media/a.bin")).equals(Buffer.from([1, 2, 3]))
+    && exportReq?.type === "export" && exportReq.media === "download" && exportReq.states === false && !("out_dir" in exportReq);
+  const jail = mkdtempSync(join(tmpdir(), "cp-jail-"));
+  stream(() => [{ part: { path: "../escaped.txt", text: "x" } }, { bundle: "done" }]);
+  const bad = await rpc("tools/call", { name: "export_page", arguments: { out_dir: join(jail, "inner") } });
+  const jailOk = JSON.stringify(bad).includes("refusing to write outside") && !existsSync(join(jail, "escaped.txt"));
+
+  const ok = httpOk && wsOk && selOk && errOk && exportOk && jailOk;
   console.log(ok
-    ? `PASS — pick over HTTP and WebSocket, capture_selector, and error propagation`
-    : `FAIL — http=${httpOk} ws=${wsOk} selector=${selOk} error=${errOk}`);
+    ? `PASS — pick over HTTP and WebSocket, capture_selector, error propagation, export_page streaming and its path guard`
+    : `FAIL — http=${httpOk} ws=${wsOk} selector=${selOk} error=${errOk} export=${exportOk} jail=${jailOk}\n${expText.slice(0, 300)}\n${JSON.stringify(bad).slice(0, 300)}`);
   process.exitCode = ok ? 0 : 1;
 } catch (e) {
   console.log("FAIL", e);
