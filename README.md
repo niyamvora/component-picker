@@ -188,6 +188,7 @@ everyone once.
 | `capture_selector` | Captures by CSS selector, no click. Takes a list. |
 | `capture_page` | The whole tab, section by section, behind a table of contents. |
 | `export_page` | The whole tab as a folder to rebuild from, code first: `index.html`, the page's own CSS, tokens, every tab and menu opened, motion, an asset manifest with code stand-ins, SVG files and layout fingerprints. No screenshots. |
+| `verify_rebuild` | Checks a served rebuild against an export folder's fingerprints and lists the differences in numbers — `font-size: 48px, original 56px` — largest first. |
 | `capture_interaction` | Runs hover/click/focus/leave/scroll for real and returns a timeline. |
 | `list_captures` / `get_capture` | The last ten picks and the saved library, by id. |
 | `last_capture` | The most recent capture in this session. |

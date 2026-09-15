@@ -10,7 +10,7 @@
  * Run: npx component-picker-mcp   (add it to your agent's MCP config)
  */
 import { createServer } from "node:http";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
@@ -162,6 +162,18 @@ server.tool("export_page",
     if (failure) throw failure;
     const folder = written[0] ? resolve(root, written[0].split(sep)[0]) : root;
     return text(`Wrote ${written.length} files to ${folder}\n\n${readme}`);
+  });
+
+server.tool("verify_rebuild",
+  "Check a rebuilt page against an export_page folder in numbers rather than by eye: opens the rebuild's URL in a background tab, fingerprints its layout at every width the export recorded, and lists what differs — missing elements, boxes that moved or resized, and changed styles such as `h2 \"Pricing\": font-size: 48px, original 56px` — largest first. Serve the rebuild over http(s), e.g. your dev server. Requires the MCP bridge to be on.",
+  { url: z.string().describe("Where the rebuild is served, e.g. http://localhost:3000/"),
+    fingerprint_dir: z.string().describe("The export folder holding fingerprint.<width>.json — the <out_dir>/<host> export_page wrote") },
+  async ({ url, fingerprint_dir }) => {
+    const dir = resolve(fingerprint_dir);
+    const names = (await readdir(dir).catch(() => [])).filter((f) => /^fingerprint\.\d+\.json$/.test(f));
+    if (!names.length) throw new Error(`no fingerprint.<width>.json in ${dir} — pass the folder export_page wrote`);
+    const fingerprints = await Promise.all(names.map(async (f) => JSON.parse(await readFile(resolve(dir, f), "utf8"))));
+    return text(await request({ type: "verify", url, fingerprints }, PAGE_TIMEOUT));
   });
 
 server.tool("list_captures",

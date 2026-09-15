@@ -15,6 +15,8 @@
 import { runInActiveTab } from "./tab";
 import { runInteraction } from "./interact";
 import { exportPage, type ExportFile, type ExportOptions } from "./export";
+import { verifyRebuild } from "./verify";
+import type { Fingerprint } from "../core/fingerprint";
 import type { Step } from "../core/interaction";
 import type { HistoryEntry, LibraryEntry } from "../shared/types";
 
@@ -36,7 +38,8 @@ export type BridgeRequest =
   | { type: "interaction"; steps: Step[]; watch?: string }
   | { type: "captures" }
   | { type: "capture"; id: string }
-  | ({ type: "export" } & ExportOptions);
+  | ({ type: "export" } & ExportOptions)
+  | { type: "verify"; url: string; fingerprints: Fingerprint[] };
 
 let armed = false;   // a `pick` is waiting for a click
 let busy = false;    // any request is in flight, so the poll does not start a second one
@@ -87,6 +90,7 @@ async function handle(req: BridgeRequest) {
       : req.type === "page" ? await capturePage(req.limit)
       : req.type === "interaction" ? await runInteraction(req.steps, req.watch)
       : req.type === "export" ? await exportPage(req, deliverPart)
+      : req.type === "verify" ? await verifyRebuild(req.url, req.fingerprints)
       : await captureBySelector(req);
     await deliver({ bundle });
   } catch (e) {

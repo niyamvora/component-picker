@@ -109,10 +109,25 @@ try {
   const bad = await rpc("tools/call", { name: "export_page", arguments: { out_dir: join(jail, "inner") } });
   const jailOk = JSON.stringify(bad).includes("refusing to write outside") && !existsSync(join(jail, "escaped.txt"));
 
-  const ok = httpOk && wsOk && selOk && errOk && exportOk && jailOk;
+  // #121 — verify_rebuild hands every fingerprint.<width>.json in the folder to the extension, and
+  // a folder without any fails with a message that says what to pass instead.
+  const { writeFileSync } = await import("node:fs");
+  const fpDir = mkdtempSync(join(tmpdir(), "cp-fp-"));
+  writeFileSync(join(fpDir, "fingerprint.1440.json"), JSON.stringify({ url: "x", width: 1440, height: 900, nodes: [] }));
+  writeFileSync(join(fpDir, "fingerprint.390.json"), JSON.stringify({ url: "x", width: 390, height: 844, nodes: [] }));
+  writeFileSync(join(fpDir, "README.md"), "not a fingerprint");
+  let verifyReq = null;
+  respond((req) => { verifyReq = req; return { bundle: "# Rebuild check: http://localhost:3000/\n\nThe rebuild matches the original at every width." }; });
+  const ver = await rpc("tools/call", { name: "verify_rebuild", arguments: { url: "http://localhost:3000/", fingerprint_dir: fpDir } });
+  const verifyOk = (ver.result?.content?.[0]?.text ?? "").includes("# Rebuild check") && verifyReq?.type === "verify"
+    && verifyReq.url === "http://localhost:3000/" && verifyReq.fingerprints.map((f) => f.width).sort((a, b) => a - b).join() === "390,1440";
+  const none = await rpc("tools/call", { name: "verify_rebuild", arguments: { url: "http://localhost:3000/", fingerprint_dir: mkdtempSync(join(tmpdir(), "cp-nofp-")) } });
+  const noneOk = JSON.stringify(none).includes("no fingerprint.<width>.json");
+
+  const ok = httpOk && wsOk && selOk && errOk && exportOk && jailOk && verifyOk && noneOk;
   console.log(ok
-    ? `PASS — pick over HTTP and WebSocket, capture_selector, error propagation, export_page streaming and its path guard`
-    : `FAIL — http=${httpOk} ws=${wsOk} selector=${selOk} error=${errOk} export=${exportOk} jail=${jailOk}\n${expText.slice(0, 300)}\n${JSON.stringify(bad).slice(0, 300)}`);
+    ? `PASS — pick over HTTP and WebSocket, capture_selector, error propagation, export_page streaming and its path guard, verify_rebuild`
+    : `FAIL — http=${httpOk} ws=${wsOk} selector=${selOk} error=${errOk} export=${exportOk} jail=${jailOk} verify=${verifyOk} none=${noneOk}\n${expText.slice(0, 300)}\n${JSON.stringify(bad).slice(0, 300)}`);
   process.exitCode = ok ? 0 : 1;
 } catch (e) {
   console.log("FAIL", e);

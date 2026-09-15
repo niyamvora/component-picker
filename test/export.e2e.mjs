@@ -106,11 +106,18 @@ try {
     expect(read("README.md").includes("3 states opened by clicking") && read("README.md").includes("no screenshots"), "README.md does not reflect the run");
   }
 
+  // #121 — verify_rebuild: the exported index.html, served, against its own export's fingerprints.
+  // index.html + styles.css are all an agent is given, so a clean match is the export's proof of fidelity.
+  const verified = textOf(await rpc("tools/call", { name: "verify_rebuild", arguments: {
+    url: `http://localhost:${PORT}/test/.export-tmp/localhost/index.html`, fingerprint_dir: join(OUT, "localhost") } }));
+  expect(verified.includes("The rebuild matches the original at every width."),
+    "verify_rebuild found differences between the export and the page it came from:\n" + verified.slice(0, 3000));
+
   // #104 — capture_interaction still drives the real pointer after moving onto the shared page-call helper.
   const interaction = textOf(await rpc("tools/call", { name: "capture_interaction", arguments: { steps: [{ trigger: "#menu", action: "click" }] } }));
   expect(interaction.includes("### click `#menu`"), "capture_interaction failed: " + interaction.slice(0, 400));
 
-  console.log(fails.length ? `FAIL\n${fails.join("\n")}` : "PASS — export_page wrote a code-first folder over MCP; capture_interaction still runs");
+  console.log(fails.length ? `FAIL\n${fails.join("\n")}` : "PASS — export_page wrote a code-first folder over MCP; verify_rebuild matched it to its source; capture_interaction still runs");
   process.exitCode = fails.length ? 1 : 0;
 } catch (e) {
   console.error("FAIL", e);
