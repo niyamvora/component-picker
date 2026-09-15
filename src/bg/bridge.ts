@@ -18,8 +18,14 @@ import { exportPage, type ExportFile, type ExportOptions } from "./export";
 import type { Step } from "../core/interaction";
 import type { HistoryEntry, LibraryEntry } from "../shared/types";
 
-const ENDPOINT = "http://127.0.0.1:8787";
-const WS_ENDPOINT = "ws://127.0.0.1:8787";
+/**
+ * The MCP server's port: 8787 unless `bridgePort` is set in extension storage. The server already
+ * takes `CP_MCP_PORT`, and with a fixed port here the extension could never follow it — so a second
+ * server (the export e2e, or a user whose 8787 is taken) had no way to be reached.
+ */
+const DEFAULT_PORT = 8787;
+let port = DEFAULT_PORT;
+const endpoint = () => `http://127.0.0.1:${port}`;
 const POLL_MS = 2000;
 
 /** What the MCP server can ask for. Mirrors the tool list in `mcp/server.mjs`. */
@@ -37,7 +43,10 @@ let busy = false;    // any request is in flight, so the poll does not start a s
 let socket: WebSocket | null = null;
 
 export function startBridge() {
-  connectSocket();               // real-time path
+  void chrome.storage.local.get("bridgePort").then(({ bridgePort }) => {
+    port = Number(bridgePort) || DEFAULT_PORT;
+    connectSocket();             // real-time path
+  });
   chrome.alarms.create("cp-bridge", { periodInMinutes: POLL_MS / 60000 }); // fallback poll
 }
 export function stopBridge() {
@@ -50,7 +59,7 @@ export function stopBridge() {
 /** One socket to the MCP server; a pushed request is handled here. Reconnects on drop. */
 function connectSocket() {
   try {
-    socket = new WebSocket(WS_ENDPOINT);
+    socket = new WebSocket(`ws://127.0.0.1:${port}`);
     socket.onmessage = (e) => { try { void handle(JSON.parse(e.data) as BridgeRequest); } catch { /* ignore */ } };
     socket.onclose = () => { socket = null; };
   } catch { socket = null; }
@@ -59,7 +68,7 @@ function connectSocket() {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== "cp-bridge" || busy) return;
   try {
-    const r = await fetch(`${ENDPOINT}/next`, { signal: AbortSignal.timeout(1500) });
+    const r = await fetch(`${endpoint()}/next`, { signal: AbortSignal.timeout(1500) });
     const { req } = (await r.json()) as { req: BridgeRequest | null };
     if (req) await handle(req);
   } catch { /* server not running; try again next tick */ }
@@ -197,7 +206,7 @@ async function deliverPart(part: ExportFile) {
   if (socket?.readyState === WebSocket.OPEN) {
     try { socket.send(JSON.stringify({ part })); return; } catch { /* fall through to HTTP */ }
   }
-  const r = await fetch(`${ENDPOINT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ part }) });
+  const r = await fetch(`${endpoint()}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ part }) });
   if (!r.ok) throw new Error(`the MCP server did not accept ${part.path} (HTTP ${r.status})`);
 }
 
@@ -209,6 +218,6 @@ async function deliver(payload: { bundle?: string; error?: string }) {
     try { socket.send(JSON.stringify(payload)); return; } catch { /* fall through to HTTP */ }
   }
   try {
-    await fetch(`${ENDPOINT}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    await fetch(`${endpoint()}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
   } catch { /* the agent will time out; nothing else to do */ }
 }
