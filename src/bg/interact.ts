@@ -7,6 +7,7 @@
  * than an obviously incomplete one. `Input.dispatchMouseEvent` moves the actual pointer.
  */
 
+import { callPage } from "./page-call";
 import { runInActiveTab } from "./tab";
 import type { Action, Step } from "../core/interaction";
 
@@ -20,21 +21,7 @@ const WATCH_MS = 700;
 const TICK_MS = 25;
 
 /** Run one page-side call on `window.__cp.interaction`, returning whatever it produced. */
-async function page<T>(tabId: number, method: string, args: unknown[]): Promise<T> {
-  const [r] = await chrome.scripting.executeScript({
-    target: { tabId },
-    args: [method, args],
-    func: (m: string, a: unknown[]) => {
-      const cp = (window as { __cp?: { interaction: Record<string, (...x: unknown[]) => unknown> } }).__cp;
-      if (!cp?.interaction) return { error: "the picker did not load in this tab" };
-      try { return { value: cp.interaction[m](...a) }; }
-      catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
-    },
-  });
-  const out = r.result as { value?: T; error?: string };
-  if (out?.error) throw new Error(out.error);
-  return out?.value as T;
-}
+const page = <T>(tabId: number, method: string, args: unknown[]) => callPage<T>(tabId, `interaction.${method}`, args);
 
 /**
  * Perform one step with the real pointer, then watch what follows.
