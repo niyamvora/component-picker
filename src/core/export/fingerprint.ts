@@ -101,9 +101,16 @@ export function compareFingerprints(original: Fingerprint, rebuild: Fingerprint,
   };
   // Text is identity: an element with text that finds no text match is missing, not paired with
   // whatever element happens to share its tag path.
+  // Box matches are claimed for the whole page before any weaker key runs. Done greedily in document
+  // order, an earlier element with no box match would take a later element's box partner by path.
+  const inPlace = new Map<FingerprintNode, FingerprintNode>();
+  for (const o of original.nodes) {
+    const r = take(byBox.get(boxKey(o)));
+    if (r) { used.add(r); inPlace.set(o, r); }
+  }
   const partner = (o: FingerprintNode) => {
-    const inPlace = take(byBox.get(boxKey(o)));
-    if (inPlace) return inPlace;
+    const placed = inPlace.get(o);
+    if (placed) return placed;
     const same = byPath.get(`${tag(o)}|${o.path}`);
     if (same && !used.has(same) && same.text === o.text) return same;
     return o.text ? take(byText.get(`${tag(o)}|${o.text}`)) : take(byTags.get(o.tags));

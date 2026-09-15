@@ -1,22 +1,24 @@
 // Acceptance run of export_page + verify_rebuild on a live site (#123). Not part of `npm test`: a live
 // page changes under you and needs the network. Downloads media, because fonts loaded cross-origin
 // from the site would be refused on localhost and throw every text metric off in verify_rebuild.
-// Run: node test/export.smoke.mjs https://resend.com/
+// Run: node test/export.smoke.mjs https://resend.com/ [--verify-only]
+// --verify-only re-checks the export already on disk, so changes to verify_rebuild iterate in seconds.
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { launch, ROOT, sleep } from "./chrome.mjs";
 import { enableBridge, startMcp } from "./mcp-client.mjs";
 
 const url = process.argv[2];
+const verifyOnly = process.argv.includes("--verify-only");
 if (!url) {
-  console.error("usage: node test/export.smoke.mjs <url>");
+  console.error("usage: node test/export.smoke.mjs <url> [--verify-only]");
   process.exit(2);
 }
 const PORT = 8767, CDP = 9335, BRIDGE_PORT = 8798;
 const OUT = join(ROOT, "test", ".export-tmp", "smoke");
 const host = new URL(url).hostname;
 const dir = join(OUT, host);
-rmSync(OUT, { recursive: true, force: true });
+if (!verifyOnly) rmSync(OUT, { recursive: true, force: true });
 
 const walk = (d) => readdirSync(d).flatMap((f) => statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]);
 const browser = await launch({ port: PORT, cdp: CDP, url, hosts: ["<all_urls>"] });
@@ -29,9 +31,11 @@ try {
   page.close();
   await enableBridge(browser, BRIDGE_PORT);
 
-  const started = Date.now();
-  const exported = await mcp.call("export_page", { out_dir: OUT, media: "download" });
-  console.log(`export_page took ${Math.round((Date.now() - started) / 1000)}s\n${exported.split("\n").slice(0, 40).join("\n")}\n`);
+  if (!verifyOnly) {
+    const started = Date.now();
+    const exported = await mcp.call("export_page", { out_dir: OUT, media: "download" });
+    console.log(`export_page took ${Math.round((Date.now() - started) / 1000)}s\n${exported.split("\n").slice(0, 40).join("\n")}\n`);
+  }
   if (!existsSync(dir)) throw new Error(`nothing was written to ${dir}`);
 
   const read = (p) => readFileSync(join(dir, p), "utf8");
