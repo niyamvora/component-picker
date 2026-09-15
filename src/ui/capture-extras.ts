@@ -3,8 +3,8 @@
  * the component as a Figma-ready SVG (#66). Both need a user gesture, which the keypress provides.
  */
 
-import { toFigmaSvg } from "../core/figma";
-import { label } from "../core/blocks";
+import { toFigmaSvg } from "../core/output/figma";
+import { label } from "../core/capture/blocks";
 
 const toast = (text: string): HTMLDivElement => {
   const t = document.createElement("div");

@@ -14,7 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Bundle the real writer with esbuild's API so the test tracks the source, not a copy.
 const { build } = await import("esbuild");
-await build({ entryPoints: [join(ROOT, "src/core/zip.ts")], bundle: true, format: "esm", outfile: join(ROOT, "dist/zip.test.mjs") });
+await build({ entryPoints: [join(ROOT, "src/core/assets/zip.ts")], bundle: true, format: "esm", outfile: join(ROOT, "dist/zip.test.mjs") });
 const { zip } = await import(pathToFileURL(join(ROOT, "dist/zip.test.mjs")).href);
 
 const enc = new TextEncoder();

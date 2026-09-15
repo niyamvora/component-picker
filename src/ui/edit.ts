@@ -7,7 +7,7 @@
  * Changes apply as inline styles and revert on Esc; the bundle records what was changed.
  */
 
-import { UI } from "../core/const";
+import { UI } from "../core/shared/const";
 
 const FIELDS: { prop: string; label: string; type: "px" | "color" }[] = [
   { prop: "padding", label: "padding", type: "px" },

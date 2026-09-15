@@ -5,23 +5,23 @@
  * Injected by name on toolbar click — injecting it again toggles the picker off.
  */
 
-import { extract, extractMany } from "../core/bundle";
-import { capturePage, pageSections } from "../core/page";
-import { interaction } from "../core/interaction";
-import { parseInventory } from "../core/mapping";
-import { atRest, usedCss } from "../core/used-css";
-import { exportDom } from "../core/export-dom";
-import { assetRefs, buildManifest } from "../core/assets-inventory";
-import { cssPath } from "../core/selector";
-import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/media-code";
-import { periodOf, startMotion, stopMotion } from "../core/motion-rec";
-import * as sweep from "../core/state-sweep";
-import { compareFingerprints, fingerprint } from "../core/fingerprint";
-import { codeless, outline, pageInfo, pageTokens, scrollToY } from "../core/export-page";
-import { exportReadme } from "../core/export-readme";
-import { snapshot, snapshotOtherTheme } from "../core/snapshot";
-import { buildAssetZip } from "../core/assets-zip";
-import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
+import { extract, extractMany } from "../core/capture/bundle";
+import { capturePage, pageSections } from "../core/capture/page";
+import { interaction } from "../core/motion/interaction";
+import { parseInventory } from "../core/output/mapping";
+import { atRest, usedCss } from "../core/export/used-css";
+import { exportDom } from "../core/export/export-dom";
+import { assetRefs, buildManifest } from "../core/assets/assets-inventory";
+import { cssPath } from "../core/shared/selector";
+import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/assets/media-code";
+import { periodOf, startMotion, stopMotion } from "../core/motion/motion-rec";
+import * as sweep from "../core/export/state-sweep";
+import { compareFingerprints, fingerprint } from "../core/export/fingerprint";
+import { codeless, outline, pageInfo, pageTokens, scrollToY } from "../core/export/export-page";
+import { exportReadme } from "../core/export/export-readme";
+import { snapshot, snapshotOtherTheme } from "../core/capture/snapshot";
+import { buildAssetZip } from "../core/assets/assets-zip";
+import { blocksOfLastPick, sectionsOfLastPick } from "../core/shared/state";
 import { currentEl, flash, isActive, referenceOn, start, stop, toggleReference } from "./handlers";
 import { showDock } from "./hud";
 import { assembleSelection, group, recallSelection, rememberSelection, sectionRows } from "./drawer-sections";

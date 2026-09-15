@@ -6,9 +6,9 @@
  */
 
 import { DEFAULT_OPTIONS } from "../shared/options";
-import { deliverToBridge, startBridge, stopBridge } from "./bridge";
-import { measure } from "./measure";
-import { probe } from "./probe";
+import { deliverToBridge, startBridge, stopBridge } from "./mcp/bridge";
+import { measure } from "./capture/measure";
+import { probe } from "./capture/probe";
 import type { HistoryEntry, Message, Preview } from "../shared/types";
 
 /** Injected by name, so this must match what build.mjs emits into dist/. */

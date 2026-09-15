@@ -3,8 +3,8 @@
  * onto the clipboard.
  */
 
-import { label } from "../core/blocks";
-import { UI } from "../core/const";
+import { label } from "../core/capture/blocks";
+import { UI } from "../core/shared/const";
 
 export async function copy(text: string) {
   try { await navigator.clipboard.writeText(text); }

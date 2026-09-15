@@ -26,17 +26,22 @@ Current version: **1.7.0** ([releases](https://github.com/niyamvora/component-pi
 ## Layout
 
 ```
-src/core/     the extraction engine, one concern per file —
-              const · defaults · props · blocks · rules · tokens · context · fonts · walk
-              html · icons · snapshot · messaging · compare · state · bundle (assembles it all)
-              animations · scroll · repeats · summary       (motion, reveals, repeats, palette)
-              tailwind · jsx · emit · mapping · a11y         (Tailwind, JSX, Vue/Svelte, mapping, a11y)
-              assets · assets-zip · zip                      (asset collection + a dependency-free ZIP)
+src/core/     the extraction engine, one concern per file, grouped by what it serves —
+  shared/     const · state · messaging · selector · walk     (vocabulary, worker messaging, element paths)
+  capture/    bundle (assembles it all) · blocks · rules · props · defaults · tokens · context · fonts
+              html · icons · snapshot · compare · repeats · page    (the component bundle, capture_page)
+  motion/     animations · interaction · scroll · motion-rec   (WAAPI/CSS, timelines, reveals, script motion)
+  output/     tailwind · jsx · emit · mapping · summary · figma · a11y   (Tailwind, JSX, Vue/Svelte, mapping)
+  assets/     assets · assets-zip · zip · assets-inventory · media-code · codeless   (files, stand-ins)
+  export/     used-css · export-dom · state-sweep · fingerprint · export-page · export-readme   (export_page)
 src/ui/       picker (entry) · handlers (keys/pointer) · overlay (what is drawn) · note · edit
               hud (glass dock + drawer) · icons-ui · drawer-groups · drawer-sections · viz
               panel.ts/.html (the side panel — preview, library, options; the popup folded into it)
-src/bg/       service-worker (router + storage) · measure (the debugger session) · probe (MAIN world)
-              bridge (the opt-in MCP connection)
+src/bg/       service-worker (router + storage), and —
+  capture/    measure (the debugger session) · probe (MAIN world) · interact (real pointer)
+  export/     export (export_page) · network · decode · verify (verify_rebuild)
+  mcp/        bridge (the opt-in MCP connection)
+  page/       tab (inject + active tab) · page-call (calls into window.__cp)
 src/shared/   types.ts (the cross-world contracts) · options.ts
 src/assets/   icons.json (1,733 icon hashes) · icon.svg → icons/*.png
 mcp/          component-picker-mcp — the MCP server (npx) + its round-trip test

@@ -2,13 +2,13 @@
  * What the keys and the pointer do while the picker is armed.
  */
 
-import { extractMany } from "../core/bundle";
-import { pageSections } from "../core/page";
+import { extractMany } from "../core/capture/bundle";
+import { pageSections } from "../core/capture/page";
 import { commitEdits, revert, toggleEdit } from "./edit";
 import { copyFigma, copyImage } from "./capture-extras";
-import { label } from "../core/blocks";
-import { UI } from "../core/const";
-import { blocksOfLastPick } from "../core/state";
+import { label } from "../core/capture/blocks";
+import { UI } from "../core/shared/const";
+import { blocksOfLastPick } from "../core/shared/state";
 import { askForNote, copy } from "./note";
 import { closeDrawerIfOpen, refreshDock } from "./hud";
 import {

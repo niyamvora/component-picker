@@ -8,7 +8,7 @@
 import { el } from "./hud";
 import { copy } from "./note";
 import { visualise } from "./viz";
-import { state } from "../core/state";
+import { state } from "../core/shared/state";
 import type { CaptureSection } from "../shared/types";
 
 const DIM = "rgba(245,245,247,.7)";

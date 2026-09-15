@@ -10,7 +10,7 @@
  * the real site's stylesheet was still loaded shows up here as wrong, which is the entire point.
  */
 
-import { parseInventory } from "../core/mapping";
+import { parseInventory } from "../core/output/mapping";
 import { DEFAULT_OPTIONS, loadOptions } from "../shared/options";
 import type { HistoryEntry, LibraryEntry, Options, Preview, Reference, Viewport } from "../shared/types";
 

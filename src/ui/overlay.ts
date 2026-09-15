@@ -3,8 +3,8 @@
  * the banner and the toasts. All of it is tagged `data-cp-ui` so a capture can never include it.
  */
 
-import { label } from "../core/blocks";
-import { UI } from "../core/const";
+import { label } from "../core/capture/blocks";
+import { UI } from "../core/shared/const";
 import { dockClearance } from "./hud";
 
 let current: Element | null = null;
