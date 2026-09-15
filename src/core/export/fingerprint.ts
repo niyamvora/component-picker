@@ -70,20 +70,26 @@ const label = (n: FingerprintNode) => `${n.tags.split(">").pop()}${n.text ? ` "$
 /**
  * Align a rebuild's fingerprint with the original's and report what differs, largest first.
  *
- * Elements pair up, strongest key first: the same selector path and tag (an export, or a rebuild
- * that kept the structure, has the element at the same place); then tag and own text, in document
- * order; then ancestor tag path and occurrence. Occurrence is last because it is fragile — one
- * missing element shifts every later pairing by one, which on resend.com turned ten missing nodes
- * into hundreds of reports comparing a grid with an unrelated block. A box within `tolerance` px
- * counts as the same.
+ * Elements pair up, strongest key first:
+ *   1. the same tag, own text and layout box — the same thing in the same place, whatever its
+ *      selector says. resend.com has an invisible extra <section> early in the live page, so every
+ *      later section's nth-of-type path is one higher in the original than in its own export;
+ *   2. the same selector path and tag (a rebuild that kept the structure but moved things);
+ *   3. tag and own text, in document order;
+ *   4. ancestor tag path and occurrence — last, because one missing element shifts every later
+ *      pairing by one.
+ * A box within `tolerance` px counts as the same.
  */
 export function compareFingerprints(original: Fingerprint, rebuild: Fingerprint, tolerance = 2): Comparison {
   const tag = (n: FingerprintNode) => n.tags.split(">").pop();
+  const boxKey = (n: FingerprintNode) => `${tag(n)}|${n.text}|${n.box.join(",")}`;
+  const byBox = new Map<string, FingerprintNode[]>();
   const byPath = new Map<string, FingerprintNode>();
   const byText = new Map<string, FingerprintNode[]>();
   const byTags = new Map<string, FingerprintNode[]>();
   const push = (map: Map<string, FingerprintNode[]>, key: string, n: FingerprintNode) => map.set(key, [...(map.get(key) ?? []), n]);
   for (const n of rebuild.nodes) {
+    push(byBox, boxKey(n), n);
     byPath.set(`${tag(n)}|${n.path}`, n);
     if (n.text) push(byText, `${tag(n)}|${n.text}`, n);
     else push(byTags, n.tags, n);
@@ -96,6 +102,8 @@ export function compareFingerprints(original: Fingerprint, rebuild: Fingerprint,
   // Text is identity: an element with text that finds no text match is missing, not paired with
   // whatever element happens to share its tag path.
   const partner = (o: FingerprintNode) => {
+    const inPlace = take(byBox.get(boxKey(o)));
+    if (inPlace) return inPlace;
     const same = byPath.get(`${tag(o)}|${o.path}`);
     if (same && !used.has(same) && same.text === o.text) return same;
     return o.text ? take(byText.get(`${tag(o)}|${o.text}`)) : take(byTags.get(o.tags));
