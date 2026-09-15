@@ -29,7 +29,7 @@ export interface InteractionRecord {
   changes: StyleChange[];
   /** The transitions that carry those changes, as declared at rest. */
   timing: Timing[];
-  /** `style` or `class` attributes a script wrote during the interaction — no static export carries these. */
+  /** Attributes a script wrote during the interaction — `style`, `class`, `data-popup-open` — which no static export carries. */
   script: StyleChange[];
 }
 export interface InteractionDiff { message: string; script: boolean }
@@ -54,6 +54,8 @@ interface Active {
   before: Map<string, Record<string, string>>;
   /** Properties an animation drives on each watched element — a spinner's transform is not a hover effect. */
   animated: Map<string, Set<string>>;
+  /** Properties that changed between two resting reads, by snapshot key: they change on their own. */
+  unstable: Map<string, Set<string>>;
   timing: Timing[];
   observer: MutationObserver;
   writes: StyleChange[];
@@ -205,16 +207,41 @@ export function beginInteraction(index: number, action: InteractionAction): { x:
   if (!point && action !== "focus") throw new Error("another element covers it, so the pointer cannot reach it");
   const watched = [el, ...el.querySelectorAll("*")].filter((e) => !SKIP_TAGS.has(e.tagName.toUpperCase())).slice(0, MAX_WATCHED);
   const writes: StyleChange[] = [];
-  const observer = new MutationObserver((records) => {
-    for (const m of records) {
-      const t = m.target as Element;
-      writes.push({ at: rel(el, t), property: m.attributeName!, from: m.oldValue ?? "", to: t.getAttribute(m.attributeName!) ?? "" });
-    }
-  });
-  observer.observe(el, { attributes: true, attributeFilter: ["style", "class"], attributeOldValue: true, subtree: true });
+  // Every attribute, not just style and class: a hover that opens a menu shows up as the script
+  // setting `data-popup-open` or `aria-expanded`, and CSS keyed on that is not reproducible by CSS alone.
+  const observer = new MutationObserver((records) => { for (const m of records) noteWrite(el, writes, m); });
+  observer.observe(el, { attributes: true, attributeOldValue: true, subtree: true });
   const animated = new Map(watched.map((e) => [rel(el, e), animatedProps(e)]));
-  active = { index, watched, before: snapshot(el, watched), animated, timing: timingOf(el, watched), observer, writes };
+  active = { index, watched, before: snapshot(el, watched), animated, unstable: new Map(), timing: timingOf(el, watched), observer, writes };
   return point ?? { x: 0, y: 0 };
+}
+
+/** An attribute that is not there — distinct from `""`, which is how `data-open` is set when it is. */
+const ABSENT = "(absent)";
+
+function noteWrite(target: Element, writes: StyleChange[], m: MutationRecord) {
+  if (!m.attributeName || m.attributeName.startsWith("data-cp")) return;
+  const t = m.target as Element;
+  writes.push({ at: rel(target, t), property: m.attributeName, from: m.oldValue ?? ABSENT, to: t.getAttribute(m.attributeName) ?? ABSENT });
+}
+
+/**
+ * A second resting read, taken by the worker a moment after `begin` and before it acts. Whatever
+ * changed in between changes on its own — a gradient turned by an animated custom property, a
+ * pseudo-element spinning, a dot a script pulses — and has no single before or after to record.
+ */
+export function restInteraction() {
+  const a = active;
+  if (!a) return;
+  for (const [at, now] of snapshot(targets[a.index], a.watched)) {
+    const was = a.before.get(at) ?? {};
+    for (const p of INTERACTION_PROPS) {
+      if ((was[p] ?? "") === now[p]) continue;
+      const set = a.unstable.get(at) ?? new Set<string>();
+      set.add(p);
+      a.unstable.set(at, set);
+    }
+  }
 }
 
 /** Compare against the resting snapshot, once the worker has let the transitions finish. */
@@ -225,10 +252,7 @@ export function endInteraction(action: InteractionAction): InteractionRecord | n
   const pending = a.observer.takeRecords();
   a.observer.disconnect();
   const el = targets[a.index];
-  for (const m of pending) {
-    const t = m.target as Element;
-    a.writes.push({ at: rel(el, t), property: m.attributeName!, from: m.oldValue ?? "", to: t.getAttribute(m.attributeName!) ?? "" });
-  }
+  for (const m of pending) noteWrite(el, a.writes, m);
   // An animation still running now (a loop; a transition past the worker's settle window) has no
   // single "after" value, so what it drives is left out, as the fingerprint does.
   for (const e of a.watched) {
@@ -240,7 +264,7 @@ export function endInteraction(action: InteractionAction): InteractionRecord | n
   const changes: StyleChange[] = [];
   for (const [at, now] of snapshot(el, a.watched)) {
     const was = a.before.get(at) ?? {};
-    const moving = a.animated.get(at.replace(/::(before|after)$/, "")) ?? new Set<string>();
+    const moving = new Set([...(a.animated.get(at.replace(/::(before|after)$/, "")) ?? []), ...(a.unstable.get(at) ?? [])]);
     for (const p of INTERACTION_PROPS) {
       if (!moving.has(p) && (was[p] ?? "") !== now[p]) changes.push({ at, property: p, from: was[p] ?? "", to: now[p] });
     }

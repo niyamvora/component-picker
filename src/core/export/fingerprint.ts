@@ -101,6 +101,27 @@ export function fingerprint(root: Element = document.body): Fingerprint {
   return { url: location.href, width: innerWidth, height: innerHeight, nodes };
 }
 
+/**
+ * Only what held still between two fingerprints of the same page taken a moment apart (#125). A
+ * value a script or a custom-property animation keeps changing — resend.com's spinning border
+ * gradient, a pulsing status dot — has no single value to compare, whatever drives it, and
+ * `getAnimations()` does not report an animated custom property or a pseudo-element's animation.
+ */
+export function stabilize(first: Fingerprint, second: Fingerprint): Fingerprint {
+  const later = new Map(second.nodes.map((n) => [n.path, n]));
+  return {
+    ...first,
+    nodes: first.nodes.map((n) => {
+      const m = later.get(n.path);
+      const moving = m ? Object.keys(n.style).filter((p) => p in m.style && m.style[p] !== n.style[p]) : [];
+      if (!moving.length) return n;
+      const style = { ...n.style };
+      for (const p of moving) delete style[p];
+      return { ...n, style, animated: [...new Set([...(n.animated ?? []), ...moving])] };
+    }),
+  };
+}
+
 const label = (n: FingerprintNode) => `${n.tags.split(">").pop()}${n.text ? ` "${n.text.slice(0, 40)}"` : ""} (${n.path})`;
 
 /**

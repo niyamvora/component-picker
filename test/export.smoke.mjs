@@ -59,7 +59,8 @@ try {
       ["states include the framework code tabs and the header menus", ["Next.js", "Remix", "Features", "Company"].every((l) => states.some((s) => s.label.includes(l)))],
       ["motion.json has the scroll-x marquee", motion.animations.some((a) => a.name.includes("scroll-x"))],
       ["motion.json has a script-driven stream or track (the API log panel)", motion.streams.length > 0 || motion.tracks.length > 0],
-      ["manifest lists 5 videos, including the runtime-only one", (roles.video ?? 0) >= 5 && manifest.some((e) => e.url.includes("3d-integrate-morning"))],
+      // resend.com serves a time-of-day variant of that video (-morning, -afternoon…), so match the family.
+      ["manifest lists 5 videos, including the runtime-only one", (roles.video ?? 0) >= 5 && manifest.some((e) => e.url.includes("3d-integrate-"))],
       ["manifest lists 8 fonts", (roles.font ?? 0) >= 8],
       ["assets/svg has customer logos named by aria-label", ["supabase", "raycast"].every((n) => files.some((f) => f.startsWith(`assets/svg/${n}`)))],
     );

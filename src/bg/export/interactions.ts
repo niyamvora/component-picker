@@ -17,6 +17,8 @@ const send = <T = unknown>(target: Target, method: string, params?: object) => c
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const CORNER = { x: 0, y: 0 };
+/** Gap between the two resting reads: long enough to see a loop move, short enough to repeat 150 times. */
+const REST_SAMPLE_MS = 250;
 
 /** Wait at least `min`, then until no finite animation or transition is running, up to `max`. */
 export async function settle(page: PageCall, min = 150, max = 1500) {
@@ -77,6 +79,8 @@ export async function runInteractions(target: Target, page: PageCall, plan: Plan
     for (const p of plan) {
       try {
         const at = await page<{ x: number; y: number }>("rebuild.interact.begin", p.index, p.action);
+        await sleep(REST_SAMPLE_MS);
+        await page("rebuild.interact.rest");
         await perform(target, p, at);
         await settle(page);
         out.push(await page<InteractionRecord | null>("rebuild.interact.end", p.action));

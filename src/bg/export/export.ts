@@ -21,7 +21,7 @@ import { buildManifest, type AssetRef, type ManifestEntry } from "../../core/ass
 import { filename } from "../../core/assets/assets";
 import { exportReadme } from "../../core/export/export-readme";
 import type { CodelessRegion, OutlineItem, PageInfo, ScrollInfo } from "../../core/export/export-page";
-import type { Fingerprint } from "../../core/export/fingerprint";
+import { stabilize, type Fingerprint } from "../../core/export/fingerprint";
 import { slug, substitute, type SvgFile, type VideoFacts } from "../../core/assets/media-code";
 import type { MotionRecording } from "../../core/motion/motion-rec";
 import type { StateRecord, Trigger, Undo } from "../../core/export/state-sweep";
@@ -60,6 +60,15 @@ const SETTLE_MIN_MS = 150;
 const SETTLE_MAX_MS = 1500;
 const MAX_BODY_BYTES = 50_000_000;
 const MAX_FALLBACK_SHOTS = 10;
+/** Gap between the two fingerprints whose agreement is kept (#125). */
+export const STABILITY_MS = 800;
+
+/** A fingerprint with whatever changed on its own over STABILITY_MS left out. verify_rebuild takes the rebuild's the same way. */
+export async function stableFingerprint(page: PageCall): Promise<Fingerprint> {
+  const first = await page<Fingerprint>("rebuild.fingerprint");
+  await sleep(STABILITY_MS);
+  return stabilize(first, await page<Fingerprint>("rebuild.fingerprint"));
+}
 /** Roles whose stand-in is built from the image's colours. */
 const COLOUR_ROLES = new Set(["decorative-background", "texture", "avatar", "content-image", "poster", "social-image"]);
 
@@ -288,7 +297,7 @@ export async function exportPage(opts: ExportOptions, emit: (file: ExportFile) =
       for (const width of widths) {
         await emulateWidth(target, width);
         await sleep(500);
-        const fp = await page<Fingerprint>("rebuild.fingerprint");
+        const fp = await stableFingerprint(page);
         // Record the device metrics that were emulated, which verify_rebuild must re-create. The page's
         // own innerWidth can differ: on a mobile viewport, content wider than the device widens the
         // layout viewport (a 400px image at 390 reads as 408), and emulating that would test a different device.

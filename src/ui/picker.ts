@@ -16,8 +16,8 @@ import { cssPath } from "../core/shared/selector";
 import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/assets/media-code";
 import { periodOf, startMotion, stopMotion } from "../core/motion/motion-rec";
 import * as sweep from "../core/export/state-sweep";
-import { beginInteraction, blurActive, cancelInteraction, clearInteractive, compareInteraction, discoverInteractive, endInteraction, locateInteractive } from "../core/export/interactions";
-import { compareFingerprints, fingerprint } from "../core/export/fingerprint";
+import { beginInteraction, blurActive, cancelInteraction, clearInteractive, compareInteraction, discoverInteractive, endInteraction, locateInteractive, restInteraction } from "../core/export/interactions";
+import { compareFingerprints, fingerprint, stabilize } from "../core/export/fingerprint";
 import { codeless, outline, pageInfo, pageTokens, scrollToY } from "../core/export/export-page";
 import { exportReadme } from "../core/export/export-readme";
 import { snapshot, snapshotOtherTheme } from "../core/capture/snapshot";
@@ -53,10 +53,10 @@ declare global {
         sweep: typeof sweep;
         /** Hover, focus and press capture and replay (#125). */
         interact: {
-          discover: typeof discoverInteractive; begin: typeof beginInteraction; end: typeof endInteraction; cancel: typeof cancelInteraction;
+          discover: typeof discoverInteractive; begin: typeof beginInteraction; rest: typeof restInteraction; end: typeof endInteraction; cancel: typeof cancelInteraction;
           clear: typeof clearInteractive; blur: typeof blurActive; locate: typeof locateInteractive; compare: typeof compareInteraction;
         };
-        fingerprint: typeof fingerprint; compareFingerprints: typeof compareFingerprints;
+        fingerprint: typeof fingerprint; compareFingerprints: typeof compareFingerprints; stabilize: typeof stabilize;
         scrollTo: typeof scrollToY; pageInfo: typeof pageInfo; outline: typeof outline; tokens: typeof pageTokens;
         readme: typeof exportReadme; codeless: typeof codeless;
         /** `exportDom` with its URL mapping passed as data: a function cannot cross `executeScript`. */
@@ -115,10 +115,10 @@ if (window.__cp) {
       motion: { start: startMotion, stop: stopMotion, periodOf },
       sweep,
       interact: {
-        discover: discoverInteractive, begin: beginInteraction, end: endInteraction, cancel: cancelInteraction,
+        discover: discoverInteractive, begin: beginInteraction, rest: restInteraction, end: endInteraction, cancel: cancelInteraction,
         clear: clearInteractive, blur: blurActive, locate: locateInteractive, compare: compareInteraction,
       },
-      fingerprint, compareFingerprints,
+      fingerprint, compareFingerprints, stabilize,
       scrollTo: scrollToY, pageInfo, outline, tokens: pageTokens, readme: exportReadme, codeless,
       exportDomMapped: (urlMap) => exportDom({ mapUrl: (u) => urlMap[u] ?? u }),
     },

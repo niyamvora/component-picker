@@ -15,6 +15,8 @@
   html.dark .panel { background: black; }
   /* Tailwind's dark: variant — the escaped class starts with "dark", and must not be read as the theme class */
   .dark\:text-deep:where(.dark, .dark *) { color: rgb(70, 74, 77); }
+  /* A Tailwind arbitrary value with a comma: one class, escaped, that must not be split at the comma */
+  .\[background\:padding-box_var\(--pb\)\,border-box_var\(--bb\)\] { background: padding-box var(--pb), border-box var(--bb); }
   :root { --brand: rgb(10, 20, 30); }
   .logo { background-image: url("img/logo.png"); }
   @keyframes used-spin { to { transform: rotate(1turn); } }
@@ -60,6 +62,7 @@
   <div class="panel"><p>panel</p></div>
   <div class="ring logo">ring</div>
   <span class="dark:text-deep">themed</span>
+  <span class="[background:padding-box_var(--pb),border-box_var(--bb)]" style="--pb: linear-gradient(#000, #000); --bb: linear-gradient(red, red)">arbitrary</span>
   <!-- #115 — a closed tab panel, responsive image, inline handler and shadow root that must all survive -->
   <section id="tabs-demo">
     <div role="tablist">
@@ -190,6 +193,8 @@
     expect(css.includes("html.dark .panel"), "#114 a dark-theme rule was dropped because the theme is not active");
     expect(css.includes(".dark\\:text-deep:where(.dark, .dark *)") && rb.atRest(".dark\\:text-deep:where(.dark, .dark *)") === ".dark\\:text-deep",
       "#123 a Tailwind dark: variant rule was dropped — its escaped class name was read as the .dark theme class");
+    expect(css.includes(".\\[background\\:padding-box_var\\(--pb\\)\\,border-box_var\\(--bb\\)\\]"),
+      "#125 a Tailwind arbitrary-value rule with an escaped comma was dropped — the selector was split at the comma");
     expect(css.includes(":root { --brand: rgb(10, 20, 30); }"), "#114 :root tokens were dropped");
     expect(css.includes(`url("${new URL("img/logo.png", location.href).href}")`), "#114 a relative url() was not absolutized");
     expect(css.includes("@keyframes used-spin") && !css.includes("unused-fade"), "#114 keyframes were not filtered to the used ones");
@@ -349,6 +354,25 @@
     jsHover.dispatchEvent(new MouseEvent("mouseleave"));
     expect(jsRec?.script.some((w) => w.at === "" && w.property === "style" && w.to.includes("250, 200, 0"))
       && jsRec.changes.some((c) => c.property === "background-color" && c.to === "rgb(250, 200, 0)"), "#125 the script-driven hover was not flagged: " + JSON.stringify(jsRec));
+    // #125 — what changes on its own is not an effect (a second resting read excludes it), and any attribute a script sets counts as script
+    rb.interact.begin(target("Lift").index, "hover");
+    const drift = document.head.appendChild(Object.assign(document.createElement("style"), { textContent: ".lift { letter-spacing: 3px; transition: none; }" }));
+    rb.interact.rest();
+    // The effect is a colour with no transition: .lift's box-shadow is still frozen mid-transition from the test above
+    // (virtual time), and a transitioning property is rightly left out of a record.
+    const lifted = document.head.appendChild(Object.assign(document.createElement("style"), { textContent: ".lift { background-color: rgb(1, 2, 3); }" }));
+    document.querySelector(".lift").setAttribute("data-open", "");
+    const driftRec = rb.interact.end("hover");
+    drift.remove();
+    lifted.remove();
+    document.querySelector(".lift").removeAttribute("data-open");
+    expect(driftRec && !driftRec.changes.some((c) => c.property === "letter-spacing") && driftRec.changes.some((c) => c.property === "background-color" && c.to === "rgb(1, 2, 3)")
+      && driftRec.script.some((w) => w.property === "data-open" && w.from === "(absent)" && w.to === ""),
+      "#125 a self-changing value was recorded, or a script-set attribute was missed: " + JSON.stringify(driftRec));
+    const node = (opacity) => ({ path: "#a", tags: "div", text: "", box: [0, 0, 1, 1], style: { opacity, color: "rgb(255, 0, 0)" } });
+    const held = rb.stabilize({ url: "x", width: 1, height: 1, nodes: [node("1")] }, { url: "x", width: 1, height: 1, nodes: [node("0.4")] });
+    expect(!("opacity" in held.nodes[0].style) && held.nodes[0].style.color === "rgb(255, 0, 0)" && held.nodes[0].animated?.includes("opacity"),
+      "#125 stabilize did not drop the value that moved between two fingerprints: " + JSON.stringify(held));
     const noShadow = rb.interact.compare(liftRec, { ...liftRec, changes: liftRec.changes.filter((c) => c.property !== "box-shadow"), timing: [] });
     expect(rb.interact.compare(liftRec, liftRec).length === 0 && noShadow.some((d) => !d.script && d.message.includes("box-shadow should change to"))
       && noShadow.some((d) => d.message.includes("transition box-shadow none, original 0.2s ease-out")) && rb.interact.compare(jsRec, null).every((d) => d.script),

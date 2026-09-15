@@ -13,7 +13,7 @@
 
 import { compareFingerprints, type Fingerprint } from "../../core/export/fingerprint";
 import { compareInteraction, type InteractionDiff, type InteractionRecord } from "../../core/export/interactions";
-import { emulateWidth, scrollThrough, waitForLoad } from "./export";
+import { emulateWidth, scrollThrough, stableFingerprint, waitForLoad } from "./export";
 import { parkPointer, runInteractions, settle, type PageCall } from "./interactions";
 import { callPage } from "../page/page-call";
 import { ensurePicker } from "../page/tab";
@@ -50,7 +50,7 @@ export async function verifyRebuild(url: string, originals: Fingerprint[], inter
         await page("rebuild.scrollTo", 0);
         await parkPointer(target);
         await settle(page, 600, 4000);
-        const c = compareFingerprints(original, await page<Fingerprint>("rebuild.fingerprint"));
+        const c = compareFingerprints(original, await stableFingerprint(page));
         layout += c.mismatches.length;
         sections.push([
           `## ${original.width}px — ${c.mismatches.length ? `${c.mismatches.length} difference(s)` : "matches"}`,
