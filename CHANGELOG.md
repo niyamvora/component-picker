@@ -11,6 +11,9 @@ typechecks, runs both suites, moves the Unreleased block under a new heading, bu
 
 ## [Unreleased]
 
+### Fixed
+- **`@property` registrations are captured** (#113). `sheetRules` matched no branch for a `CSSPropertyRule`, so it was dropped silently — and without the registration a custom property cannot be interpolated, so a gradient turned by `@keyframes { to { --angle: 360deg } }` rebuilt frozen on its first frame. A new *Registered properties* section carries only the registrations the capture's keyframes, rules, markup or token sources actually name, so the ~180 `--tw-*` registrations on a Tailwind v4 page stay out of a button's bundle.
+
 ## [1.9.0] — 2026-09-08
 
 Stage 5 (#102): an agent can read a page and rebuild it without a human clicking anything. The

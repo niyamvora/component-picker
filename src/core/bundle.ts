@@ -19,7 +19,7 @@ import { assetUrls } from "./assets";
 import { frameworkInfo, frameworkSections, getReference, inventory, measureAll, send } from "./messaging";
 import { contextOf, libraries, stateAttributes, variantsOf } from "./context";
 import { fonts } from "./fonts";
-import { matchRules, sheetRules } from "./rules";
+import { matchRules, registeredProperties, sheetRules } from "./rules";
 import { state } from "./state";
 import { tokensSection, varSources } from "./tokens";
 import { walk } from "./walk";
@@ -58,10 +58,11 @@ const TITLES: Record<string, string> = {
   states: "States", variants: "Variants", "source-rules": "Source rules", responsive: "Responsive", "state-attrs": "Component state", "tw-variants": "Tailwind variants",
   theme: "Theme", compare: "Compared with reference", media: "Media", tailwind: "Tailwind",
   "css-modules": "CSS Modules", js: "JS / handlers", canvas: "Canvas / WebGL", sources: "Source locations", props: "Props",
+  properties: "Registered properties",
 };
 
 async function build(root: Element, all: Element[], eligible: Element[], els: Element[], onStatus: (s: string) => void): Promise<string> {
-  const { styleRules, varRules, allRules, keyframes, fontFaces } = sheetRules();
+  const { styleRules, varRules, allRules, keyframes, fontFaces, propertyRules } = sheetRules();
   const { found: rules, states, media } = matchRules(root, els, styleRules);
   state.sources = varSources(root, els, varRules);
 
@@ -179,6 +180,11 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (running) part("animations", running);
   if (scroll) part("scroll", scroll);
   for (const s of frameworkSections({ motion, gsap, lottie, anime, canvases, scrollTriggers, platformNotes, sources, props })) part(s.id, s.text);
+  const registered = registeredProperties(propertyRules, [kf.join("\n"), rules.join("\n"), html,
+    ...Object.values(state.sources).flatMap((s) => [...Object.values(s.props), ...Object.values(s.customs)])].join("\n"));
+  if (registered.length) part("properties", `## Registered properties (@property)\n` +
+    `_Required: without these the custom properties below cannot be animated, and anything keyframing them stays on its first frame._\n` +
+    `\`\`\`css\n${registered.join("\n")}\n\`\`\``);
   if (kf.length) part("keyframes", `## Keyframes\n\`\`\`css\n${kf.join("\n\n")}\n\`\`\``);
   part("fonts", `## Fonts\n${font.lines.join("\n") || "- No text of its own."}` +
     (font.links.length ? `\n- Font stylesheets: ${font.links.join(", ")}` : "") +

@@ -45,9 +45,16 @@ export function sheetRules() {
   const allRules: { selectorText: string; cssText: string }[] = [];
   const keyframes: Record<string, string> = {};
   const fontFaces: CSSFontFaceRule[] = [];
+  /**
+   * `@property` registrations, by name (#113). Without one, a custom property is an untyped token
+   * stream the browser cannot interpolate, so `@keyframes { to { --angle: 360deg } }` jumps to its
+   * end instead of turning — a rebuilt rotating gradient stays frozen on its first frame.
+   */
+  const propertyRules: Record<string, string> = {};
   const walk = (rules: CSSRuleList, cond: string | null): void => {
     for (const r of rules) {
       if (r instanceof CSSKeyframesRule) keyframes[r.name] = r.cssText;
+      else if (typeof CSSPropertyRule !== "undefined" && r instanceof CSSPropertyRule) propertyRules[r.name] = r.cssText;
       else if (r instanceof CSSFontFaceRule) fontFaces.push(r);
       else if (r instanceof CSSMediaRule) {
         if (!/print/.test(r.conditionText)) walk(r.cssRules, cond ? `${cond} and ${r.conditionText}` : r.conditionText);
@@ -65,7 +72,18 @@ export function sheetRules() {
     }
   };
   for (const s of document.styleSheets) { try { walk(s.cssRules, null); } catch { /* cross-origin sheet */ } }
-  return { styleRules, varRules, allRules, keyframes, fontFaces };
+  return { styleRules, varRules, allRules, keyframes, fontFaces, propertyRules };
+}
+
+/**
+ * The `@property` rules some captured text depends on (#113): only those whose name it uses. A
+ * Tailwind v4 page registers ~180 `--tw-*` properties; printing all of them for a button would bury
+ * the one that makes its border turn.
+ */
+export function registeredProperties(rules: Record<string, string>, usedText: string): string[] {
+  return Object.entries(rules)
+    .filter(([name]) => new RegExp(`${name}(?![\\w-])`).test(usedText))
+    .map(([, text]) => text);
 }
 
 /** Elements of the picked subtree a selector hits, ignoring the state and pseudo-element parts. */

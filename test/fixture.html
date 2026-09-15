@@ -34,6 +34,11 @@
   @media print { .card { display: none; } }
   @media (prefers-reduced-motion: reduce) { .btn { animation-name: none; } }
   @keyframes spin { to { transform: rotate(1turn); } }
+  /* #113 — a gradient turned by animating a registered custom property; the second is never used. */
+  @property --angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  @property --unused-prop { syntax: "<length>"; inherits: false; initial-value: 0px; }
+  .ring { background: linear-gradient(var(--angle), red, blue); animation: turn 3s linear infinite; }
+  @keyframes turn { to { --angle: 360deg; } }
   /* #107 — Tailwind v4 variant utilities, escaped exactly as the compiler emits them. The attribute
      is absent at rest, so only the class can match these back to the element. */
   .data-starting-style\:scale-90[data-starting-style] { scale: .9; }
@@ -69,6 +74,7 @@
   <li class="tab" aria-selected="true">A</li>
   <li class="tab" aria-selected="false">B</li>
 </ul>
+<div id="ring" class="ring">ring</div>
 <ul id="cards" style="list-style:none;padding:0">
   <li class="row"><span class="name">Starter</span><span class="val">$0</span></li>
   <li class="row"><span class="name">Pro</span><span class="val">$29</span></li>
@@ -117,6 +123,10 @@
     const many = await window.__cp.extractMany([document.getElementById("card"), document.querySelector(".tab")]);
     // #37 repeat detection
     const list = await window.__cp.extract(document.getElementById("cards"));
+    // #113 — the registration the turning gradient needs is carried; an unused one is not
+    const ring = await window.__cp.extract(document.getElementById("ring"));
+    const propOk = ring.includes("## Registered properties") && /@property --angle \{[^}]*syntax: "<angle>"/.test(ring)
+      && !ring.includes("--unused-prop");
     // #52 — live edit records a change and reverts cleanly
     const editTarget = document.getElementById("waapi");
     window.__cp.edit.toggle(editTarget);
@@ -342,6 +352,7 @@
     if (!buiOk) fails.push("#106 Base UI mis-detected, or the state section is missing:\n" + bui.slice(0, 1200));
     if (!twOk) fails.push("#107 the Tailwind v4 variant rules were not decoded:\n" + bui.slice(bui.indexOf("## Tailwind variant"), bui.indexOf("## Tailwind variant") + 900));
     if (!invOk) fails.push("#109 the inventory parser did not read JSON and text alike");
+    if (!propOk) fails.push("#113 @property --angle missing, or an unreferenced registration leaked:\n" + ring.slice(ring.indexOf("## Registered"), ring.indexOf("## Registered") + 600));
     if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";
     document.getElementById("md").textContent = md;
