@@ -38,7 +38,7 @@ declare global {
     __cp?: {
       extract: typeof extract; extractMany: typeof extractMany;
       /** The whole page as one bundle, section by section (#105), and the split behind it. */
-      capturePage: typeof capturePage; pageSections: typeof pageSections;
+      capturePage: typeof capturePage; pageSections: typeof pageSections; // pageSections(limit, root?) (#123)
       /** The interaction runner the service worker drives, step by step (#104). */
       interaction: typeof interaction;
       /** Inventory parsing, exposed for tests (#109). */

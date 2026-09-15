@@ -37,8 +37,9 @@ export const pageInfo = (): PageInfo =>
  * neither a heading nor anything inside it (a lone image, an empty spacer) is not a section worth
  * naming; on a page with no section structure every such child would otherwise fill the outline.
  */
-export const outline = (): OutlineItem[] => pageSections(20).map((el) => ({
-  heading: el.querySelector("h1, h2, h3")?.textContent?.trim().replace(/\s+/g, " ").slice(0, 80) ?? "",
+export const outline = (root?: Element): OutlineItem[] => pageSections(20, root).map((el) => ({
+  // innerText, not textContent: a <br> in "Email for<br>developers" is a space to a reader.
+  heading: el.querySelector<HTMLElement>("h1, h2, h3")?.innerText?.trim().replace(/\s+/g, " ").slice(0, 80) ?? "",
   selector: cssPath(el),
   elements: el.querySelectorAll("*").length,
 })).filter((o) => o.heading || o.elements > 0);

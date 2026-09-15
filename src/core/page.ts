@@ -16,12 +16,6 @@ import { extract } from "./bundle";
 
 export const MAX_SECTIONS = 12;
 
-/** A wrapper whose only job is to centre its children is not a section; its children are. */
-const isWrapper = (el: Element) =>
-  el.children.length > 1 && el.children.length <= MAX_SECTIONS &&
-  [...el.children].every((c) => c.tagName !== "SCRIPT") &&
-  el.getBoundingClientRect().height > innerHeight * 1.5;
-
 const visible = (el: Element) => {
   if (SKIP_TAGS.has(el.tagName.toUpperCase()) || el.closest(`[${UI}]`)) return false;
   const r = el.getBoundingClientRect();
@@ -34,12 +28,18 @@ const visible = (el: Element) => {
  * `main`'s children are the body of the page, but a banner and a footer usually sit outside it —
  * and they are exactly the parts an agent rebuilding the page still has to account for.
  */
-export function pageSections(limit = MAX_SECTIONS): Element[] {
-  const main = document.querySelector("main");
-  const host = main ?? document.body;
+export function pageSections(limit = MAX_SECTIONS, root?: Element): Element[] {
+  const main = root ? null : document.querySelector("main");
+  const host = root ?? main ?? document.body;
   let kids = [...host.children].filter(visible);
-  // A single tall wrapper between `main` and the real sections is the common Next.js shape.
-  if (kids.length === 1 && isWrapper(kids[0])) kids = [...kids[0].children].filter(visible);
+  // A tall wrapper whose only job is to hold the page is not a section; what it holds is. Next.js
+  // pages nest them — resend.com's sections sit two divs deep under <body>, so one unwrap found a
+  // single "section" of 2,404 elements — so keep unwrapping until the page actually divides.
+  for (let depth = 0; depth < 4 && kids.length === 1 && kids[0].getBoundingClientRect().height > innerHeight * 1.5; depth++) {
+    const inner = [...kids[0].children].filter(visible);
+    if (!inner.length) break;
+    kids = inner;
+  }
   const out = [...kids];
   if (main) {
     for (const sel of ["body > header", "body > nav", "body > footer"]) {

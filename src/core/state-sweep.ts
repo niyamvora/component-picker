@@ -40,12 +40,13 @@ interface Active {
   index: number;
   observer: MutationObserver;
   records: MutationRecord[];
-  tabDefault: Element | null;
+  tabDefault: { el: Element; label: string; selector: string } | null;
   expandedBefore: string | null;
   openBefore: boolean;
 }
 
-let triggers: Element[] = [];
+let triggers: Trigger[] = [];
+let elements: Element[] = [];
 let active: Active | null = null;
 let last: (Active & { addedTop: Element[] }) | null = null;
 
@@ -76,38 +77,61 @@ const labelOf = (el: Element) =>
 
 const kindOf = (el: Element): TriggerKind => el.matches('[role="tab"]') ? "tab" : el.matches("summary") ? "summary" : "disclosure";
 
+/**
+ * The live element for a control a re-render replaced. A framework rebuilds a tab list when a
+ * sibling control changes — resend.com's framework tabs are new elements after every language click —
+ * so a stored reference goes stale while the control it named is still on screen. Same kind and
+ * label, preferring the same place in the tree when two lists share a label ("Node.js" is in both).
+ */
+function relocate(label: string, kind: TriggerKind, selector: string): Element | null {
+  const candidates = [...document.querySelectorAll(TRIGGERS)]
+    .filter((e) => !e.closest(`[${UI}]`) && kindOf(e) === kind && labelOf(e) === label && visible(e));
+  return candidates.find((e) => cssPath(e) === selector) ?? candidates[0] ?? null;
+}
+
+/** The element for trigger `index`, found again (and re-marked) if a re-render replaced it. */
+function live(index: number): Element | null {
+  const stored = elements[index];
+  if (stored?.isConnected) return stored;
+  const t = triggers[index];
+  const found = t && relocate(t.label, t.kind, t.selector);
+  if (found) { found.setAttribute(MARK, String(index)); elements[index] = found; }
+  return found ?? null;
+}
+
 /** Every trigger whose state is not already the one on screen, marked so the worker can find it. */
 export function discover(root: Element = document.body): Trigger[] {
   clear();
   resetStateMatches();
-  const out: Trigger[] = [];
   for (const el of root.querySelectorAll(TRIGGERS)) {
-    if (out.length >= MAX_TRIGGERS) break;
+    if (triggers.length >= MAX_TRIGGERS) break;
     if (el.closest(`[${UI}]`) || !visible(el) || leavesPage(el) || el.matches('[type="submit"], [disabled], [aria-disabled="true"]')) continue;
     const kind = kindOf(el);
     if (kind === "tab" && el.getAttribute("aria-selected") === "true") continue;
     if (kind === "disclosure" && el.getAttribute("aria-expanded") === "true") continue;
     if (kind === "summary" && (el.parentElement as HTMLDetailsElement | null)?.open) continue;
-    const index = triggers.push(el) - 1;
+    const index = elements.push(el) - 1;
     el.setAttribute(MARK, String(index));
-    out.push({ index, mark: `[${MARK}="${index}"]`, selector: cssPath(el), label: labelOf(el), kind });
+    triggers.push({ index, mark: `[${MARK}="${index}"]`, selector: cssPath(el), label: labelOf(el), kind });
   }
-  return out;
+  return [...triggers];
 }
 
 /** Start watching, and return where to click. */
 export function begin(index: number): { x: number; y: number } {
   end();
-  const el = triggers[index];
-  if (!el?.isConnected) throw new Error(`trigger ${index} is no longer on the page`);
+  const el = live(index);
+  if (!el) throw new Error(`trigger ${index} is no longer on the page`);
+  if (triggers[index].kind === "tab" && el.getAttribute("aria-selected") === "true") throw new Error("its tab is already the one showing");
   el.scrollIntoView({ block: "center", behavior: "instant" });
   const tablist = el.closest('[role="tablist"]');
+  const selected = triggers[index].kind === "tab" && tablist ? tablist.querySelector('[role="tab"][aria-selected="true"]') : null;
   const records: MutationRecord[] = [];
   const observer = new MutationObserver((list) => records.push(...list));
   observer.observe(document.body, { attributes: true, attributeOldValue: true, childList: true, characterData: true, characterDataOldValue: true, subtree: true });
   active = {
     index, observer, records,
-    tabDefault: kindOf(el) === "tab" && tablist ? tablist.querySelector('[role="tab"][aria-selected="true"]') : null,
+    tabDefault: selected ? { el: selected, label: labelOf(selected), selector: cssPath(selected) } : null,
     expandedBefore: el.getAttribute("aria-expanded"),
     openBefore: !!(el.parentElement as HTMLDetailsElement | null)?.open,
   };
@@ -152,6 +176,7 @@ export function end(): StateRecord | null {
 
   const attributes: StateRecord["attributes"] = [];
   for (const [el, names] of firstValue) {
+    if (!el.isConnected) continue;
     for (const [name, from] of names) {
       const to = el.getAttribute(name);
       if (to !== from && attributes.length < 100) attributes.push({ selector: cssPath(el), name, from, to });
@@ -164,12 +189,12 @@ export function end(): StateRecord | null {
     .map((e) => ({ selector: cssPath(e), text: (e as HTMLElement).innerText.trim().slice(0, 300) }));
   noteStateMatches(changed);
 
-  const el = triggers[a.index];
+  const t = triggers[a.index];
   last = { ...a, addedTop };
   return {
-    trigger: cssPath(el), label: labelOf(el), kind: kindOf(el),
+    trigger: t.selector, label: t.label, kind: t.kind,
     added: addedTop.slice(0, 20).map(fragment), removed, attributes,
-    text: [...texts].filter(([node, from]) => node.parentElement && node.textContent !== from).slice(0, 50)
+    text: [...texts].filter(([node, from]) => node.parentElement?.isConnected && node.textContent !== from).slice(0, 50)
       .map(([node, from]) => ({ selector: cssPath(node.parentElement!), from, to: node.textContent ?? "" })),
     revealed,
   };
@@ -180,11 +205,14 @@ export function restore(): Undo {
   const l = last;
   last = null;
   if (!l) return null;
-  const el = triggers[l.index];
   const at = (e: Element): Undo => ({ selector: cssPath(e), ...center(e) });
-  if (l.tabDefault?.isConnected) return at(l.tabDefault);
+  if (l.tabDefault) {
+    const tab = l.tabDefault.el.isConnected ? l.tabDefault.el : relocate(l.tabDefault.label, "tab", l.tabDefault.selector);
+    if (tab) return at(tab);
+  }
+  const el = live(l.index);
   if (el?.matches("summary")) return (el.parentElement as HTMLDetailsElement).open !== l.openBefore ? at(el) : null;
-  if (el?.isConnected && el.getAttribute("aria-expanded") !== l.expandedBefore) return at(el);
+  if (el && el.getAttribute("aria-expanded") !== l.expandedBefore) return at(el);
   return l.addedTop.some((n) => n.isConnected) ? "escape" : null;
 }
 
@@ -195,7 +223,8 @@ export const busy = () => document.getAnimations()
 /** Remove every mark and forget the triggers. The state matches stay, for the final used-CSS pass. */
 export function clear() {
   end();
-  for (const el of triggers) el.removeAttribute(MARK);
+  for (const el of document.querySelectorAll(`[${MARK}]`)) el.removeAttribute(MARK);
   triggers = [];
+  elements = [];
   last = null;
 }

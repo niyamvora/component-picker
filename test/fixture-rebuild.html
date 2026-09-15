@@ -85,6 +85,8 @@
   <ul id="log"></ul>
   <!-- #116 — a disclosure, and a menu that mounts its popup outside the trigger -->
   <details id="faq"><summary>Question?</summary><p>Answer text</p></details>
+  <!-- #123 — a tab list rebuilt from scratch on every click, the way a framework re-renders one -->
+  <div id="rerender" role="tablist"></div>
   <button id="menu" aria-haspopup="menu" aria-expanded="false">Menu</button>
   <!-- #121 — two elements whose change moves nothing else, so the diff can be exact -->
   <div id="fp-a" style="position:absolute; left:0; top:0; width:100px; height:20px; overflow:hidden; font-size:14px">Fingerprint A</div>
@@ -120,6 +122,12 @@
       }
     });
   }
+  const renderTabs = (selected) => {
+    document.getElementById("rerender").innerHTML = ["Alpha", "Beta", "Gamma"]
+      .map((name) => `<button role="tab" aria-selected="${name === selected}">${name}</button>`).join("");
+    for (const b of document.querySelectorAll("#rerender button")) b.addEventListener("click", () => renderTabs(b.textContent));
+  };
+  renderTabs("Alpha");
   const menu = document.getElementById("menu");
   menu.addEventListener("click", () => {
     const open = menu.getAttribute("aria-expanded") === "true";
@@ -264,7 +272,8 @@
     // #116 — the state sweep: every tab, disclosure and menu opened, recorded, and put back
     expect(!rb.usedCss().css.includes(".menu-item"), "#116 precondition: the menu's rule is dropped while the menu is closed");
     const triggers = rb.sweep.discover();
-    expect(triggers.length === 4 && triggers.some((t) => t.label === "Two" && t.kind === "tab") && triggers.some((t) => t.label === "Three" && t.kind === "tab")
+    expect(triggers.length === 6 && triggers.some((t) => t.label === "Two" && t.kind === "tab") && triggers.some((t) => t.label === "Three" && t.kind === "tab")
+      && triggers.some((t) => t.label === "Beta") && triggers.some((t) => t.label === "Gamma")
       && triggers.some((t) => t.label === "Question?" && t.kind === "summary") && triggers.some((t) => t.label === "Menu" && t.kind === "disclosure")
       && !triggers.some((t) => ["One", "Away"].includes(t.label)), "#116 wrong triggers: " + JSON.stringify(triggers));
     const states = {};
@@ -286,6 +295,8 @@
       && states["Question?"].revealed.some((r) => r.text.includes("Answer text")), "#116 the details state is incomplete: " + JSON.stringify(states["Question?"]));
     expect(states.Menu?.added.some((h) => h.includes('role="menu"') && h.includes("Item A")), "#116 the portal-mounted menu was not recorded: " + JSON.stringify(states.Menu));
     expect(states.Three?.revealed.some((r) => r.text.includes("const client = create('key');")), "#123 the code sample behind the third tab was not revealed: " + JSON.stringify(states.Three));
+    expect(states.Beta && states.Gamma && document.querySelector('#rerender [aria-selected="true"]')?.textContent === "Alpha",
+      "#123 a re-rendered tab list lost a trigger or was not restored to its default: " + JSON.stringify({ beta: !!states.Beta, gamma: !!states.Gamma, selected: document.querySelector('#rerender [aria-selected="true"]')?.textContent }));
     expect(document.getElementById("t1").getAttribute("aria-selected") === "true" && document.getElementById("p2").hidden
       && !document.getElementById("faq").open && !document.getElementById("menu-pop"), "#116 the page was not restored to its default state");
     expect(!document.querySelector("[data-cp-trigger]"), "#116 trigger marks were left on the page");
@@ -317,6 +328,15 @@
     expect(scrolled.y === 0 && scrolled.height >= scrolled.viewport && scrolled.viewport > 0, "#120 scrollTo wrong: " + JSON.stringify(scrolled));
     expect(rb.pageInfo().title === "Component Picker rebuild self-check" && rb.outline().some((o) => o.selector === "#tabs-demo" && o.elements > 0), "#120 page info or outline wrong: " + JSON.stringify(rb.outline().slice(0, 4)));
     expect(rb.exportDomMapped({ [absUrl("img/a.png")]: "assets/media/a.png" }).html.includes('src="assets/media/a.png"'), "#120 exportDomMapped did not apply the URL map");
+    // #123 — sections nested two tall wrappers deep (resend.com's shape) still divide, and a <br> in a heading is a space
+    const nest = document.body.appendChild(Object.assign(document.createElement("div"), {
+      innerHTML: '<div style="min-height:3200px"><section style="height:1600px"><h2>Split<br>heading</h2></section><section style="height:1600px"><p>two</p></section></div>',
+    }));
+    const split = window.__cp.pageSections(20, nest);
+    const nestOutline = rb.outline(nest);
+    nest.remove();
+    expect(split.length === 2 && split.every((s) => s.tagName === "SECTION") && nestOutline[0]?.heading === "Split heading",
+      "#123 nested wrappers were not unwrapped into sections: " + JSON.stringify({ n: split.length, outline: nestOutline }));
     // #122 — the canvas is the only region with no code; a same-origin iframe is readable, so it is not one
     const frame = document.body.appendChild(Object.assign(document.createElement("iframe"), { srcdoc: "<p>same origin</p>" }));
     await new Promise((r) => frame.addEventListener("load", r, { once: true }));

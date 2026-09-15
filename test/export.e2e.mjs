@@ -11,7 +11,8 @@ import { launch, ROOT } from "./chrome.mjs";
 import { enableBridge, startMcp } from "./mcp-client.mjs";
 
 const PORT = 8766, CDP = 9334, BRIDGE_PORT = 8797;
-const OUT = join(ROOT, "test", ".export-tmp");
+// Its own subfolder: clearing all of .export-tmp would delete a smoke run's export mid-investigation.
+const OUT = join(ROOT, "test", ".export-tmp", "e2e");
 rmSync(OUT, { recursive: true, force: true });
 
 const walkFiles = (dir) => readdirSync(dir).flatMap((f) => statSync(join(dir, f)).isDirectory() ? walkFiles(join(dir, f)) : [join(dir, f)]);
@@ -47,7 +48,7 @@ try {
     expect(css.includes(".menu-item { color: rgb(9, 9, 9); }"), "styles.css lost the rule only the open menu matches — the real-pointer sweep did not open it");
 
     const states = JSON.parse(read("states/index.json"));
-    expect(states.map((s) => s.label).sort().join() === "Menu,Question?,Three,Two", "states/index.json: " + JSON.stringify(states));
+    expect(states.map((s) => s.label).sort().join() === "Beta,Gamma,Menu,Question?,Three,Two", "states/index.json: " + JSON.stringify(states));
     const state = (label) => { const s = states.find((x) => x.label === label); return s ? JSON.parse(read(s.file)) : null; };
     expect(state("Menu")?.added.some((h) => h.includes("Item A")), "the menu state has no popup markup");
     expect(state("Three")?.revealed.some((r) => r.text.includes("const client = create('key');")), "the third tab's code sample was not revealed");
@@ -67,7 +68,7 @@ try {
     expect(JSON.parse(read("breakpoints.json")).includes("@media (min-width: 768px)"), "breakpoints.json lost the 768px breakpoint");
     expect(JSON.parse(read("fingerprint.1440.json")).width === 1440 && JSON.parse(read("fingerprint.390.json")).width === 390, "fingerprints were not taken at their widths");
     const readme = read("README.md");
-    expect(readme.includes("4 states opened by clicking") && readme.includes("there are no screenshots"), "README.md does not reflect the run");
+    expect(readme.includes("6 states opened by clicking") && readme.includes("there are no screenshots"), "README.md does not reflect the run");
     expect(readme.includes("#scene (a <canvas>") && readme.includes("fallback_screenshots: true"), "README.md does not name the region with no code, or how to picture it");
   }
 
@@ -83,7 +84,7 @@ try {
 
   // #121 — verify_rebuild: the exported index.html, served, against its own export's fingerprints.
   // index.html + styles.css are all an agent is given, so a clean match is the export's proof of fidelity.
-  const verified = await mcp.call("verify_rebuild", { url: `http://localhost:${PORT}/test/.export-tmp/localhost/index.html`, fingerprint_dir: dir });
+  const verified = await mcp.call("verify_rebuild", { url: `http://localhost:${PORT}/test/.export-tmp/e2e/localhost/index.html`, fingerprint_dir: dir });
   expect(verified.includes("The rebuild matches the original at every width."),
     "verify_rebuild found differences between the export and the page it came from:\n" + verified.slice(0, 3000));
 
