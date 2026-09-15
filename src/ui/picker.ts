@@ -13,6 +13,7 @@ import { atRest, usedCss } from "../core/used-css";
 import { exportDom } from "../core/export-dom";
 import { assetRefs, buildManifest } from "../core/assets-inventory";
 import { cssPath } from "../core/selector";
+import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/media-code";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
@@ -41,6 +42,7 @@ declare global {
       rebuild: {
         usedCss: typeof usedCss; atRest: typeof atRest; exportDom: typeof exportDom;
         assetRefs: typeof assetRefs; buildManifest: typeof buildManifest; cssPath: typeof cssPath;
+        inlineSvgs: typeof inlineSvgs; paletteOf: typeof paletteOf; videoFacts: typeof videoFacts; substitute: typeof substitute;
       };
       start: () => void; stop: () => void; toggle: () => void;
       last: string; opts: typeof options;
@@ -90,7 +92,7 @@ if (window.__cp) {
 
   window.__cp = {
     extract, extractMany, capturePage, pageSections, interaction, parseInventory, start, stop,
-    rebuild: { usedCss, atRest, exportDom, assetRefs, buildManifest, cssPath },
+    rebuild: { usedCss, atRest, exportDom, assetRefs, buildManifest, cssPath, inlineSvgs, paletteOf, videoFacts, substitute },
     toggle: () => (isActive() ? stop() : start()),
     last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,
     edit: { toggle: toggleEdit, apply: applyEdit, revert, commit: commitEdits, made: () => [...edits] },

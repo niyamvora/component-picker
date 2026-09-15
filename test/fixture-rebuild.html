@@ -61,6 +61,11 @@
   <img class="avatar" src="img/avatars/jane.jpg" alt="Jane Doe" width="40" height="40" style="border-radius:50%">
   <img class="shot" src="img/screenshot.png" alt="Dashboard" width="400" height="240">
   <div class="logos"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"></div>
+  <!-- #119 — the same drawing twice (placement differs), a different drawing under the same name, and an unlabelled one -->
+  <svg class="one" aria-label="Acme" role="img" viewBox="0 0 10 10" width="16" height="16"><rect width="10" height="10"></rect></svg>
+  <svg class="two" aria-label="Acme" role="img" viewBox="0 0 10 10" width="24" height="24" data-x="1"><rect width="10" height="10"></rect></svg>
+  <svg aria-label="Acme" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"></circle></svg>
+  <svg viewBox="0 0 4 4"><path d="M0 0h4v4z"></path></svg>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -142,6 +147,34 @@
     expect(joined.find((e) => e.url === absUrl("img/hero.jpg"))?.bytes === 1234 && joined.find((e) => e.url === absUrl("img/hero.jpg"))?.source === "dom+network"
       && late?.role === "font" && late?.source === "network" && late?.usedBy.length === 0 && !joined.some((e) => e.url === absUrl("app.css")),
       "#118 the network join lost bytes, a network-only font, or kept a stylesheet as media");
+
+    // #119 — media as code first: SVG files, a gradient from an image's colours, stand-ins per role
+    const svgs = rb.inlineSvgs();
+    const acme = svgs.filter((s) => s.name.startsWith("acme"));
+    const acmeFile = acme.find((s) => s.name === "acme");
+    expect(acme.length === 2 && acmeFile?.usedBy.length === 2 && acme.some((s) => s.name === "acme-2" && s.usedBy.length === 1),
+      "#119 SVG dedupe or naming wrong: " + JSON.stringify(acme.map((s) => [s.name, s.usedBy.length])));
+    expect(acmeFile?.path === "assets/svg/acme.svg" && acmeFile.markup.startsWith("<svg") && acmeFile.markup.includes('xmlns="http://www.w3.org/2000/svg"')
+      && !/class=|aria-label=|role=|width="16"/.test(acmeFile.markup) && acmeFile.markup.includes('viewBox="0 0 10 10"'),
+      "#119 the SVG file is not clean standalone markup: " + acmeFile?.markup);
+    expect(svgs.some((s) => /^icon-[0-9a-f]{8}$/.test(s.name)), "#119 an unlabelled SVG was not named by its hash");
+    const px = Object.assign(document.createElement("canvas"), { width: 2, height: 1 });
+    const pctx = px.getContext("2d");
+    pctx.fillStyle = "#ff0000"; pctx.fillRect(0, 0, 1, 1);
+    pctx.fillStyle = "#0000ff"; pctx.fillRect(1, 0, 1, 1);
+    const pal = rb.paletteOf(pctx.getImageData(0, 0, 2, 1).data, 2, 1);
+    expect(pal.colors.includes("#ff0000") && pal.colors.includes("#0000ff") && pal.css === "linear-gradient(90deg, #ff0000 0%, #0000ff 100%)",
+      "#119 palette of a red|blue image wrong: " + JSON.stringify(pal));
+    const ctx = { svgs, video: rb.videoFacts()[absUrl("media/clip.mp4")], origin: location.origin };
+    const sub = (path) => rb.substitute(entry(path), ctx);
+    expect(sub("img/avatars/jane.jpg").initials === "JD", "#119 avatar initials wrong: " + JSON.stringify(sub("img/avatars/jane.jpg")));
+    expect(sub("img/logo-acme.png").svg === "assets/svg/acme.svg", "#119 a logo with a matching inline SVG does not point at it");
+    expect(sub("img/screenshot.png").aspectRatio === "400 / 240" && sub("img/screenshot.png").alt === "Dashboard", "#119 content-image stand-in wrong: " + JSON.stringify(sub("img/screenshot.png")));
+    const clip = sub("media/clip.mp4");
+    expect(clip.loop === true && clip.muted === true && clip.autoplay === false && /no code source/.test(clip.note) && clip.aspectRatio === "320 / 180",
+      "#119 video facts wrong: " + JSON.stringify(clip));
+    const font = sub("fonts/fixture-sans.woff2");
+    expect(font.selfHosted === true && font.faces[0] === "Fixture Sans 400 normal", "#119 font facts wrong: " + JSON.stringify(font));
 
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
