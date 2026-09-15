@@ -13,6 +13,8 @@
   .btn { animation: used-spin 1s linear infinite; }
   .btn:hover { color: rgb(1, 2, 3); }
   html.dark .panel { background: black; }
+  /* Tailwind's dark: variant — the escaped class starts with "dark", and must not be read as the theme class */
+  .dark\:text-deep:where(.dark, .dark *) { color: rgb(70, 74, 77); }
   :root { --brand: rgb(10, 20, 30); }
   .logo { background-image: url("img/logo.png"); }
   @keyframes used-spin { to { transform: rotate(1turn); } }
@@ -50,6 +52,7 @@
   <button class="btn">Go</button>
   <div class="panel"><p>panel</p></div>
   <div class="ring logo">ring</div>
+  <span class="dark:text-deep">themed</span>
   <!-- #115 — a closed tab panel, responsive image, inline handler and shadow root that must all survive -->
   <section id="tabs-demo">
     <div role="tablist">
@@ -169,6 +172,8 @@
     expect(!css.includes("never-used-anywhere"), "#114 a rule matching nothing was kept");
     expect(css.includes(".btn:hover { color: rgb(1, 2, 3); }"), "#114 a :hover rule for an existing element was dropped");
     expect(css.includes("html.dark .panel"), "#114 a dark-theme rule was dropped because the theme is not active");
+    expect(css.includes(".dark\\:text-deep:where(.dark, .dark *)") && rb.atRest(".dark\\:text-deep:where(.dark, .dark *)") === ".dark\\:text-deep",
+      "#123 a Tailwind dark: variant rule was dropped — its escaped class name was read as the .dark theme class");
     expect(css.includes(":root { --brand: rgb(10, 20, 30); }"), "#114 :root tokens were dropped");
     expect(css.includes(`url("${new URL("img/logo.png", location.href).href}")`), "#114 a relative url() was not absolutized");
     expect(css.includes("@keyframes used-spin") && !css.includes("unused-fade"), "#114 keyframes were not filtered to the used ones");

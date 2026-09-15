@@ -54,7 +54,9 @@ export function atRest(selector: string): string {
     i = j - 1;
   }
   return out
-    .replace(/\.(dark|light)(?![\w-])/g, "")
+    // The theme class itself, not the start of an escaped Tailwind variant: `.dark\:text-x` is one
+    // class, and stripping its "dark" left a selector matching nothing, dropping every dark: rule.
+    .replace(/\.(dark|light)(?![\w\\-])/g, "")
     .replace(/^\s*[>+~]\s*|\s*[>+~]\s*$/g, "")
     .replace(/\s+/g, " ")
     .trim();
