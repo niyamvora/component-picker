@@ -3,6 +3,7 @@
  * also runs in a plain page (that is how `test/check.sh` exercises it).
  */
 
+import { codelessReason } from "./codeless";
 import { sel } from "./const";
 import { parseInventory } from "./mapping";
 import { detectTheme } from "./snapshot";
@@ -15,14 +16,23 @@ export async function send(msg: Message): Promise<unknown> {
   return await chrome.runtime.sendMessage(msg);
 }
 
-export async function measureAll(states: StateIndices): Promise<MeasureResult> {
+/**
+ * Why the picked subtree needs a picture, if it does (#122) — screenshots are otherwise off — so
+ * the service worker takes one only for what has no code, and the bundle can say so.
+ */
+export function fallbackReason(els: Element[]): string | null {
+  const reason = els.map(codelessReason).find(Boolean);
+  return reason ? `the pick contains ${reason}` : null;
+}
+
+export async function measureAll(states: StateIndices, fallback: string | null = null): Promise<MeasureResult> {
   const empty: MeasureResult = { viewports: [], states: [], shots: [] };
   // Fast mode skips the debugger entirely: no viewport, state, theme or screenshot capture, and no
   // "started debugging this browser" bar. The existing "unavailable" paths handle the rest, and the
   // pointer-still-on-the-element caveat that `error` triggers is honest here — nothing parked it.
   if (options.fast) return { ...empty, error: "fast mode (no debugger); re-pick with Fast off for viewports, states, themes and screenshots" };
   try {
-    const msg = { type: "measure", states, theme: detectTheme(), options } as const;
+    const msg = { type: "measure", states, theme: detectTheme(), options, fallback } as const;
     return ((await send(msg)) as MeasureResult) ?? { ...empty, error: "no response" };
   } catch (e) {
     return { ...empty, error: e instanceof Error ? e.message : String(e) };
@@ -104,7 +114,7 @@ export function frameworkSections(p: { motion: MotionInfo[]; gsap: GsapTween[]; 
   if (p.canvases.length) out.push({ id: "canvas", text: `## Canvas / WebGL scene (not extractable as code)\n` +
     `${p.canvases.map((c) => `${sel(c.id)} <canvas> ${c.width}\u00d7${c.height}${c.library ? ` \u2014 ${c.library} detected` : ""}.`).join("\n")}\n` +
     `A scene drawn at runtime has no HTML or CSS to capture \u2014 the pixels live on the GPU (WebGL) or come from canvas draw calls. ` +
-    (options.screenshots ? "The Screenshots section below shows the rendered frame; " : "Turn Screenshots on to capture the rendered frame; ") +
+    (options.screenshots || options.fallbackScreenshots ? "The Screenshots section below shows the rendered frame; " : "Turn on fallback screenshots to capture the rendered frame; ") +
     `rebuild the effect with the named library, or treat it as an image/video asset.` });
   if (p.platformNotes.length) out.push({ id: "platform", text: `## Platform notes\n${p.platformNotes.map((n) => `- ${n}`).join("\n")}` });
   if (p.sources.length) out.push({ id: "sources", text: `## Source locations (React dev build)\n${p.sources.map((s) => `${sel(s.id)} <${s.component}>  ${s.file}:${s.line}:${s.col}`).join("\n")}\n_Only on a dev build; production/minified sites have no debug source._` });

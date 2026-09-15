@@ -20,7 +20,7 @@
 import { buildManifest, type AssetRef, type ManifestEntry } from "../core/assets-inventory";
 import { filename } from "../core/assets";
 import { exportReadme } from "../core/export-readme";
-import type { OutlineItem, PageInfo, ScrollInfo } from "../core/export-page";
+import type { CodelessRegion, OutlineItem, PageInfo, ScrollInfo } from "../core/export-page";
 import type { Fingerprint } from "../core/fingerprint";
 import { slug, substitute, type SvgFile, type VideoFacts } from "../core/media-code";
 import type { MotionRecording } from "../core/motion-rec";
@@ -38,6 +38,8 @@ export interface ExportOptions {
   /** Reload first, so the network log sees every file from the start. Off by default: it discards the tab's state. */
   reload?: boolean;
   widths?: number[];
+  /** Picture each canvas and cross-origin iframe, which have no code to export (#122). Off by default. */
+  fallbackScreenshots?: boolean;
 }
 /** One file of the export, relative to the output folder. */
 export interface ExportFile { path: string; text?: string; base64?: string }
@@ -53,6 +55,7 @@ const MAX_SCROLL_STEPS = 200;
 const SETTLE_MIN_MS = 150;
 const SETTLE_MAX_MS = 1500;
 const MAX_BODY_BYTES = 50_000_000;
+const MAX_FALLBACK_SHOTS = 10;
 /** Roles whose stand-in is built from the image's colours. */
 const COLOUR_ROLES = new Set(["decorative-background", "texture", "avatar", "content-image", "poster", "social-image"]);
 
@@ -273,9 +276,30 @@ export async function exportPage(opts: ExportOptions, emit: (file: ExportFile) =
         // layout viewport (a 400px image at 390 reads as 408), and emulating that would test a different device.
         await put({ path: `fingerprint.${width}.json`, text: json({ ...fp, width, height: HEIGHTS[width] ?? 900, layoutWidth: fp.width }) });
       }
+
+      // The only pictures an export ever takes (#122): regions with no code, and only when asked.
+      let fallbackShots = 0;
+      await emulateWidth(target, widths[0]);
+      await sleep(400);
+      const regions = await page<CodelessRegion[]>("rebuild.codeless");
+      const listed = regions.slice(0, 5).map((r) => `${r.selector} (${r.reason})`).join("; ");
+      if (regions.length && opts.fallbackScreenshots) {
+        for (const [n, r] of regions.slice(0, MAX_FALLBACK_SHOTS).entries()) {
+          const [x, y, width, height] = r.box;
+          try {
+            const { data } = await send<{ data: string }>(target, "Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x, y, width, height, scale: 1 } });
+            await put({ path: `assets/fallback/${String(n + 1).padStart(2, "0")}-${slug(r.selector) || "region"}.png`, base64: data });
+            fallbackShots++;
+          } catch (e) { notes.push(`The fallback screenshot of ${r.selector} failed: ${message(e)}`); }
+        }
+        notes.push(`${regions.length} region(s) have no code to export, pictured in assets/fallback/: ${listed}.`);
+      } else if (regions.length) {
+        notes.push(`${regions.length} region(s) have no code to export: ${listed}. Re-export with fallback_screenshots: true for a picture of each.`);
+      }
       await send(target, "Emulation.clearDeviceMetricsOverride");
 
       const readme = exportReadme({
+        fallbackShots,
         title: info.title, url: info.url, at: new Date().toISOString(), widths, media, elements: dom.elements,
         css: { kept: css.kept, total: css.total, breakpoints: css.breakpoints }, manifest, svgs: svgs.length,
         states: stateFiles, motion: motion && { tracks: motion.tracks.length, streams: motion.streams.length, animations: motion.animations.length },

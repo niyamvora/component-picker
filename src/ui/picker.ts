@@ -17,7 +17,7 @@ import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/media-cod
 import { periodOf, startMotion, stopMotion } from "../core/motion-rec";
 import * as sweep from "../core/state-sweep";
 import { compareFingerprints, fingerprint } from "../core/fingerprint";
-import { outline, pageInfo, pageTokens, scrollToY } from "../core/export-page";
+import { codeless, outline, pageInfo, pageTokens, scrollToY } from "../core/export-page";
 import { exportReadme } from "../core/export-readme";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
@@ -52,7 +52,7 @@ declare global {
         sweep: typeof sweep;
         fingerprint: typeof fingerprint; compareFingerprints: typeof compareFingerprints;
         scrollTo: typeof scrollToY; pageInfo: typeof pageInfo; outline: typeof outline; tokens: typeof pageTokens;
-        readme: typeof exportReadme;
+        readme: typeof exportReadme; codeless: typeof codeless;
         /** `exportDom` with its URL mapping passed as data: a function cannot cross `executeScript`. */
         exportDomMapped: (urlMap: Record<string, string>) => ReturnType<typeof exportDom>;
       };
@@ -109,7 +109,7 @@ if (window.__cp) {
       motion: { start: startMotion, stop: stopMotion, periodOf },
       sweep,
       fingerprint, compareFingerprints,
-      scrollTo: scrollToY, pageInfo, outline, tokens: pageTokens, readme: exportReadme,
+      scrollTo: scrollToY, pageInfo, outline, tokens: pageTokens, readme: exportReadme, codeless,
       exportDomMapped: (urlMap) => exportDom({ mapUrl: (u) => urlMap[u] ?? u }),
     },
     toggle: () => (isActive() ? stop() : start()),

@@ -78,6 +78,8 @@
   <!-- #121 — two elements whose change moves nothing else, so the diff can be exact -->
   <div id="fp-a" style="position:absolute; left:0; top:0; width:100px; height:20px; overflow:hidden; font-size:14px">Fingerprint A</div>
   <div id="fp-b" style="display:flex; gap:8px; width:100px; height:20px"><span>only</span></div>
+  <!-- #122 — a region with no code to capture: the one place a fallback screenshot is allowed -->
+  <canvas id="scene" width="40" height="20"></canvas>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -302,6 +304,17 @@
     expect(scrolled.y === 0 && scrolled.height >= scrolled.viewport && scrolled.viewport > 0, "#120 scrollTo wrong: " + JSON.stringify(scrolled));
     expect(rb.pageInfo().title === "Component Picker rebuild self-check" && rb.outline().some((o) => o.selector === "#tabs-demo" && o.elements > 0), "#120 page info or outline wrong: " + JSON.stringify(rb.outline().slice(0, 4)));
     expect(rb.exportDomMapped({ [absUrl("img/a.png")]: "assets/media/a.png" }).html.includes('src="assets/media/a.png"'), "#120 exportDomMapped did not apply the URL map");
+    // #122 — the canvas is the only region with no code; a same-origin iframe is readable, so it is not one
+    const frame = document.body.appendChild(Object.assign(document.createElement("iframe"), { srcdoc: "<p>same origin</p>" }));
+    await new Promise((r) => frame.addEventListener("load", r, { once: true }));
+    const regions = rb.codeless();
+    frame.remove();
+    expect(regions.length === 1 && regions[0].selector === "#scene" && regions[0].reason.includes("<canvas>") && regions[0].box[2] === 40,
+      "#122 codeless regions wrong: " + JSON.stringify(regions));
+    const withShots = rb.readme({ title: "Demo", url: "https://demo.example/", at: "x", widths: [1440], media: "manifest", elements: 1,
+      css: { kept: 1, total: 1, breakpoints: [] }, manifest: [], svgs: 0, states: null, motion: null, outline: [], notes: [], files: [], fallbackShots: 2 });
+    expect(withShots.includes("the only screenshots are 2 fallback pictures in `assets/fallback/`") && !withShots.includes("there are no screenshots"),
+      "#122 the README does not say which screenshots exist when fallbacks were taken");
     const readme = rb.readme({
       title: "Demo", url: "https://demo.example/", at: "2026-09-15T00:00:00.000Z", widths: [1440, 768, 390], media: "manifest",
       elements: 2434, css: { kept: 1709, total: 11473, breakpoints: ["@media (min-width: 40rem)"] },

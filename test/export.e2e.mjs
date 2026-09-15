@@ -103,8 +103,19 @@ try {
     expect(JSON.parse(read("tokens.json")).color?.brand?.$value === "rgb(10, 20, 30)", "tokens.json lost --brand");
     expect(JSON.parse(read("breakpoints.json")).includes("@media (min-width: 768px)"), "breakpoints.json lost the 768px breakpoint");
     expect(JSON.parse(read("fingerprint.1440.json")).width === 1440 && JSON.parse(read("fingerprint.390.json")).width === 390, "fingerprints were not taken at their widths");
-    expect(read("README.md").includes("3 states opened by clicking") && read("README.md").includes("no screenshots"), "README.md does not reflect the run");
+    expect(read("README.md").includes("3 states opened by clicking") && read("README.md").includes("there are no screenshots"), "README.md does not reflect the run");
+    expect(read("README.md").includes("#scene (a <canvas>") && read("README.md").includes("fallback_screenshots: true"),
+      "README.md does not name the region with no code, or how to picture it");
   }
+
+  // #122 — the one exception: asked for, a region with no code gets a picture, and nothing else does.
+  const FALLBACK = join(OUT, "fallback");
+  textOf(await rpc("tools/call", { name: "export_page", arguments: { out_dir: FALLBACK, states: false, motion: false, fallback_screenshots: true } }));
+  const fallbackFiles = existsSync(join(FALLBACK, "localhost")) ? walkFiles(join(FALLBACK, "localhost")).map((f) => relative(join(FALLBACK, "localhost"), f)) : [];
+  const pictures = fallbackFiles.filter((f) => f.endsWith(".png"));
+  expect(pictures.length === 1 && pictures[0].startsWith("assets/fallback/01-"), "fallback_screenshots did not write exactly one picture of the canvas: " + JSON.stringify(fallbackFiles));
+  expect(existsSync(join(FALLBACK, "localhost", "README.md")) && readFileSync(join(FALLBACK, "localhost", "README.md"), "utf8").includes("1 fallback picture"),
+    "the fallback export's README does not account for its picture");
 
   // #121 — verify_rebuild: the exported index.html, served, against its own export's fingerprints.
   // index.html + styles.css are all an agent is given, so a clean match is the export's proof of fidelity.

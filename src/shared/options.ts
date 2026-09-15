@@ -6,7 +6,9 @@
 import type { Options } from "./types";
 
 export const DEFAULT_OPTIONS: Options = {
-  screenshots: true,
+  // A picture invites approximating by eye; the bundle already carries the exact values (#122).
+  screenshots: false,
+  fallbackScreenshots: true,
   fontFace: false,
   js: true,
   states: true,

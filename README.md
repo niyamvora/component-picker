@@ -130,7 +130,7 @@ options** group (or the side panel's **Output**).
 | Theme: dark/light | CDP media emulation, or flipping the page's own class/attribute | only what changes between themes |
 | Media: print / reduced-motion / forced-colors | CDP media emulation | opt-in; each as a diff vs default |
 | Compared with reference | a stored earlier pick (`R`) | only what differs, with the reference value on each line |
-| Screenshots | CDP `Page.captureScreenshot` | PNG of the element per viewport, embedded as a data URI |
+| Screenshots | CDP `Page.captureScreenshot` | **off by default** — a picture invites approximating by eye. Taken only as a labelled fallback when the pick holds a `<canvas>` or a cross-origin `<iframe>`, which have no code to capture; "Screenshots (always)" in the drawer restores the old behaviour |
 | Tokens used | resolved `var(--…)` | every design token named and resolved; **opt-in** W3C token JSON |
 | Palette and type | the captured blocks | distinct colours, type scale, spacing — names a 4px/8px grid |
 | Repeated structure | sibling scan | a grid of cards → one card + a table of what differs |

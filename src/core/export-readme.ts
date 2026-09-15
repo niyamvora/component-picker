@@ -23,6 +23,8 @@ export interface ReadmeInput {
   outline: OutlineItem[];
   notes: string[];
   files: string[];
+  /** Pictures of regions with no code (#122); 0 unless the export was asked for them. */
+  fallbackShots?: number;
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -48,7 +50,9 @@ export function exportReadme(i: ReadmeInput): string {
   return [
     `# Rebuild export: ${i.title || i.url}`,
     `Source: ${i.url}  \nExported ${i.at} by Component Picker.`,
-    `Code first: there are no screenshots in this folder, and binary media is ${i.media === "download"
+    `Code first: ${i.fallbackShots
+      ? `the only screenshots are ${plural(i.fallbackShots, "fallback picture")} in \`assets/fallback/\`, of regions that have no code`
+      : "there are no screenshots in this folder"}, and binary media is ${i.media === "download"
       ? `included under \`assets/media/\` (${plural(downloaded, "file")}) — as a last resort, after the stand-ins`
       : "described, not downloaded. Re-export with `media: \"download\"` if a file is truly needed"}.`,
     `## Read in this order\n${read.map((r, n) => `${n + 1}. ${r}`).join("\n")}`,

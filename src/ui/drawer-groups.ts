@@ -10,7 +10,8 @@ import type { Options } from "../shared/types";
 const DIM_ROW = "font-size:12px;color:rgba(245,245,247,.7);padding:6px 0";
 
 const OUTPUT_TOGGLES: { key: keyof Options; label: string }[] = [
-  { key: "screenshots", label: "Screenshots" }, { key: "states", label: "Interaction states" },
+  { key: "screenshots", label: "Screenshots (always)" }, { key: "fallbackScreenshots", label: "Screenshots for canvas/iframe" },
+  { key: "states", label: "Interaction states" },
   { key: "themes", label: "Light/dark themes" }, { key: "a11y", label: "Accessibility" },
   { key: "tailwind", label: "Tailwind classes" }, { key: "jsx", label: "JSX component" },
   { key: "tokensJson", label: "Tokens JSON" }, { key: "fast", label: "Fast mode (no debugger)" },

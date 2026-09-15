@@ -16,7 +16,7 @@ import { mapToInventory } from "./mapping";
 import { toCssModules, toHtmlCss, toStyledComponents, toSvelte, toVue } from "./emit";
 import { paletteSummary } from "./summary";
 import { assetUrls } from "./assets";
-import { frameworkInfo, frameworkSections, getReference, inventory, measureAll, send } from "./messaging";
+import { fallbackReason, frameworkInfo, frameworkSections, getReference, inventory, measureAll, send } from "./messaging";
 import { contextOf, libraries, stateAttributes, variantsOf } from "./context";
 import { fonts } from "./fonts";
 import { matchRules, registeredProperties, sheetRules } from "./rules";
@@ -70,7 +70,8 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   // desktop state — the pointer is still on the element the user just clicked, and reading
   // getComputedStyle here would record its :hover styles as if they were the resting ones.
   onStatus("Measuring viewports, states, themes…");
-  const resp = await measureAll(states);
+  const fallback = fallbackReason(els);
+  const resp = await measureAll(states, fallback);
   const desktop = resp.viewports?.[0]?.blocks ?? computeBlocks(els);
   const reference = await getReference();
   state.lastBlocks = desktop;
@@ -200,7 +201,7 @@ async function build(root: Element, all: Element[], eligible: Element[], els: El
   if (out.length > MAX_OUT) out = out.slice(0, MAX_OUT) + "\n\n<!-- truncated: bundle exceeded size cap; pick a smaller component -->";
   const previewBundle = out;
   if (resp.shots?.length) {
-    const shots = `## Screenshots\n${resp.shots.map((s) =>
+    const shots = `## Screenshots${!options.screenshots && fallback ? ` (fallback: ${fallback})` : ""}\n${resp.shots.map((s) =>
       `${s.name} ${s.width}×${s.height} @${s.dpr}x:\n\n![${s.name}](data:image/png;base64,${s.png})`).join("\n\n")}`;
     part("screenshots", shots);
     out += `\n\n${shots}`;

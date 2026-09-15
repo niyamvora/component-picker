@@ -159,7 +159,10 @@ export interface MediaRule {
 
 /** What the bundle includes. Persisted by the options popup; defaults live in `extract.ts`. */
 export interface Options {
+  /** Screenshot every capture. Off by default (#122). */
   screenshots: boolean;
+  /** Screenshot only a pick with no code to capture — a canvas or a cross-origin iframe (#122). */
+  fallbackScreenshots: boolean;
   fontFace: boolean;
   js: boolean;
   states: boolean;
@@ -231,7 +234,8 @@ export interface VarSource {
 }
 
 export type Message =
-  | { type: "measure"; states: StateIndices; theme: ThemeInfo | null; options: Options }
+  /** `fallback` says why this pick needs a picture even with screenshots off, or is null. */
+  | { type: "measure"; states: StateIndices; theme: ThemeInfo | null; options: Options; fallback?: string | null }
   | { type: "probe" }
   | { type: "snapshot"; settle?: number; theme?: "flip" }
   | { type: "set-reference"; reference: Reference }

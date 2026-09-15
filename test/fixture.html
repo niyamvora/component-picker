@@ -352,6 +352,8 @@
     if (!buiOk) fails.push("#106 Base UI mis-detected, or the state section is missing:\n" + bui.slice(0, 1200));
     if (!twOk) fails.push("#107 the Tailwind v4 variant rules were not decoded:\n" + bui.slice(bui.indexOf("## Tailwind variant"), bui.indexOf("## Tailwind variant") + 900));
     if (!invOk) fails.push("#109 the inventory parser did not read JSON and text alike");
+    if (window.__cp.opts.screenshots !== false || window.__cp.opts.fallbackScreenshots !== true) fails.push("#122 screenshots must default to off, with the fallback on");
+    if (md.includes("## Screenshots")) fails.push("#122 a default capture carried a Screenshots section");
     if (!propOk) fails.push("#113 @property --angle missing, or an unreferenced registration leaked:\n" + ring.slice(ring.indexOf("## Registered"), ring.indexOf("## Registered") + 600));
     if (!iactOk) fails.push("#104 the interaction runner missed the portal, the timeline or the reset:\n" + iactReport);
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") + "\n\n" + md + "\n\n=== TAB ===\n" + tab : "PASS " + md.length + " chars";

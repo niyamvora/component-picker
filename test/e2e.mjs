@@ -84,7 +84,7 @@ try {
     await chrome.storage.local.set({
       // #38 — a two-line inventory the capture should map onto
       inventory: ["Card  .card", "Button  button, [role=button]  variant"].join(String.fromCharCode(10)),
-      options: { screenshots: false, fontFace: false, js: true, states: false, themes: false,
+      options: { screenshots: false, fallbackScreenshots: false, fontFace: false, js: true, states: false, themes: false,
                  tokensJson: false, tailwind: false, jsx: false, a11y: true, fast: false, extraMedia: true, vue: false, svelte: false, htmlCss: false,
                  viewports: [{ name: "phone", width: 320, height: 600, dpr: 2, mobile: true }] },
     });
@@ -128,7 +128,8 @@ try {
     // #13 — the other theme, reached by flipping the class the page uses
     "## Theme: dark (diff vs light) — via html.dark", "background-color: rgb(20, 20, 20);",
     // #15 — a PNG of the element at each viewport
-    "## Screenshots", "desktop ", "![desktop](data:image/png;base64,iVBOR", "![mobile](data:image/png;base64,iVBOR",
+    // #122 — screenshots are off by default; the planted <canvas> is what earns these, and the heading says so
+    "## Screenshots (fallback: the pick contains a <canvas>", "desktop ", "![desktop](data:image/png;base64,iVBOR", "![mobile](data:image/png;base64,iVBOR",
     // #30 — Framer Motion props off the fiber
     "## Framer Motion", '[data-cp="1"] <motion.Card>', 'initial: {"opacity":0,"y":20}', 'transition: {"duration":0.4}',
     // #31 — the GSAP tween that targets the card

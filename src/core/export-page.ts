@@ -3,6 +3,7 @@
  * where the page is scrolled, what it is called, how it divides into sections, and its tokens.
  */
 
+import { codelessReason } from "./codeless";
 import { pageSections } from "./page";
 import { cssPath } from "./selector";
 import { w3cTokenGroups } from "./tokens";
@@ -10,6 +11,17 @@ import { w3cTokenGroups } from "./tokens";
 export interface ScrollInfo { y: number; height: number; viewport: number }
 export interface PageInfo { url: string; title: string; origin: string; vw: number; vh: number }
 export interface OutlineItem { heading: string; selector: string; elements: number }
+export interface CodelessRegion { selector: string; reason: string; box: [number, number, number, number] }
+
+/** Visible regions with no code to export (#122), with their document-space boxes for a fallback screenshot. */
+export const codeless = (): CodelessRegion[] => [...document.querySelectorAll("canvas, iframe")]
+  .map((el) => ({ el, reason: codelessReason(el) }))
+  .filter((c): c is { el: Element; reason: string } => !!c.reason)
+  .map(({ el, reason }) => {
+    const r = el.getBoundingClientRect();
+    return { selector: cssPath(el), reason, box: [Math.round(r.x + scrollX), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)] as [number, number, number, number] };
+  })
+  .filter((c) => c.box[2] > 0 && c.box[3] > 0);
 
 /** Jump (not smooth-scroll) so the worker's wait measures the page's reaction, not the scroll. */
 export function scrollToY(y: number): ScrollInfo {

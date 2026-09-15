@@ -150,14 +150,15 @@ server.tool("export_page",
     media: z.enum(["manifest", "download"]).optional().describe("\"manifest\" (default) describes media with stand-ins; \"download\" also writes the files"),
     states: z.boolean().optional().describe("Open tabs, disclosures and menus to record what they reveal (default true)"),
     motion: z.boolean().optional().describe("Record animation, including script-driven motion (default true)"),
-    reload: z.boolean().optional().describe("Reload the tab first so every file is seen loading (default false; discards the tab's state)") },
-  async ({ out_dir, ...opts }) => {
+    reload: z.boolean().optional().describe("Reload the tab first so every file is seen loading (default false; discards the tab's state)"),
+    fallback_screenshots: z.boolean().optional().describe("Picture each <canvas> and cross-origin <iframe>, which have no code to export (default false)") },
+  async ({ out_dir, fallback_screenshots, ...opts }) => {
     const root = resolve(out_dir);
     const written = [];
     let chain = Promise.resolve();
     let failure = null;
     const onPart = (part) => { chain = chain.then(() => writePart(root, part)).then((p) => { written.push(p); }, (e) => { failure ??= e; }); };
-    const readme = await request({ type: "export", ...opts }, PAGE_TIMEOUT, onPart);
+    const readme = await request({ type: "export", ...opts, fallbackScreenshots: fallback_screenshots }, PAGE_TIMEOUT, onPart);
     await chain;
     if (failure) throw failure;
     const folder = written[0] ? resolve(root, written[0].split(sep)[0]) : root;

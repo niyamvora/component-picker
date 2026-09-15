@@ -21,8 +21,10 @@ const snap = (tabId: number, settle: number, theme?: "flip"): Promise<Snapshot> 
  * debugging this browser" bar, and doing it once per section would flash that bar five times and
  * re-run the page's resize handlers in between.
  */
-export async function measure(tabId: number, msg: { states: StateIndices; theme: ThemeInfo | null; options: Options }): Promise<MeasureResult> {
+export async function measure(tabId: number, msg: { states: StateIndices; theme: ThemeInfo | null; options: Options; fallback?: string | null }): Promise<MeasureResult> {
   const { states, theme, options } = msg;
+  // Screenshots are off by default; a pick with no code to capture still gets one when allowed (#122).
+  const pictures = options.screenshots || (options.fallbackScreenshots && !!msg.fallback);
   const target = { tabId };
   await chrome.debugger.attach(target, "1.3");
   const out: MeasureResult = { viewports: [], states: [], shots: [] };
@@ -34,7 +36,7 @@ export async function measure(tabId: number, msg: { states: StateIndices; theme:
 
     const desktop = await snap(tabId, 400);
     out.viewports.push({ name: "desktop", ...desktop });
-    if (options.screenshots) await shoot(target, out, "desktop", desktop, devicePixelRatioOf(1));
+    if (pictures) await shoot(target, out, "desktop", desktop, devicePixelRatioOf(1));
 
     for (const v of options.viewports ?? []) {
       await send(target, "Emulation.setDeviceMetricsOverride", {
@@ -42,7 +44,7 @@ export async function measure(tabId: number, msg: { states: StateIndices; theme:
       });
       const shot = await snap(tabId, 400);
       out.viewports.push({ ...v, ...shot });
-      if (options.screenshots) await shoot(target, out, v.name, shot, v.dpr);
+      if (pictures) await shoot(target, out, v.name, shot, v.dpr);
     }
     await send(target, "Emulation.clearDeviceMetricsOverride");
 
