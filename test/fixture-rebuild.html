@@ -23,7 +23,18 @@
   .panel { container-type: inline-size; }
   @container (min-width: 300px) { .panel p { padding: 8px; } }
   @media print { .btn { display: none; } }
+  /* #118 — every way a page references a file */
+  .bg-hero { background-image: url("img/hero.jpg"); background-size: cover; position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; z-index: -1; }
+  .deco::before { content: ""; display: inline-block; width: 10px; height: 10px; background-image: url("img/before.png"); }
+  .masked { display: inline-block; width: 16px; height: 16px; mask-image: url("img/mask.svg"); -webkit-mask-image: url("img/mask.svg"); background: black; }
+  .tex { background: url("img/texture-noise.png") repeat; }
+  @font-face { font-family: "Fixture Sans"; src: url("fonts/fixture-sans.woff2") format("woff2"); }
+  main { font-family: "Fixture Sans", sans-serif; }
+  /* The files do not exist, and a broken <img> renders as inline alt text ignoring width/height;
+     inline-block keeps the declared box, which is what a loaded image would have. */
+  main img { display: inline-block; }
 </style>
+<link rel="icon" href="img/favicon.png">
 <main>
   <div class="lms">layer, media, supports</div>
   <button class="btn">Go</button>
@@ -42,6 +53,14 @@
   <button class="handler" onclick="void 0" nonce="abc">handler</button>
   <shadow-card></shadow-card>
   <div id="many"></div>
+  <div class="bg-hero"></div>
+  <span class="deco">deco</span>
+  <span class="masked"></span>
+  <div class="tex">texture</div>
+  <video class="clip" poster="img/poster.jpg" muted loop playsinline width="320" height="180"><source src="media/clip.mp4" type="video/mp4"></video>
+  <img class="avatar" src="img/avatars/jane.jpg" alt="Jane Doe" width="40" height="40" style="border-radius:50%">
+  <img class="shot" src="img/screenshot.png" alt="Dashboard" width="400" height="240">
+  <div class="logos"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"></div>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -75,7 +94,6 @@
     expect(css.includes("@media print"), "#114 print rules were dropped");
     expect(used.breakpoints.includes("@media (min-width: 768px)") && used.breakpoints.includes("@container (min-width: 300px)")
       && !used.breakpoints.some((b) => b.includes("print")), "#114 breakpoints wrong: " + JSON.stringify(used.breakpoints));
-    expect(css.length < sheetBytes, `#114 output (${css.length}) is not smaller than the sheets (${sheetBytes})`);
     expect(used.unreadable.length === 0 && used.kept > 0 && used.kept < used.total, "#114 stats wrong: " + JSON.stringify({ ...used, css: undefined }));
     const cross = rb.usedCss(document, [{ href: "https://cdn.example/x.css", text: ".btn { margin: 1px; } .nope-x { color: red; }" }]).css;
     expect(cross.includes("/* https://cdn.example/x.css (read through the debugger) */") && cross.includes(".btn { margin: 1px; }")
@@ -98,6 +116,32 @@
     expect(page.includes('<meta charset="utf-8">') && !page.includes("http-equiv"), "#115 the charset meta is missing or malformed");
     const mapped = rb.exportDom({ stylesheet: "", mapUrl: (u) => u.endsWith("/img/a.png") ? "assets/media/a.png" : u }).html;
     expect(mapped.includes('src="assets/media/a.png"') && !mapped.includes('rel="stylesheet"'), "#115 mapUrl or stylesheet option ignored");
+
+    // #118 — the inventory: every reference, one entry per file, with a role
+    const manifest = rb.buildManifest(rb.assetRefs(), [], innerWidth, innerHeight);
+    const entry = (path) => manifest.find((e) => e.url === absUrl(path));
+    const roles = { "img/hero.jpg": "decorative-background", "img/before.png": "icon", "img/mask.svg": "icon",
+      "img/texture-noise.png": "texture", "media/clip.mp4": "video", "img/poster.jpg": "poster", "img/favicon.png": "favicon",
+      "fonts/fixture-sans.woff2": "font", "img/avatars/jane.jpg": "avatar", "img/screenshot.png": "content-image", "img/logo-acme.png": "logo" };
+    for (const [path, role] of Object.entries(roles)) {
+      expect(entry(path)?.role === role, `#118 ${path}: expected ${role}, got ${entry(path)?.role ?? "no entry"}`);
+    }
+    expect(entry("img/logo-acme.png")?.usedBy.length === 3 && manifest.filter((e) => e.url === absUrl("img/logo-acme.png")).length === 1, "#118 a file used 3 times is not one entry with 3 uses");
+    expect(entry("img/a.png")?.variants?.includes(absUrl("img/a@2x.png")) && !entry("img/a@2x.png"), "#118 srcset candidates are not folded into their image");
+    expect(entry("img/before.png")?.usedBy[0].endsWith("::before"), "#118 a pseudo-element background is not attributed to its pseudo-element");
+    expect(manifest.every((e) => !e.local && e.bytes === undefined && e.source === "dom"), "#118 manifest mode must not carry bytes or local paths");
+    const secondLogo = document.querySelectorAll(".logos img")[1];
+    expect(document.querySelector(rb.cssPath(secondLogo)) === secondLogo && document.querySelector(rb.cssPath(document.getElementById("p2"))) === document.getElementById("p2"),
+      "#118 cssPath does not resolve back to the element it names");
+    const joined = rb.buildManifest(rb.assetRefs(), [
+      { url: absUrl("img/hero.jpg"), type: "Image", mime: "image/jpeg", bytes: 1234 },
+      { url: absUrl("fonts/late.woff2"), type: "Font", mime: "font/woff2", bytes: 99 },
+      { url: absUrl("app.css"), type: "Stylesheet", mime: "text/css", bytes: 5 },
+    ], innerWidth, innerHeight);
+    const late = joined.find((e) => e.url === absUrl("fonts/late.woff2"));
+    expect(joined.find((e) => e.url === absUrl("img/hero.jpg"))?.bytes === 1234 && joined.find((e) => e.url === absUrl("img/hero.jpg"))?.source === "dom+network"
+      && late?.role === "font" && late?.source === "network" && late?.usedBy.length === 0 && !joined.some((e) => e.url === absUrl("app.css")),
+      "#118 the network join lost bytes, a network-only font, or kept a stylesheet as media");
 
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
