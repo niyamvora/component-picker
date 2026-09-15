@@ -11,7 +11,38 @@ import { SKIP_TAGS, UI } from "../shared/const";
 import { cssPath } from "../shared/selector";
 
 export const FINGERPRINT_PROPS = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color",
-  "background-color", "background-image", "border-radius", "border-width", "padding", "gap", "display", "grid-template-columns", "opacity"];
+  "background-color", "background-image", "border-radius", "border-width", "padding", "gap", "display", "grid-template-columns", "opacity",
+  // Shades and motion (#125): what a page looks like at rest includes its shadows, filters and transforms,
+  // and how it will move is declared here even when nothing is moving.
+  "box-shadow", "text-shadow", "transform", "filter", "backdrop-filter", "border-color", "outline", "cursor",
+  "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
+  "animation-name", "animation-duration", "animation-timing-function", "animation-iteration-count"];
+
+const TRANSFORM_PARTS = new Set(["transform", "translate", "rotate", "scale"]);
+
+/**
+ * Properties an animation or transition is driving on this element right now. They have no single
+ * value — a marquee item read at opacity 0.138 is one frame of a loop — so the fingerprint leaves
+ * them out and lists them; the animation itself is still compared through `animation-*` and styles.css.
+ */
+export function animatedProps(el: Element): Set<string> {
+  const out = new Set<string>();
+  let animations: Animation[] = [];
+  try { animations = el.getAnimations(); } catch { return out; }
+  for (const a of animations) {
+    if (a.playState !== "running" && a.playState !== "paused") continue;
+    if (typeof CSSTransition !== "undefined" && a instanceof CSSTransition) { out.add(a.transitionProperty); continue; }
+    for (const frame of (a.effect as KeyframeEffect | null)?.getKeyframes?.() ?? []) {
+      for (const k of Object.keys(frame)) {
+        if (!["offset", "computedOffset", "easing", "composite"].includes(k)) out.add(k.replace(/([A-Z])/g, "-$1").toLowerCase());
+      }
+    }
+  }
+  if ([...out].some((p) => TRANSFORM_PARTS.has(p))) out.add("transform");
+  if ([...out].some((p) => p.startsWith("border") && p.endsWith("color"))) out.add("border-color");
+  if ([...out].some((p) => p.startsWith("outline"))) out.add("outline");
+  return out;
+}
 const MAX_NODES = 5000;
 const MAX_MESSAGES = 200;
 
@@ -23,6 +54,8 @@ export interface FingerprintNode {
   /** x, y, width, height in document CSS px, transforms ignored. */
   box: [number, number, number, number];
   style: Record<string, string>;
+  /** Properties an animation was driving when the fingerprint was taken, left out of `style`. */
+  animated?: string[];
 }
 export interface Fingerprint { url: string; width: number; height: number; nodes: FingerprintNode[] }
 export interface Mismatch { area: number; message: string }
@@ -55,8 +88,11 @@ export function fingerprint(root: Element = document.body): Fingerprint {
     const box = layoutBox(el);
     if (box[2] > 0 && box[3] > 0 && cs.visibility !== "hidden") {
       const style: Record<string, string> = {};
-      for (const p of FINGERPRINT_PROPS) style[p] = p === "background-image" ? backgroundKind(cs.getPropertyValue(p)) : cs.getPropertyValue(p);
-      nodes.push({ path: cssPath(el), tags: path, text: ownText(el), box, style });
+      const animated = animatedProps(el);
+      for (const p of FINGERPRINT_PROPS) {
+        if (!animated.has(p)) style[p] = p === "background-image" ? backgroundKind(cs.getPropertyValue(p)) : cs.getPropertyValue(p);
+      }
+      nodes.push({ path: cssPath(el), tags: path, text: ownText(el), box, style, ...(animated.size ? { animated: [...animated] } : {}) });
     }
     // An SVG's internals are drawing, not layout.
     if (tag !== "svg") for (const child of el.children) visit(child, path);
@@ -132,6 +168,8 @@ export function compareFingerprints(original: Fingerprint, rebuild: Fingerprint,
       mismatches.push({ area, message: `${label(o)}: box ${r.box[2]}×${r.box[3]} at (${r.box[0]}, ${r.box[1]}), original ${o.box[2]}×${o.box[3]} at (${o.box[0]}, ${o.box[1]})` });
     }
     for (const p of FINGERPRINT_PROPS) {
+      // Absent on either side: animated at that moment, or a fingerprint older than the property.
+      if (!(p in o.style) || !(p in r.style)) continue;
       if (o.style[p] !== r.style[p]) mismatches.push({ area, message: `${label(o)}: ${p}: ${r.style[p]}, original ${o.style[p]}` });
     }
   }
