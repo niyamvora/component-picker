@@ -237,6 +237,7 @@ node test/e2e.mjs    # real extension + debugger in Chrome for Testing (needs No
 node test/zip.test.mjs  # the asset-zip writer, round-tripped through the system `unzip`
 node mcp/test.mjs    # the MCP bridge round trip, no browser
 node test/export.e2e.mjs  # export_page end to end: real extension, real MCP server, real browser
+node test/export.smoke.mjs https://resend.com/  # manual: export + verify a live site, with its acceptance checklist
 ```
 
 `test/e2e.mjs` uses Playwright's Chrome for Testing binary by default (`CHROME=/path/to/binary` to override) —

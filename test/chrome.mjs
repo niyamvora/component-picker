@@ -23,7 +23,7 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * No toolbar click happens, so there is no activeTab grant: the extension copy gets a localhost host
  * permission instead, and its all_urls content script is stripped so each suite injects on its own terms.
  */
-export async function launch({ port, cdp, url }) {
+export async function launch({ port, cdp, url, hosts = [] }) {
   // Test what actually ships, never a stale bundle.
   execFileSync(process.execPath, [join(ROOT, "build.mjs")], { cwd: ROOT, stdio: "ignore" });
   const ext = mkdtempSync(join(tmpdir(), "cp-ext-"));
@@ -32,7 +32,8 @@ export async function launch({ port, cdp, url }) {
   cpSync(join(ROOT, "dist"), ext, { recursive: true });
   const manifest = JSON.parse(readFileSync(join(ext, "manifest.json"), "utf8"));
   delete manifest.content_scripts;
-  writeFileSync(join(ext, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${port}/*`] }));
+  // `hosts` adds permissions beyond localhost — a live-site smoke run needs the site itself.
+  writeFileSync(join(ext, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${port}/*`, ...hosts] }));
 
   const server = createServer(async (req, res) => {
     try {

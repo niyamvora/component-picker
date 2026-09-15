@@ -35,6 +35,14 @@
   main img { display: inline-block; }
   /* #116 — matches only while the menu is open */
   .menu-item { color: rgb(9, 9, 9); }
+  /* #123 — the rest of what the resend.com analysis found, written from scratch: a border turned by
+     animating a registered property, and a duplicated-list marquee that pauses on hover */
+  .ring { animation: turn 4s linear infinite; }
+  @keyframes turn { to { --angle: 360deg; } }
+  .marquee { display: flex; gap: 32px; width: 300px; overflow: hidden; }
+  .marquee ul { display: flex; flex-shrink: 0; gap: 32px; margin: 0; padding: 0; list-style: none; animation: marquee-x 10s linear infinite; }
+  .marquee:hover ul { animation-play-state: paused; }
+  @keyframes marquee-x { to { transform: translate(calc(-100% - 32px)); } }
 </style>
 <link rel="icon" href="img/favicon.png">
 <main>
@@ -47,10 +55,13 @@
     <div role="tablist">
       <button role="tab" id="t1" aria-selected="true" aria-controls="p1" data-state="active">One</button>
       <button role="tab" id="t2" aria-selected="false" aria-controls="p2" data-state="inactive">Two</button>
+      <button role="tab" id="t4" aria-selected="false" aria-controls="p3" data-state="inactive">Three</button>
       <a role="tab" id="t3" href="/elsewhere" aria-selected="false">Away</a>
     </div>
     <div role="tabpanel" id="p1">First panel text</div>
     <div role="tabpanel" id="p2" hidden>Second panel secret text</div>
+    <!-- #123 — a code sample whose syntax colours are inline styles, as a highlighter renders them -->
+    <div role="tabpanel" id="p3" hidden><pre><code><span style="color:#ff79c6">const</span> client = <span style="color:#8be9fd">create</span>(<span style="color:#f1fa8c">'key'</span>);</code></pre></div>
   </section>
   <img class="pic" src="img/a.png" srcset="img/a.png 1x, img/a@2x.png 2x" alt="A">
   <button class="handler" onclick="void 0" nonce="abc">handler</button>
@@ -60,7 +71,7 @@
   <span class="deco">deco</span>
   <span class="masked"></span>
   <div class="tex">texture</div>
-  <video class="clip" poster="img/poster.jpg" muted loop playsinline width="320" height="180"><source src="media/clip.mp4" type="video/mp4"></video>
+  <video class="clip" poster="img/poster.jpg" autoplay muted loop playsinline width="320" height="180"><source src="media/clip.mp4" type="video/mp4"></video>
   <img class="avatar" src="img/avatars/jane.jpg" alt="Jane Doe" width="40" height="40" style="border-radius:50%">
   <img class="shot" src="img/screenshot.png" alt="Dashboard" width="400" height="240">
   <div class="logos"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"><img src="img/logo-acme.png" alt="Acme" width="80" height="24"></div>
@@ -80,6 +91,7 @@
   <div id="fp-b" style="display:flex; gap:8px; width:100px; height:20px"><span>only</span></div>
   <!-- #122 — a region with no code to capture: the one place a fallback screenshot is allowed -->
   <canvas id="scene" width="40" height="20"></canvas>
+  <div class="marquee"><ul><li>Acme</li><li>Globex</li><li>Initech</li></ul><ul aria-hidden="true"><li>Acme</li><li>Globex</li><li>Initech</li></ul></div>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -228,7 +240,7 @@
     expect(sub("img/logo-acme.png").svg === "assets/svg/acme.svg", "#119 a logo with a matching inline SVG does not point at it");
     expect(sub("img/screenshot.png").aspectRatio === "400 / 240" && sub("img/screenshot.png").alt === "Dashboard", "#119 content-image stand-in wrong: " + JSON.stringify(sub("img/screenshot.png")));
     const clip = sub("media/clip.mp4");
-    expect(clip.loop === true && clip.muted === true && clip.autoplay === false && /no code source/.test(clip.note) && clip.aspectRatio === "320 / 180",
+    expect(clip.loop === true && clip.muted === true && clip.autoplay === true && /no code source/.test(clip.note) && clip.aspectRatio === "320 / 180",
       "#119 video facts wrong: " + JSON.stringify(clip));
     const font = sub("fonts/fixture-sans.woff2");
     expect(font.selfHosted === true && font.faces[0] === "Fixture Sans 400 normal", "#119 font facts wrong: " + JSON.stringify(font));
@@ -252,7 +264,7 @@
     // #116 — the state sweep: every tab, disclosure and menu opened, recorded, and put back
     expect(!rb.usedCss().css.includes(".menu-item"), "#116 precondition: the menu's rule is dropped while the menu is closed");
     const triggers = rb.sweep.discover();
-    expect(triggers.length === 3 && triggers.some((t) => t.label === "Two" && t.kind === "tab")
+    expect(triggers.length === 4 && triggers.some((t) => t.label === "Two" && t.kind === "tab") && triggers.some((t) => t.label === "Three" && t.kind === "tab")
       && triggers.some((t) => t.label === "Question?" && t.kind === "summary") && triggers.some((t) => t.label === "Menu" && t.kind === "disclosure")
       && !triggers.some((t) => ["One", "Away"].includes(t.label)), "#116 wrong triggers: " + JSON.stringify(triggers));
     const states = {};
@@ -273,6 +285,7 @@
     expect(states["Question?"]?.attributes.some((a) => a.selector === "#faq" && a.name === "open" && a.from === null)
       && states["Question?"].revealed.some((r) => r.text.includes("Answer text")), "#116 the details state is incomplete: " + JSON.stringify(states["Question?"]));
     expect(states.Menu?.added.some((h) => h.includes('role="menu"') && h.includes("Item A")), "#116 the portal-mounted menu was not recorded: " + JSON.stringify(states.Menu));
+    expect(states.Three?.revealed.some((r) => r.text.includes("const client = create('key');")), "#123 the code sample behind the third tab was not revealed: " + JSON.stringify(states.Three));
     expect(document.getElementById("t1").getAttribute("aria-selected") === "true" && document.getElementById("p2").hidden
       && !document.getElementById("faq").open && !document.getElementById("menu-pop"), "#116 the page was not restored to its default state");
     expect(!document.querySelector("[data-cp-trigger]"), "#116 trigger marks were left on the page");
