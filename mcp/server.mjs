@@ -145,11 +145,12 @@ async function writePart(root, part) {
 }
 
 server.tool("export_page",
-  "Export the browser's active tab as a folder another agent can rebuild the page from, code first: index.html (the whole page, uncapped), styles.css (the page's own CSS rules, verbatim), tokens.json, states/ (what every tab, disclosure and menu reveals when clicked), motion.json, assets/manifest.json (every media file with a code stand-in), assets/svg/ and a layout fingerprint per width for verify_rebuild, plus a README saying what to read first. No screenshots; binary media is written only with media: \"download\". Takes a minute or two, and changes the tab's viewport while it runs. Requires the MCP bridge to be on.",
+  "Export the browser's active tab as a folder another agent can rebuild the page from, code first: index.html (the whole page, uncapped), styles.css (the page's own CSS rules, verbatim), tokens.json, states/ (what every tab, disclosure and menu reveals when clicked), motion.json, interactions.json (what every hover, focus and press changes — shadows, colours, transforms, outlines — with its transition timing), assets/manifest.json (every media file with a code stand-in), assets/svg/ and a layout fingerprint per width for verify_rebuild, plus a README saying what to read first. No screenshots; binary media is written only with media: \"download\". Takes a minute or two, and changes the tab's viewport while it runs. Requires the MCP bridge to be on.",
   { out_dir: z.string().describe("Folder to write into; the export lands in <out_dir>/<host>/"),
     media: z.enum(["manifest", "download"]).optional().describe("\"manifest\" (default) describes media with stand-ins; \"download\" also writes the files"),
     states: z.boolean().optional().describe("Open tabs, disclosures and menus to record what they reveal (default true)"),
     motion: z.boolean().optional().describe("Record animation, including script-driven motion (default true)"),
+    interactions: z.boolean().optional().describe("Hover, focus and press every interactive element and record what changes (default true)"),
     reload: z.boolean().optional().describe("Reload the tab first so every file is seen loading (default false; discards the tab's state)"),
     fallback_screenshots: z.boolean().optional().describe("Picture each <canvas> and cross-origin <iframe>, which have no code to export (default false)") },
   async ({ out_dir, fallback_screenshots, ...opts }) => {
@@ -166,7 +167,7 @@ server.tool("export_page",
   });
 
 server.tool("verify_rebuild",
-  "Check a rebuilt page against an export_page folder in numbers rather than by eye: opens the rebuild's URL in a background tab, fingerprints its layout at every width the export recorded, and lists what differs — missing elements, boxes that moved or resized, and changed styles such as `h2 \"Pricing\": font-size: 48px, original 56px` — largest first. Serve the rebuild over http(s), e.g. your dev server. Requires the MCP bridge to be on.",
+  "Check a rebuilt page against an export_page folder in numbers rather than by eye: opens the rebuild's URL in its own unfocused window, fingerprints its layout at every width the export recorded, replays every recorded hover, focus and press, and lists what differs — missing elements, boxes that moved or resized, changed styles such as `h2 \"Pricing\": font-size: 48px, original 56px`, and interactions whose shadow, colour, transform or transition timing do not match — largest first. Script-driven interactions are listed separately. Serve the rebuild over http(s), e.g. your dev server. Requires the MCP bridge to be on.",
   { url: z.string().describe("Where the rebuild is served, e.g. http://localhost:3000/"),
     fingerprint_dir: z.string().describe("The export folder holding fingerprint.<width>.json — the <out_dir>/<host> export_page wrote") },
   async ({ url, fingerprint_dir }) => {
@@ -174,7 +175,8 @@ server.tool("verify_rebuild",
     const names = (await readdir(dir).catch(() => [])).filter((f) => /^fingerprint\.\d+\.json$/.test(f));
     if (!names.length) throw new Error(`no fingerprint.<width>.json in ${dir} — pass the folder export_page wrote`);
     const fingerprints = await Promise.all(names.map(async (f) => JSON.parse(await readFile(resolve(dir, f), "utf8"))));
-    return text(await request({ type: "verify", url, fingerprints }, PAGE_TIMEOUT));
+    const interactions = await readFile(resolve(dir, "interactions.json"), "utf8").then(JSON.parse, () => null);
+    return text(await request({ type: "verify", url, fingerprints, interactions }, PAGE_TIMEOUT));
   });
 
 server.tool("list_captures",

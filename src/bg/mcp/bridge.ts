@@ -15,7 +15,7 @@
 import { runInActiveTab } from "../page/tab";
 import { runInteraction } from "../capture/interact";
 import { exportPage, type ExportFile, type ExportOptions } from "../export/export";
-import { verifyRebuild } from "../export/verify";
+import { verifyRebuild, type InteractionsFile } from "../export/verify";
 import type { Fingerprint } from "../../core/export/fingerprint";
 import type { Step } from "../../core/motion/interaction";
 import type { HistoryEntry, LibraryEntry } from "../../shared/types";
@@ -39,7 +39,7 @@ export type BridgeRequest =
   | { type: "captures" }
   | { type: "capture"; id: string }
   | ({ type: "export" } & ExportOptions)
-  | { type: "verify"; url: string; fingerprints: Fingerprint[] };
+  | { type: "verify"; url: string; fingerprints: Fingerprint[]; interactions?: InteractionsFile | null };
 
 let armed = false;   // a `pick` is waiting for a click
 let busy = false;    // any request is in flight, so the poll does not start a second one
@@ -90,7 +90,7 @@ async function handle(req: BridgeRequest) {
       : req.type === "page" ? await capturePage(req.limit)
       : req.type === "interaction" ? await runInteraction(req.steps, req.watch)
       : req.type === "export" ? await exportPage(req, deliverPart)
-      : req.type === "verify" ? await verifyRebuild(req.url, req.fingerprints)
+      : req.type === "verify" ? await verifyRebuild(req.url, req.fingerprints, req.interactions)
       : await captureBySelector(req);
     await deliver({ bundle });
   } catch (e) {

@@ -32,7 +32,7 @@ try {
   if (existsSync(dir)) {
     const read = (p) => readFileSync(join(dir, p), "utf8");
     const files = walkFiles(dir).map((f) => relative(dir, f));
-    for (const f of ["README.md", "index.html", "styles.css", "tokens.json", "breakpoints.json", "motion.json", "assets/manifest.json",
+    for (const f of ["README.md", "index.html", "styles.css", "tokens.json", "breakpoints.json", "motion.json", "interactions.json", "assets/manifest.json",
       "states/index.json", "fingerprint.1440.json", "fingerprint.768.json", "fingerprint.390.json", "assets/svg/acme.svg"]) {
       expect(files.includes(f), `missing ${f} (have: ${files.join(", ")})`);
     }
@@ -58,6 +58,17 @@ try {
     expect(motion.tracks.some((t) => t.selector === "#rafbox" && t.property === "opacity"), "motion.json has no #rafbox opacity track");
     expect(['"marquee-x"', '"turn"'].every((n) => motion.animations.some((a) => a.name === n)), "motion.json is missing the marquee or the turning border: " + JSON.stringify(motion.animations.map((a) => a.name)));
 
+    // #125 — real hovers, forced focus and real presses, recorded with what they change and how fast
+    const interactions = JSON.parse(read("interactions.json"));
+    const effect = (label, action) => interactions.records.find((r) => r.label.startsWith(label) && r.action === action);
+    const lift = effect("Lift", "hover");
+    expect(lift?.changes.some((c) => c.property === "box-shadow" && c.to.includes("24px")) && lift.changes.some((c) => c.property === "transform")
+      && lift.changes.some((c) => c.at === "> span" && c.property === "opacity") && lift.timing.some((t) => t.property === "box-shadow" && t.duration === "0.2s")
+      && lift.script.length === 0, "interactions.json: the lift hover lost its shadow, lift, group-hover child or timing: " + JSON.stringify(lift));
+    expect(effect("Ring", "focus")?.changes.some((c) => c.property === "outline-style" && c.to === "solid"), "interactions.json: the focus ring is missing: " + JSON.stringify(effect("Ring", "focus")));
+    expect(effect("Press", "press")?.changes.some((c) => c.property === "transform"), "interactions.json: the press scale is missing: " + JSON.stringify(effect("Press", "press")));
+    expect(effect("Script hover", "hover")?.script.length > 0, "interactions.json: the script-driven hover was not flagged: " + JSON.stringify(effect("Script hover", "hover")));
+
     const manifest = JSON.parse(read("assets/manifest.json"));
     const entry = (suffix) => manifest.find((e) => e.url.endsWith(suffix));
     expect(entry("/img/hero.jpg")?.role === "decorative-background" && entry("/img/avatars/jane.jpg")?.replaceWith?.initials === "JD"
@@ -68,13 +79,14 @@ try {
     expect(JSON.parse(read("breakpoints.json")).includes("@media (min-width: 768px)"), "breakpoints.json lost the 768px breakpoint");
     expect(JSON.parse(read("fingerprint.1440.json")).width === 1440 && JSON.parse(read("fingerprint.390.json")).width === 390, "fingerprints were not taken at their widths");
     const readme = read("README.md");
-    expect(readme.includes("6 states opened by clicking") && readme.includes("there are no screenshots"), "README.md does not reflect the run");
+    expect(readme.includes("6 states opened by clicking") && readme.includes("there are no screenshots") && readme.includes("**interactions.json**")
+      && readme.includes("driven by script, not CSS"), "README.md does not reflect the run");
     expect(readme.includes("#scene (a <canvas>") && readme.includes("fallback_screenshots: true"), "README.md does not name the region with no code, or how to picture it");
   }
 
   // #122 — the one exception: asked for, a region with no code gets a picture, and nothing else does.
   const FALLBACK = join(OUT, "fallback");
-  await mcp.call("export_page", { out_dir: FALLBACK, states: false, motion: false, fallback_screenshots: true });
+  await mcp.call("export_page", { out_dir: FALLBACK, states: false, motion: false, interactions: false, fallback_screenshots: true });
   const fallbackDir = join(FALLBACK, "localhost");
   const fallbackFiles = existsSync(fallbackDir) ? walkFiles(fallbackDir).map((f) => relative(fallbackDir, f)) : [];
   const pictures = fallbackFiles.filter((f) => f.endsWith(".png"));
@@ -85,8 +97,10 @@ try {
   // #121 — verify_rebuild: the exported index.html, served, against its own export's fingerprints.
   // index.html + styles.css are all an agent is given, so a clean match is the export's proof of fidelity.
   const verified = await mcp.call("verify_rebuild", { url: `http://localhost:${PORT}/test/.export-tmp/e2e/localhost/index.html`, fingerprint_dir: dir });
-  expect(verified.includes("The rebuild matches the original at every width."),
-    "verify_rebuild found differences between the export and the page it came from:\n" + verified.slice(0, 3000));
+  // The export carries every CSS interaction; the script-driven hover cannot be in a static export, so it
+  // must be the one thing listed, under the heading that tells the agent to build it in code.
+  expect(verified.includes("Layout and CSS interactions match at every width.") && verified.includes("### Driven by script in the original")
+    && verified.includes('"Script hover"'), "verify_rebuild did not match layout and CSS interactions, or did not isolate the script-driven hover:\n" + verified.slice(0, 3000));
 
   // #104 — capture_interaction still drives the real pointer after moving onto the shared page-call helper.
   const interaction = await mcp.call("capture_interaction", { steps: [{ trigger: "#menu", action: "click" }] });

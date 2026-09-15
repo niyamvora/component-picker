@@ -33,13 +33,13 @@ src/core/     the extraction engine, one concern per file, grouped by what it se
   motion/     animations · interaction · scroll · motion-rec   (WAAPI/CSS, timelines, reveals, script motion)
   output/     tailwind · jsx · emit · mapping · summary · figma · a11y   (Tailwind, JSX, Vue/Svelte, mapping)
   assets/     assets · assets-zip · zip · assets-inventory · media-code · codeless   (files, stand-ins)
-  export/     used-css · export-dom · state-sweep · fingerprint · export-page · export-readme   (export_page)
+  export/     used-css · export-dom · state-sweep · interactions · fingerprint · export-page · export-readme   (export_page)
 src/ui/       picker (entry) · handlers (keys/pointer) · overlay (what is drawn) · note · edit
               hud (glass dock + drawer) · icons-ui · drawer-groups · drawer-sections · viz
               panel.ts/.html (the side panel — preview, library, options; the popup folded into it)
 src/bg/       service-worker (router + storage), and —
   capture/    measure (the debugger session) · probe (MAIN world) · interact (real pointer)
-  export/     export (export_page) · network · decode · verify (verify_rebuild)
+  export/     export (export_page) · interactions (real hover/press/focus) · network · decode · verify (verify_rebuild)
   mcp/        bridge (the opt-in MCP connection)
   page/       tab (inject + active tab) · page-call (calls into window.__cp)
 src/shared/   types.ts (the cross-world contracts) · options.ts
@@ -192,8 +192,8 @@ everyone once.
 | `pick_component` | Arms the picker and waits for a human click. |
 | `capture_selector` | Captures by CSS selector, no click. Takes a list. |
 | `capture_page` | The whole tab, section by section, behind a table of contents. |
-| `export_page` | The whole tab as a folder to rebuild from, code first: `index.html`, the page's own CSS, tokens, every tab and menu opened, motion, an asset manifest with code stand-ins, SVG files and layout fingerprints. No screenshots. |
-| `verify_rebuild` | Checks a served rebuild against an export folder's fingerprints and lists the differences in numbers — `font-size: 48px, original 56px` — largest first. |
+| `export_page` | The whole tab as a folder to rebuild from, code first: `index.html`, the page's own CSS, tokens, every tab and menu opened, motion, an asset manifest with code stand-ins, SVG files, layout fingerprints, and every hover, focus and press effect with its timing. No screenshots. |
+| `verify_rebuild` | Checks a served rebuild against an export folder — layout and styles at every width, then every recorded hover, focus and press — and lists the differences in numbers (`font-size: 48px, original 56px`, `box-shadow should change to …`), with script-driven interactions listed separately. |
 | `capture_interaction` | Runs hover/click/focus/leave/scroll for real and returns a timeline. |
 | `list_captures` / `get_capture` | The last ten picks and the saved library, by id. |
 | `last_capture` | The most recent capture in this session. |

@@ -67,7 +67,8 @@ try {
 
   const report = await mcp.call("verify_rebuild", { url: `http://localhost:${PORT}/test/.export-tmp/smoke/${host}/index.html`, fingerprint_dir: dir });
   console.log(report.split("\n").slice(0, 60).join("\n"));
-  checks.push(["verify_rebuild: the export matches its source at every width", report.includes("matches the original at every width")]);
+  checks.push(["verify_rebuild: layout and CSS interactions match at every width",
+    report.includes("The rebuild matches the original at every width") || report.includes("Layout and CSS interactions match at every width")]);
 
   console.log(`\n${checks.map(([name, ok]) => `${ok ? "PASS" : "FAIL"}  ${name}`).join("\n")}`);
   process.exitCode = checks.every(([, ok]) => ok) ? 0 : 1;
