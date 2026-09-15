@@ -14,6 +14,7 @@ import { ensurePicker } from "../page/tab";
 
 const MAX_LINES = 40;
 const SETTLE_MS = 600;
+const SETTLE_MAX_MS = 4000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -34,6 +35,8 @@ export async function verifyRebuild(url: string, originals: Fingerprint[]): Prom
       for (const original of [...originals].sort((a, b) => b.width - a.width)) {
         await emulateWidth(target, original.width);
         await sleep(SETTLE_MS);
+        // Entrance animations start from opacity 0; the original was fingerprinted after they finished.
+        for (const start = Date.now(); Date.now() - start < SETTLE_MAX_MS && await callPage<boolean>(tabId, "rebuild.sweep.busy");) await sleep(100);
         const c = compareFingerprints(original, await callPage<Fingerprint>(tabId, "rebuild.fingerprint"));
         differences += c.mismatches.length;
         const lines = c.mismatches.slice(0, MAX_LINES).map((m) => `- ${m.message}`);
