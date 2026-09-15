@@ -45,6 +45,13 @@
   .marquee ul { display: flex; flex-shrink: 0; gap: 32px; margin: 0; padding: 0; list-style: none; animation: marquee-x 10s linear infinite; }
   .marquee:hover ul { animation-play-state: paused; }
   @keyframes marquee-x { to { transform: translate(calc(-100% - 32px)); } }
+  /* #125 — micro-interactions: a lift with a deeper shadow, a group-hover child, a focus ring, a press */
+  .lift { display: inline-block; padding: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: box-shadow 200ms ease-out, transform 200ms ease-out; }
+  .lift:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); transform: translateY(-2px); }
+  .lift .lift-arrow { opacity: 0.5; transition: opacity 150ms linear; }
+  .lift:hover .lift-arrow { opacity: 1; }
+  .ring-btn:focus-visible { outline: 2px solid rgb(37, 99, 235); outline-offset: 2px; }
+  .press:active { transform: scale(0.96); }
 </style>
 <link rel="icon" href="img/favicon.png">
 <main>
@@ -97,6 +104,11 @@
   <!-- #122 — a region with no code to capture: the one place a fallback screenshot is allowed -->
   <canvas id="scene" width="40" height="20"></canvas>
   <div class="marquee"><ul><li>Acme</li><li>Globex</li><li>Initech</li></ul><ul aria-hidden="true"><li>Acme</li><li>Globex</li><li>Initech</li></ul></div>
+  <!-- #125 — micro-interactions: CSS-driven ones the export carries, and one a script performs -->
+  <a class="lift" href="#lift">Lift <span class="lift-arrow">→</span></a>
+  <button class="ring-btn">Ring</button>
+  <button class="press">Press</button>
+  <div id="js-hover" role="button" tabindex="0" style="cursor: pointer">Script hover</div>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -131,6 +143,10 @@
     for (const b of document.querySelectorAll("#rerender button")) b.addEventListener("click", () => renderTabs(b.textContent));
   };
   renderTabs("Alpha");
+  // #125 — a hover a script performs, the way Framer Motion's whileHover does
+  const jsHover = document.getElementById("js-hover");
+  jsHover.addEventListener("mouseenter", () => { jsHover.style.backgroundColor = "rgb(250, 200, 0)"; });
+  jsHover.addEventListener("mouseleave", () => { jsHover.style.backgroundColor = ""; });
   const menu = document.getElementById("menu");
   menu.addEventListener("click", () => {
     const open = menu.getAttribute("aria-expanded") === "true";
@@ -306,6 +322,42 @@
       && !document.getElementById("faq").open && !document.getElementById("menu-pop"), "#116 the page was not restored to its default state");
     expect(!document.querySelector("[data-cp-trigger]"), "#116 trigger marks were left on the page");
     expect(rb.usedCss().css.includes(".menu-item { color: rgb(9, 9, 9); }"), "#116 a rule that only matches while the menu is open was not kept");
+
+    // #125 — interactions: discovery, a recorded hover with its timing, a script-driven hover, and the comparison
+    const itargets = rb.interact.discover();
+    const target = (label) => itargets.find((t) => t.label.startsWith(label));
+    expect(target("Lift")?.actions.includes("hover") && target("Ring")?.actions.includes("focus") && target("Press")?.actions.includes("press")
+      && target("Script hover")?.actions.includes("hover"), "#125 interaction targets wrong: " + JSON.stringify(itargets.map((t) => [t.label, t.actions])));
+    // check.sh has no real pointer, so the hover is simulated by a rule that does what .lift:hover does.
+    // Transitions do not advance under --dump-dom virtual time, so the simulation turns them off; the
+    // recorded timing is read at rest, before it, and still has to be the 200ms the page declares.
+    rb.interact.begin(target("Lift").index, "hover");
+    const simulated = document.head.appendChild(Object.assign(document.createElement("style"), {
+      textContent: ".lift { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); transition: none; } .lift .lift-arrow { opacity: 1; transition: none; }",
+    }));
+    await new Promise((r) => setTimeout(r, 300));
+    const liftRec = rb.interact.end("hover");
+    simulated.remove();
+    await new Promise((r) => setTimeout(r, 300));
+    expect(liftRec?.changes.some((c) => c.at === "" && c.property === "box-shadow" && c.to.includes("24px"))
+      && liftRec.changes.some((c) => c.at === "> span" && c.property === "opacity" && c.to === "1")
+      && liftRec.timing.some((t) => t.at === "" && t.property === "box-shadow" && t.duration === "0.2s" && t.easing === "ease-out")
+      && liftRec.script.length === 0, "#125 the lift record is wrong: " + JSON.stringify(liftRec));
+    rb.interact.begin(target("Script hover").index, "hover");
+    jsHover.dispatchEvent(new MouseEvent("mouseenter"));
+    const jsRec = rb.interact.end("hover");
+    jsHover.dispatchEvent(new MouseEvent("mouseleave"));
+    expect(jsRec?.script.some((w) => w.at === "" && w.property === "style" && w.to.includes("250, 200, 0"))
+      && jsRec.changes.some((c) => c.property === "background-color" && c.to === "rgb(250, 200, 0)"), "#125 the script-driven hover was not flagged: " + JSON.stringify(jsRec));
+    const noShadow = rb.interact.compare(liftRec, { ...liftRec, changes: liftRec.changes.filter((c) => c.property !== "box-shadow"), timing: [] });
+    expect(rb.interact.compare(liftRec, liftRec).length === 0 && noShadow.some((d) => !d.script && d.message.includes("box-shadow should change to"))
+      && noShadow.some((d) => d.message.includes("transition box-shadow none, original 0.2s ease-out")) && rb.interact.compare(jsRec, null).every((d) => d.script),
+      "#125 compareInteraction wrong: " + JSON.stringify(noShadow));
+    rb.interact.clear();
+    const relocated = rb.interact.locate(liftRec.selector, liftRec.label);
+    expect(relocated !== null && document.querySelector(`[data-cp-interact="${relocated}"]`)?.classList.contains("lift"), "#125 locate did not find the recorded element");
+    rb.interact.clear();
+    expect(!document.querySelector("[data-cp-interact]"), "#125 interaction marks were left on the page");
 
     // #121 — the layout fingerprint and its diff: how a rebuild is checked instead of with a screenshot
     const fpA = document.getElementById("fp-a"), fpB = document.getElementById("fp-b");

@@ -25,6 +25,8 @@ import type { Fingerprint } from "../../core/export/fingerprint";
 import { slug, substitute, type SvgFile, type VideoFacts } from "../../core/assets/media-code";
 import type { MotionRecording } from "../../core/motion/motion-rec";
 import type { StateRecord, Trigger, Undo } from "../../core/export/state-sweep";
+import type { InteractionRecord, InteractionTarget } from "../../core/export/interactions";
+import { runInteractions, settle } from "./interactions";
 import type { SheetText, UsedCss } from "../../core/export/used-css";
 import { paletteFromBytes } from "./decode";
 import { recordNetwork, type NetworkLog } from "./network";
@@ -40,6 +42,8 @@ export interface ExportOptions {
   widths?: number[];
   /** Picture each canvas and cross-origin iframe, which have no code to export (#122). Off by default. */
   fallbackScreenshots?: boolean;
+  /** Hover, focus and press every interactive element and record what changes (#125). On by default. */
+  interactions?: boolean;
 }
 /** One file of the export, relative to the output folder. */
 export interface ExportFile { path: string; text?: string; base64?: string }
@@ -103,8 +107,12 @@ const samePage = (a = "", b = "") => {
   } catch { return a === b; }
 };
 
-async function recordMotion(page: PageCall): Promise<MotionRecording | null> {
-  await page("rebuild.motion.start");
+/**
+ * Jump top to bottom, pausing at each step: lazy images load, IntersectionObserver reveals fire. The
+ * export does it while recording motion, and verify_rebuild does the same to the rebuild before
+ * comparing, so both pages are measured having been scrolled.
+ */
+export async function scrollThrough(page: PageCall) {
   let info = await page<ScrollInfo>("rebuild.scrollTo", 0);
   const step = Math.max(200, Math.round(info.viewport * 0.8));
   for (let y = step, n = 0; y < info.height && n < MAX_SCROLL_STEPS; y += step, n++) {
@@ -112,24 +120,32 @@ async function recordMotion(page: PageCall): Promise<MotionRecording | null> {
     await sleep(SCROLL_STEP_MS);
   }
   await page("rebuild.scrollTo", 0);
+}
+
+async function recordMotion(page: PageCall): Promise<MotionRecording | null> {
+  await page("rebuild.motion.start");
+  await scrollThrough(page);
   await sleep(IDLE_MS);
   return page<MotionRecording | null>("rebuild.motion.stop");
+}
+
+/** Every hover, focus and press worth recording (#125); records that changed nothing are dropped. */
+async function sweepInteractions(target: Target, page: PageCall, notes: string[]) {
+  const targets = await page<InteractionTarget[]>("rebuild.interact.discover");
+  const plan = targets.flatMap((t) => t.actions.map((action) => ({ index: t.index, label: t.label, action })));
+  const records = (await runInteractions(target, page, plan, notes)).filter((r): r is InteractionRecord => !!r);
+  return { targets: targets.length, records };
 }
 
 async function sweepStates(tabId: number, target: Target, page: PageCall, notes: string[]): Promise<StateRecord[]> {
   const records: StateRecord[] = [];
   const home = (await chrome.tabs.get(tabId)).url;
-  const settle = async () => {
-    const start = Date.now();
-    await sleep(SETTLE_MIN_MS);
-    while (Date.now() - start < SETTLE_MAX_MS && await page<boolean>("rebuild.sweep.busy")) await sleep(50);
-  };
   const triggers = await page<Trigger[]>("rebuild.sweep.discover");
   try {
     for (const t of triggers) {
       try {
         await click(target, await page<{ x: number; y: number }>("rebuild.sweep.begin", t.index));
-        await settle();
+        await settle(page, SETTLE_MIN_MS, SETTLE_MAX_MS);
         if (!samePage((await chrome.tabs.get(tabId)).url, home)) {
           notes.push(`Clicking "${t.label}" (${t.selector}) left the page, so the state sweep stopped there.`);
           await chrome.tabs.goBack(tabId);
@@ -143,7 +159,7 @@ async function sweepStates(tabId: number, target: Target, page: PageCall, notes:
         const undo = await page<Undo>("rebuild.sweep.restore");
         if (undo === "escape") await pressEscape(target);
         else if (undo) await click(target, undo);
-        await settle();
+        await settle(page, SETTLE_MIN_MS, SETTLE_MAX_MS);
       } catch (e) {
         notes.push(`The state behind "${t.label}" was skipped: ${message(e)}`);
       }
@@ -231,6 +247,7 @@ export async function exportPage(opts: ExportOptions, emit: (file: ExportFile) =
 
       const motion = opts.motion === false ? null : await recordMotion(page);
       const states = opts.states === false ? null : await sweepStates(tabId, target, page, notes);
+      const interactions = opts.interactions === false ? null : await sweepInteractions(target, page, notes);
       await page("rebuild.scrollTo", 0);
 
       let css = await page<UsedCss>("rebuild.usedCss");
@@ -260,6 +277,7 @@ export async function exportPage(opts: ExportOptions, emit: (file: ExportFile) =
       await put({ path: "tokens.json", text: json(await page("rebuild.tokens")) });
       await put({ path: "assets/manifest.json", text: json(manifest) });
       if (motion) await put({ path: "motion.json", text: json(motion) });
+      if (interactions) await put({ path: "interactions.json", text: json({ width: widths[0], ...interactions }) });
 
       const stateFiles = states?.map((r, n) => ({ file: `states/${String(n + 1).padStart(2, "0")}-${slug(r.label) || "state"}.json`, label: r.label, kind: r.kind })) ?? null;
       if (states && stateFiles) {
@@ -303,6 +321,7 @@ export async function exportPage(opts: ExportOptions, emit: (file: ExportFile) =
         title: info.title, url: info.url, at: new Date().toISOString(), widths, media, elements: dom.elements,
         css: { kept: css.kept, total: css.total, breakpoints: css.breakpoints }, manifest, svgs: svgs.length,
         states: stateFiles, motion: motion && { tracks: motion.tracks.length, streams: motion.streams.length, animations: motion.animations.length },
+        interactions: interactions && { records: interactions.records.length, targets: interactions.targets, script: interactions.records.filter((r) => r.script.length).length },
         outline: await page<OutlineItem[]>("rebuild.outline"), notes, files: written,
       });
       await put({ path: "README.md", text: readme });

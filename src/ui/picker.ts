@@ -16,6 +16,7 @@ import { cssPath } from "../core/shared/selector";
 import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/assets/media-code";
 import { periodOf, startMotion, stopMotion } from "../core/motion/motion-rec";
 import * as sweep from "../core/export/state-sweep";
+import { beginInteraction, blurActive, cancelInteraction, clearInteractive, compareInteraction, discoverInteractive, endInteraction, locateInteractive } from "../core/export/interactions";
 import { compareFingerprints, fingerprint } from "../core/export/fingerprint";
 import { codeless, outline, pageInfo, pageTokens, scrollToY } from "../core/export/export-page";
 import { exportReadme } from "../core/export/export-readme";
@@ -50,6 +51,11 @@ declare global {
         inlineSvgs: typeof inlineSvgs; paletteOf: typeof paletteOf; videoFacts: typeof videoFacts; substitute: typeof substitute;
         motion: { start: typeof startMotion; stop: typeof stopMotion; periodOf: typeof periodOf };
         sweep: typeof sweep;
+        /** Hover, focus and press capture and replay (#125). */
+        interact: {
+          discover: typeof discoverInteractive; begin: typeof beginInteraction; end: typeof endInteraction; cancel: typeof cancelInteraction;
+          clear: typeof clearInteractive; blur: typeof blurActive; locate: typeof locateInteractive; compare: typeof compareInteraction;
+        };
         fingerprint: typeof fingerprint; compareFingerprints: typeof compareFingerprints;
         scrollTo: typeof scrollToY; pageInfo: typeof pageInfo; outline: typeof outline; tokens: typeof pageTokens;
         readme: typeof exportReadme; codeless: typeof codeless;
@@ -108,6 +114,10 @@ if (window.__cp) {
       usedCss, atRest, exportDom, assetRefs, buildManifest, cssPath, inlineSvgs, paletteOf, videoFacts, substitute,
       motion: { start: startMotion, stop: stopMotion, periodOf },
       sweep,
+      interact: {
+        discover: discoverInteractive, begin: beginInteraction, end: endInteraction, cancel: cancelInteraction,
+        clear: clearInteractive, blur: blurActive, locate: locateInteractive, compare: compareInteraction,
+      },
       fingerprint, compareFingerprints,
       scrollTo: scrollToY, pageInfo, outline, tokens: pageTokens, readme: exportReadme, codeless,
       exportDomMapped: (urlMap) => exportDom({ mapUrl: (u) => urlMap[u] ?? u }),

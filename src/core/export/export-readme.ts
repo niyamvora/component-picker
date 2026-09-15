@@ -20,6 +20,8 @@ export interface ReadmeInput {
   /** `null` when the state sweep was turned off. */
   states: { file: string; label: string; kind: string }[] | null;
   motion: { tracks: number; streams: number; animations: number } | null;
+  /** `null` when the interaction sweep was turned off (#125). */
+  interactions?: { records: number; targets: number; script: number } | null;
   outline: OutlineItem[];
   notes: string[];
   files: string[];
@@ -43,6 +45,9 @@ export function exportReadme(i: ReadmeInput): string {
     i.motion
       ? `**motion.json** — ${plural(i.motion.animations, "CSS/WAAPI animation")}, ${plural(i.motion.tracks, "script-driven track")} and ${plural(i.motion.streams, "insertion stream")}.`
       : `**motion.json** — not recorded (the export ran with \`motion: false\`); keyframes are still in styles.css.`,
+    i.interactions
+      ? `**interactions.json** — ${plural(i.interactions.records, "hover, focus or press effect")} on ${plural(i.interactions.targets, "interactive element")}: every shadow, colour, transform and outline each one changes, with its transition timing${i.interactions.script ? `. ${i.interactions.script} of them are driven by script, not CSS — build those in code` : ""}.`
+      : `**interactions.json** — not recorded (the export ran with \`interactions: false\`); the :hover, :focus and :active rules are still in styles.css.`,
     `**assets/manifest.json** — ${plural(i.manifest.length, "file")}${roles ? ` (${roles})` : ""}, each with where it is used and a \`replaceWith\` stand-in. Build with the stand-ins first.`,
     `**assets/svg/** — ${plural(i.svgs, "inline SVG")} as files. SVG is code: use these directly.`,
     `**fingerprint.<width>.json** — the layout at ${i.widths.join(" / ")}px. After rebuilding, run \`verify_rebuild\` with this folder for the differences in numbers.`,
