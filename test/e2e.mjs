@@ -2,85 +2,13 @@
 // its service worker (same path the toolbar click takes), extract a component
 // and assert the mobile/tablet snapshots came back through chrome.debugger.
 // Run: node test/e2e.mjs   (no deps — Node ≥ 22 for fetch + WebSocket)
-import { execFileSync, spawn } from "node:child_process";
-import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { mkdtempSync, cpSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, dirname, extname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { launch, sleep } from "./chrome.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");  // repo root; the http server serves from here
-// Branded Chrome ≥137 ignores --load-extension; use Chrome for Testing / Chromium (override with CHROME=...).
-const CHROME = process.env.CHROME ||
-  `${process.env.HOME}/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`;
 const PORT = 8765, CDP = 9333;
-// Test what actually ships, never a stale bundle.
-execFileSync(process.execPath, [join(ROOT, "build.mjs")], { cwd: ROOT, stdio: "ignore" });
-
-// No toolbar click here, so no activeTab grant: load a temp copy of the extension with a localhost host permission.
-const EXT = mkdtempSync(join(tmpdir(), "cp-ext-"));
-// The whole build, not a file list: a manifest that names a page the copy is missing (a side
-// panel, a popup) makes Chrome reject the extension outright.
-cpSync(join(ROOT, "dist"), EXT, { recursive: true });
-const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
-// Strip the all_urls content script so the test drives injection manually (no double-inject).
-delete manifest.content_scripts;
-writeFileSync(join(EXT, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`http://localhost:${PORT}/*`] }));
-
-
-const server = createServer(async (req, res) => {
-  try {
-    const body = await readFile(join(ROOT, req.url.split("?")[0]));
-    res.writeHead(200, { "content-type": extname(req.url) === ".js" ? "text/javascript" : "text/html" }).end(body);
-  } catch { res.writeHead(404).end(); }
-}).listen(PORT);
-
-const chrome = spawn(CHROME, [
-  "--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${CDP}`,
-  // Chrome/Chromium ≥137 ignore --load-extension unless this feature is switched back off.
-  // Harmless on builds that never had it.
-  "--disable-features=DisableLoadExtensionCommandLineSwitch",
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), "cp-e2e-"))}`,
-  `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
-  `http://localhost:${PORT}/test/fixture.html`,
-], { stdio: "ignore" });
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function targets() {
-  for (let i = 0; i < 50; i++) {
-    try { return await (await fetch(`http://localhost:${CDP}/json`)).json(); } catch { await sleep(200); }
-  }
-  throw new Error("Chrome did not expose CDP");
-}
+const { targets, connect, cmd, evalIn, serviceWorker, close } = await launch({ port: PORT, cdp: CDP, url: `http://localhost:${PORT}/test/fixture.html` });
 
 try {
-  const connect = async (t) => { const ws = new WebSocket(t.webSocketDebuggerUrl); await new Promise((r) => (ws.onopen = r)); return ws; };
-  let msgId = 0;
-  const cmd = (ws, method, params) => new Promise((resolve, reject) => {
-    const id = ++msgId;
-    ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id !== id) return; d.error ? reject(new Error(JSON.stringify(d))) : resolve(d.result); };
-    ws.send(JSON.stringify({ id, method, params }));
-  });
-  const evalIn = async (ws, expression) => {
-    const r = await cmd(ws, "Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
-    if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails));
-    return r.result.value;
-  };
-  // Several extensions ship a service worker; ours is the one whose manifest says so.
-  let ws;
-  for (let i = 0; i < 50 && !ws; i++) {
-    for (const t of (await targets()).filter((t) => t.type === "service_worker")) {
-      const w = await connect(t);
-      if ((await evalIn(w, "chrome.runtime.getManifest().name").catch(() => "")) === "Component Picker") { ws = w; break; }
-      w.close();
-    }
-    if (!ws) await sleep(200);
-  }
-  if (!ws) {
-    const seen = (await targets()).map((t) => `${t.type} ${t.url}`).join("\n  ");
-    throw new Error(`extension service worker not found. Targets:\n  ${seen}`);
-  }
+  const ws = await serviceWorker();
   const evaluate = (e) => evalIn(ws, e);
 
   // Put a real pointer on the animated button and leave it there. Everything the picker measures
@@ -268,6 +196,5 @@ try {
   console.error("FAIL", e);
   process.exitCode = 1;
 } finally {
-  chrome.kill();
-  server.close();
+  close();
 }
