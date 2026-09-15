@@ -75,6 +75,9 @@
   <!-- #116 — a disclosure, and a menu that mounts its popup outside the trigger -->
   <details id="faq"><summary>Question?</summary><p>Answer text</p></details>
   <button id="menu" aria-haspopup="menu" aria-expanded="false">Menu</button>
+  <!-- #121 — two elements whose change moves nothing else, so the diff can be exact -->
+  <div id="fp-a" style="position:absolute; left:0; top:0; width:100px; height:20px; overflow:hidden; font-size:14px">Fingerprint A</div>
+  <div id="fp-b" style="display:flex; gap:8px; width:100px; height:20px"><span>only</span></div>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -265,6 +268,25 @@
       && !document.getElementById("faq").open && !document.getElementById("menu-pop"), "#116 the page was not restored to its default state");
     expect(!document.querySelector("[data-cp-trigger]"), "#116 trigger marks were left on the page");
     expect(rb.usedCss().css.includes(".menu-item { color: rgb(9, 9, 9); }"), "#116 a rule that only matches while the menu is open was not kept");
+
+    // #121 — the layout fingerprint and its diff: how a rebuild is checked instead of with a screenshot
+    const fpA = document.getElementById("fp-a"), fpB = document.getElementById("fp-b");
+    const original = rb.fingerprint();
+    const self = rb.compareFingerprints(original, rb.fingerprint());
+    expect(self.mismatches.length === 0 && self.missing === 0 && self.extra === 0 && self.matched === original.nodes.length,
+      "#121 the page against itself is not a clean match: " + JSON.stringify({ ...self, mismatches: self.mismatches.slice(0, 5) }));
+    expect(original.nodes.length > 400 && original.nodes.every((n) => n.box[2] > 0 && n.box[3] > 0), "#121 the fingerprint is missing visible elements");
+    fpA.style.fontSize = "20px";
+    fpB.style.gap = "24px";
+    const changed = rb.compareFingerprints(original, rb.fingerprint());
+    fpA.style.fontSize = "14px";
+    fpB.style.gap = "8px";
+    expect(changed.mismatches.length === 2
+      && changed.mismatches.some((m) => m.message === 'div "Fingerprint A" (#fp-a): font-size: 20px, original 14px')
+      && changed.mismatches.some((m) => m.message === "div (#fp-b): gap: 24px, original 8px"),
+      "#121 a font-size and a gap change did not produce exactly those two mismatches: " + JSON.stringify(changed.mismatches.slice(0, 6)));
+    const cut = rb.compareFingerprints(original, { ...original, nodes: original.nodes.filter((n) => n.path !== "#fp-a") });
+    expect(cut.missing === 1 && cut.mismatches[0]?.message === 'Missing: div "Fingerprint A" (#fp-a)', "#121 a removed element was not reported missing: " + JSON.stringify(cut.mismatches.slice(0, 3)));
 
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
