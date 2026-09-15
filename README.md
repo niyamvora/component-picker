@@ -187,6 +187,7 @@ everyone once.
 | `pick_component` | Arms the picker and waits for a human click. |
 | `capture_selector` | Captures by CSS selector, no click. Takes a list. |
 | `capture_page` | The whole tab, section by section, behind a table of contents. |
+| `export_page` | The whole tab as a folder to rebuild from, code first: `index.html`, the page's own CSS, tokens, every tab and menu opened, motion, an asset manifest with code stand-ins, SVG files and layout fingerprints. No screenshots. |
 | `capture_interaction` | Runs hover/click/focus/leave/scroll for real and returns a timeline. |
 | `list_captures` / `get_capture` | The last ten picks and the saved library, by id. |
 | `last_capture` | The most recent capture in this session. |
@@ -195,8 +196,9 @@ everyone once.
 the consent. The rest run without one, so **the bridge toggle is the consent**: turning it on is
 what allows a connected agent to read the pages in this browser. Turn it off when you are done.
 
-A page you intend to rebuild is usually one `capture_page` call, then a `capture_interaction` per
-piece of motion that matters.
+A page you intend to rebuild is one `export_page` call: it writes `<out_dir>/<host>/` with a
+`README.md` that says what to read first. `capture_page` and `capture_interaction` remain for
+reading a page into the conversation rather than onto disk.
 
 ## Site & example
 
@@ -226,13 +228,14 @@ see exactly what a bundle looks like without installing anything.
 ## Checks
 
 ```sh
-npm test             # typecheck + build + all three suites (the gate before pushing)
+npm test             # typecheck + build + every suite below (the gate before pushing)
 npm run typecheck    # tsc --noEmit
 npm run watch        # esbuild watch mode while developing
-./test/check.sh      # extraction engine in headless Chrome against test/fixture.html (builds first)
+./test/check.sh      # extraction engine in headless Chrome against every test/fixture*.html (builds first)
 node test/e2e.mjs    # real extension + debugger in Chrome for Testing (needs Node ≥ 22)
 node test/zip.test.mjs  # the asset-zip writer, round-tripped through the system `unzip`
 node mcp/test.mjs    # the MCP bridge round trip, no browser
+node test/export.e2e.mjs  # export_page end to end: real extension, real MCP server, real browser
 ```
 
 `test/e2e.mjs` uses Playwright's Chrome for Testing binary by default (`CHROME=/path/to/binary` to override) —

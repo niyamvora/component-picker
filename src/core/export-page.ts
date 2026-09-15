@@ -20,12 +20,16 @@ export function scrollToY(y: number): ScrollInfo {
 export const pageInfo = (): PageInfo =>
   ({ url: location.href, title: document.title, origin: location.origin, vw: innerWidth, vh: innerHeight });
 
-/** The page's top-level sections — the same split `capture_page` and the `P` key use. */
+/**
+ * The page's top-level sections — the same split `capture_page` and the `P` key use. A child with
+ * neither a heading nor anything inside it (a lone image, an empty spacer) is not a section worth
+ * naming; on a page with no section structure every such child would otherwise fill the outline.
+ */
 export const outline = (): OutlineItem[] => pageSections(20).map((el) => ({
   heading: el.querySelector("h1, h2, h3")?.textContent?.trim().replace(/\s+/g, " ").slice(0, 80) ?? "",
   selector: cssPath(el),
   elements: el.querySelectorAll("*").length,
-}));
+})).filter((o) => o.heading || o.elements > 0);
 
 /**
  * The custom properties in effect on `<html>`, as W3C design tokens. Tailwind's `--tw-*` plumbing is

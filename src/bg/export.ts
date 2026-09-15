@@ -166,13 +166,13 @@ async function writeMedia(manifest: ManifestEntry[], ctx: {
   const urlMap: Record<string, string> = {};
   const svgNames = new Set(ctx.svgs.map((s) => s.name));
   const mediaNames = new Set<string>();
-  let failed = 0;
+  const failed: string[] = [];
   for (const e of manifest) {
     const isSvg = /svg/.test(e.mime ?? "") || /\.svg([?#]|$)/i.test(e.url);
     // SVG is code, so it is written whatever the media mode; a colour stand-in needs the pixels.
     const wanted = isSvg || ctx.media === "download" || COLOUR_ROLES.has(e.role);
     const bytes = wanted && (e.bytes ?? 0) <= MAX_BODY_BYTES ? await ctx.net.body(e.url) : null;
-    if (!bytes && (isSvg || ctx.media === "download")) failed++;
+    if (!bytes && (isSvg || ctx.media === "download")) failed.push(e.url);
     if (bytes && isSvg) {
       const base = slug(e.alt || decodeURIComponent(new URL(e.url).pathname.split("/").pop() ?? "").replace(/\.svg$/i, "")) || "image";
       let name = base;
@@ -189,7 +189,10 @@ async function writeMedia(manifest: ManifestEntry[], ctx: {
     e.replaceWith = substitute(e, { palette, video: ctx.videos[e.url], svgs: ctx.svgs, origin: ctx.origin });
     if (e.local) for (const u of [e.url, ...(e.variants ?? [])]) urlMap[u] = e.local;
   }
-  if (failed) ctx.notes.push(`${failed} file(s) could not be fetched, so the manifest lists them without a local copy.`);
+  if (failed.length) {
+    ctx.notes.push(`${failed.length} file(s) could not be fetched, so the manifest lists them without a local copy: ` +
+      `${failed.slice(0, 5).join(", ")}${failed.length > 5 ? `, and ${failed.length - 5} more` : ""}.`);
+  }
   return urlMap;
 }
 
@@ -264,7 +267,11 @@ export async function exportPage(opts: ExportOptions, emit: (file: ExportFile) =
       for (const width of widths) {
         await emulateWidth(target, width);
         await sleep(500);
-        await put({ path: `fingerprint.${width}.json`, text: json(await page<Fingerprint>("rebuild.fingerprint")) });
+        const fp = await page<Fingerprint>("rebuild.fingerprint");
+        // Record the device metrics that were emulated, which verify_rebuild must re-create. The page's
+        // own innerWidth can differ: on a mobile viewport, content wider than the device widens the
+        // layout viewport (a 400px image at 390 reads as 408), and emulating that would test a different device.
+        await put({ path: `fingerprint.${width}.json`, text: json({ ...fp, width, height: HEIGHTS[width] ?? 900, layoutWidth: fp.width }) });
       }
       await send(target, "Emulation.clearDeviceMetricsOverride");
 

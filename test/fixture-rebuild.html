@@ -121,12 +121,19 @@
     if (window.__stopFixtureMotion) return clearInterval(logTimer);
     document.getElementById("log").prepend(Object.assign(document.createElement("li"), { className: "log-row", textContent: "HTTP 200" }));
   }, 500);
+  // In export mode nothing stops the loops but the export itself: its motion phase records them, and
+  // its first state-sweep click ends them, so the markup and fingerprints after it see a still page.
+  if (new URLSearchParams(location.search).has("export")) {
+    document.addEventListener("click", () => { window.__stopFixtureMotion = true; }, { once: true, capture: true });
+  }
 </script>
 <pre id="result">RUNNING</pre>
 <script>window.__cpNoAutostart = true;</script>
 <script src="../dist/picker.js"></script>
 <script>
   (async () => {
+    // test/export.e2e.mjs opens this page with ?export and runs the real export against it instead.
+    if (new URLSearchParams(location.search).has("export")) return;
     const fails = [];
     const expect = (ok, msg) => { if (!ok) fails.push(msg); };
     const rb = window.__cp.rebuild;
