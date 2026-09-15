@@ -15,6 +15,7 @@ import { assetRefs, buildManifest } from "../core/assets-inventory";
 import { cssPath } from "../core/selector";
 import { inlineSvgs, paletteOf, substitute, videoFacts } from "../core/media-code";
 import { periodOf, startMotion, stopMotion } from "../core/motion-rec";
+import * as sweep from "../core/state-sweep";
 import { snapshot, snapshotOtherTheme } from "../core/snapshot";
 import { buildAssetZip } from "../core/assets-zip";
 import { blocksOfLastPick, sectionsOfLastPick } from "../core/state";
@@ -45,6 +46,7 @@ declare global {
         assetRefs: typeof assetRefs; buildManifest: typeof buildManifest; cssPath: typeof cssPath;
         inlineSvgs: typeof inlineSvgs; paletteOf: typeof paletteOf; videoFacts: typeof videoFacts; substitute: typeof substitute;
         motion: { start: typeof startMotion; stop: typeof stopMotion; periodOf: typeof periodOf };
+        sweep: typeof sweep;
       };
       start: () => void; stop: () => void; toggle: () => void;
       last: string; opts: typeof options;
@@ -97,6 +99,7 @@ if (window.__cp) {
     rebuild: {
       usedCss, atRest, exportDom, assetRefs, buildManifest, cssPath, inlineSvgs, paletteOf, videoFacts, substitute,
       motion: { start: startMotion, stop: stopMotion, periodOf },
+      sweep,
     },
     toggle: () => (isActive() ? stop() : start()),
     last: "", opts: options, lastBlocks: blocksOfLastPick, lastSections: sectionsOfLastPick, assets: buildAssetZip, current: currentEl,

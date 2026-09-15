@@ -75,11 +75,57 @@ export function absolutizeUrls(text: string, base: string): string {
   });
 }
 
+/**
+ * Selectors that matched something while the page was in another state (#116). A menu mounted in a
+ * portal exists only while it is open, so at export time its rules match nothing and would be
+ * dropped; the state sweep records what matched while each state was showing.
+ */
+const seenInStates = new Set<string>();
+let ruleBases: string[] | null = null;
+
+export function resetStateMatches() {
+  seenInStates.clear();
+  ruleBases = null;
+}
+
+/**
+ * Record which rule selectors match within `roots` — the elements a state change touched. Checking
+ * only those keeps a 60-state sweep cheap: resend.com has ~11,000 rules, and re-querying the whole
+ * document for each of them in every state would take tens of seconds.
+ * ponytail: rules inside `@import`ed or cross-origin sheets are not consulted here.
+ */
+export function noteStateMatches(roots: Element[]): number {
+  const live = roots.filter((r) => r.isConnected);
+  if (!live.length) return 0;
+  ruleBases ??= collectRuleBases();
+  let found = 0;
+  for (const base of ruleBases) {
+    if (seenInStates.has(base)) continue;
+    try {
+      if (live.some((r) => r.matches(base) || !!r.querySelector(base))) { seenInStates.add(base); found++; }
+    } catch { /* unparseable once stripped; usedCss keeps those anyway */ }
+  }
+  return found;
+}
+
+function collectRuleBases(): string[] {
+  const out = new Set<string>();
+  const visit = (rules: CSSRuleList) => {
+    for (const r of rules) {
+      if (r instanceof CSSStyleRule) for (const s of splitList(r.selectorText)) out.add(atRest(s) || "*");
+      else if ("cssRules" in r) visit((r as CSSGroupingRule).cssRules);
+    }
+  };
+  for (const s of document.styleSheets) { try { visit(s.cssRules); } catch { /* cross-origin */ } }
+  return [...out];
+}
+
 export function usedCss(root: Document | Element = document, extra: SheetText[] = []): UsedCss {
   const doc = root instanceof Document ? root : root.ownerDocument;
   const cache = new Map<string, boolean>();
   const exists = (selectorText: string) => splitList(selectorText).some((s) => {
     const base = atRest(s) || "*";
+    if (seenInStates.has(base)) return true;
     let hit = cache.get(base);
     if (hit === undefined) {
       // A selector that no longer parses once its pseudo parts are gone is kept, not guessed at.

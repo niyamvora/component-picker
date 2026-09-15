@@ -33,6 +33,8 @@
   /* The files do not exist, and a broken <img> renders as inline alt text ignoring width/height;
      inline-block keeps the declared box, which is what a loaded image would have. */
   main img { display: inline-block; }
+  /* #116 — matches only while the menu is open */
+  .menu-item { color: rgb(9, 9, 9); }
 </style>
 <link rel="icon" href="img/favicon.png">
 <main>
@@ -45,6 +47,7 @@
     <div role="tablist">
       <button role="tab" id="t1" aria-selected="true" aria-controls="p1" data-state="active">One</button>
       <button role="tab" id="t2" aria-selected="false" aria-controls="p2" data-state="inactive">Two</button>
+      <a role="tab" id="t3" href="/elsewhere" aria-selected="false">Away</a>
     </div>
     <div role="tabpanel" id="p1">First panel text</div>
     <div role="tabpanel" id="p2" hidden>Second panel secret text</div>
@@ -69,6 +72,9 @@
   <!-- #117 — motion written by script, which getAnimations() cannot see -->
   <div id="rafbox" style="opacity: 0">raf</div>
   <ul id="log"></ul>
+  <!-- #116 — a disclosure, and a menu that mounts its popup outside the trigger -->
+  <details id="faq"><summary>Question?</summary><p>Answer text</p></details>
+  <button id="menu" aria-haspopup="menu" aria-expanded="false">Menu</button>
 </main>
 <script>
   customElements.define("shadow-card", class extends HTMLElement {
@@ -86,6 +92,28 @@
     if (window.__stopFixtureMotion) return clearInterval(frameTimer);
     rafbox.style.opacity = (((performance.now() - loopStart) % 1000) / 1000).toFixed(2);
   }, 16);
+  // #116 — the tab set and the menu behave the way their ARIA says
+  for (const tab of document.querySelectorAll('#tabs-demo button[role="tab"]')) {
+    tab.addEventListener("click", () => {
+      for (const t of document.querySelectorAll('#tabs-demo button[role="tab"]')) {
+        const on = t === tab;
+        t.setAttribute("aria-selected", String(on));
+        t.dataset.state = on ? "active" : "inactive";
+        document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+      }
+    });
+  }
+  const menu = document.getElementById("menu");
+  menu.addEventListener("click", () => {
+    const open = menu.getAttribute("aria-expanded") === "true";
+    menu.setAttribute("aria-expanded", String(!open));
+    if (open) return document.getElementById("menu-pop")?.remove();
+    const pop = document.createElement("div");
+    pop.id = "menu-pop";
+    pop.setAttribute("role", "menu");
+    pop.innerHTML = '<a class="menu-item" href="#a">Item A</a>';
+    document.body.appendChild(pop);
+  });
   const logTimer = setInterval(() => {
     if (window.__stopFixtureMotion) return clearInterval(logTimer);
     document.getElementById("log").prepend(Object.assign(document.createElement("li"), { className: "log-row", textContent: "HTTP 200" }));
@@ -208,6 +236,35 @@
       "#117 the CSS animation was not reported exactly once, from getAnimations: " + JSON.stringify(rec.animations.map((a) => a.name)));
     expect(rb.motion.stop() === null, "#117 a second stop must return null, not a stale recording");
     expect(rb.motion.periodOf([[0, "0"], [250, "0.5"], [500, "0"], [750, "0.5"], [1000, "0"]]) === 500, "#117 periodOf wrong on a clean 500ms cycle");
+
+    // #116 — the state sweep: every tab, disclosure and menu opened, recorded, and put back
+    expect(!rb.usedCss().css.includes(".menu-item"), "#116 precondition: the menu's rule is dropped while the menu is closed");
+    const triggers = rb.sweep.discover();
+    expect(triggers.length === 3 && triggers.some((t) => t.label === "Two" && t.kind === "tab")
+      && triggers.some((t) => t.label === "Question?" && t.kind === "summary") && triggers.some((t) => t.label === "Menu" && t.kind === "disclosure")
+      && !triggers.some((t) => ["One", "Away"].includes(t.label)), "#116 wrong triggers: " + JSON.stringify(triggers));
+    const states = {};
+    for (const t of triggers) {
+      rb.sweep.begin(t.index);
+      document.querySelector(t.mark).click(); // the extension clicks through the debugger; the page side is the same
+      await new Promise((r) => setTimeout(r, 30));
+      states[t.label] = rb.sweep.end();
+      const undo = rb.sweep.restore();
+      if (undo === "escape") document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      else if (undo) document.querySelector(undo.selector).click();
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    rb.sweep.clear();
+    expect(states.Two?.revealed.some((r) => r.text.includes("Second panel secret text"))
+      && states.Two.attributes.some((a) => a.selector === "#t2" && a.name === "aria-selected" && a.from === "false" && a.to === "true"),
+      "#116 the tab state is incomplete: " + JSON.stringify(states.Two));
+    expect(states["Question?"]?.attributes.some((a) => a.selector === "#faq" && a.name === "open" && a.from === null)
+      && states["Question?"].revealed.some((r) => r.text.includes("Answer text")), "#116 the details state is incomplete: " + JSON.stringify(states["Question?"]));
+    expect(states.Menu?.added.some((h) => h.includes('role="menu"') && h.includes("Item A")), "#116 the portal-mounted menu was not recorded: " + JSON.stringify(states.Menu));
+    expect(document.getElementById("t1").getAttribute("aria-selected") === "true" && document.getElementById("p2").hidden
+      && !document.getElementById("faq").open && !document.getElementById("menu-pop"), "#116 the page was not restored to its default state");
+    expect(!document.querySelector("[data-cp-trigger]"), "#116 trigger marks were left on the page");
+    expect(rb.usedCss().css.includes(".menu-item { color: rgb(9, 9, 9); }"), "#116 a rule that only matches while the menu is open was not kept");
 
     document.getElementById("result").textContent = fails.length ? "FAIL\n" + fails.join("\n") : "PASS rebuild";
   })().catch((e) => { document.getElementById("result").textContent = "FAIL " + e.stack; });
